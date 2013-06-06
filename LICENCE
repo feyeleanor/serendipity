@@ -1,4 +1,16 @@
-Copyright (c) 2013 Eleanor McHugh
+Serendipity is a derivative work of SQLite. The author of SQLite
+disclaims copyright of the source code and has placed it in the
+public domain. In place of a legal notice, here is a blessing:
+
+	May you do good and not evil.
+	May you find forgiveness for yourself and forgive others.
+	May you share freely, never taking more than you give.
+
+Serendipity is intended to be compiled into applications rather
+than shipped as a binary library, therefore it's placed under a
+non-viral permissive open source licence suited to this.
+
+Portions Copyright (c) 2013 Eleanor McHugh
 
 Permission is hereby granted, free of charge, to any person
 obtaining a copy of this software and associated documentation
