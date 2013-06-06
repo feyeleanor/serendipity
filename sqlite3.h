@@ -35,14 +35,6 @@
 #include <stdarg.h>     /* Needed for the definition of va_list */
 
 /*
-** Make sure we can call this stuff from C++.
-*/
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
-/*
 ** Add the ability to override 'extern'
 */
 #ifndef SQLITE_EXTERN
@@ -7178,9 +7170,6 @@ SQLITE_API int sqlite3_vtab_on_conflict(sqlite3 *);
 # undef double
 #endif
 
-#ifdef __cplusplus
-}  /* End of the 'extern "C"' block */
-#endif
 #endif
 
 /*
@@ -7199,10 +7188,6 @@ SQLITE_API int sqlite3_vtab_on_conflict(sqlite3 *);
 #ifndef _SQLITE3RTREE_H_
 #define _SQLITE3RTREE_H_
 
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 typedef struct sqlite3_rtree_geometry sqlite3_rtree_geometry;
 
@@ -7236,10 +7221,6 @@ struct sqlite3_rtree_geometry {
   void (*xDelUser)(void *);       /* Called by SQLite to clean up pUser */
 };
 
-
-#ifdef __cplusplus
-}  /* end of the 'extern "C"' block */
-#endif
 
 #endif  /* ifndef _SQLITE3RTREE_H_ */
 
