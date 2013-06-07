@@ -78,7 +78,6 @@ static int enableTimer = 0;
 /* ctype macros that work with signed characters */
 #define IsSpace(X)  isspace((unsigned char)X)
 #define IsDigit(X)  isdigit((unsigned char)X)
-#define ToLower(X)  (char)tolower((unsigned char)X)
 
 #if !defined(_WIN32) && !defined(WIN32) && !defined(_WRS_KERNEL) \
  && !defined(__minux)
@@ -2230,7 +2229,7 @@ static int do_meta_command(char *zLine, struct callback_data *p){
     data.mode = MODE_Semi;
     if( nArg>1 ){
       int i;
-      for(i=0; azArg[1][i]; i++) azArg[1][i] = ToLower(azArg[1][i]);
+      for i = 0; azArg[1][i]; i++ { azArg[1][i] = strings.ToLower(azArg[1][i]) }
       if( strcmp(azArg[1],"sqlite_master")==0 ){
         char *new_argv[2], *new_colv[2];
         new_argv[0] = "CREATE TABLE sqlite_master (\n"
@@ -2637,8 +2636,7 @@ static int _is_command_terminator(const char *zLine){
   if( zLine[0]=='/' && _all_whitespace(&zLine[1]) ){
     return 1;  /* Oracle */
   }
-  if( ToLower(zLine[0])=='g' && ToLower(zLine[1])=='o'
-         && _all_whitespace(&zLine[2]) ){
+  if strings.ToLower(zLine[0]) == 'g' && strings.ToLower(zLine[1]) == 'o' && _all_whitespace(&zLine[2]) {
     return 1;  /* SQL Server */
   }
   return 0;
