@@ -2545,13 +2545,11 @@ static int do_meta_command(char *zLine, struct callback_data *p){
     open_db(p);
     output_file_close(p->traceOut);
     p->traceOut = output_file_open(azArg[1]);
-#if !defined(SQLITE_OMIT_TRACE)
     if( p->traceOut==0 ){
       sqlite3_trace(p->db, 0, 0);
     }else{
       sqlite3_trace(p->db, sql_trace_callback, p->traceOut);
     }
-#endif
   }else
 
   if( c=='v' && strncmp(azArg[0], "version", n)==0 ){
