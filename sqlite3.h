@@ -31,11 +31,6 @@
 # define SQLITE_EXTERN extern
 #endif
 
-#ifndef 
-# define 
-#endif
-
-
 /*
 ** These no-op macros are used in front of interfaces to mark those
 ** interfaces as either deprecated or experimental.  New applications
