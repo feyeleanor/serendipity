@@ -12,7 +12,7 @@ func HexToInt(h byte) byte {
 //	Return its binary value.
 //	Space to hold the binary value has been obtained from malloc and must be freed by the calling routine.
 func HexToBlob(db *sqlite3, z []byte, n int) (blob []byte) {
-	blob = ([]byte)(sqlite3DbMallocRaw(db, (n / 2) + 1))
+	blob = DbMallocRaw(db, (n / 2) + 1)
 	n--
 	if blob != nil {
 		for i := 0; i < n; i += 2 {
