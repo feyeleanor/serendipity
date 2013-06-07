@@ -459,6 +459,4 @@ struct sqlite3_api_routines {
 #define sqlite3_wal_checkpoint_v2      sqlite3_api->wal_checkpoint_v2
 #endif /* SQLITE_CORE */
 
-# define SQLITE_EXTENSION_INIT2(v)  (void)v; /* unused parameter */
-
 #endif /* _SQLITE3EXT_H_ */
