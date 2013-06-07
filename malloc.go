@@ -13,7 +13,6 @@ package serendipity
 //			}
 //
 //	In other words, if a subsequent malloc (ex: "b") worked, it is assumed that all prior mallocs (ex: "a") worked too.
-
 func DbMallocRaw(sqlite3 *db, int n) ([]byte) {
 	assert( db == nil || sqlite3_mutex_held(db.mutex) )
 	assert( db == nil || db.pnBytesFreed == 0 )
@@ -50,4 +49,26 @@ func DbMallocRaw(sqlite3 *db, int n) ([]byte) {
 	}
 	sqlite3MemdebugSetType(p, MEMTYPE_DB | ((db && db->lookaside.bEnabled) ? MEMTYPE_LOOKASIDE : MEMTYPE_HEAP))
 	return p
+}
+
+
+//	Resize the block of memory pointed to by p to n bytes. If the resize fails, set the mallocFailed flag in the connection object.
+void *sqlite3DbRealloc(sqlite3 *db, void *p, int n) (pNew []byte){
+	assert( db != nil )
+	assert( sqlite3_mutex_held(db.mutex) )
+	if db.mallocFailed == 0 {
+		if p == nil {
+			return sqlite3DbMallocRaw(db, n)
+		}
+		assert( sqlite3MemdebugHasType(p, MEMTYPE_DB) )
+		assert( sqlite3MemdebugHasType(p, MEMTYPE_LOOKASIDE|MEMTYPE_HEAP) )
+		sqlite3MemdebugSetType(p, MEMTYPE_HEAP)
+		pNew = sqlite3_realloc(p, n)
+		if pNew == nil {
+			sqlite3MemdebugSetType(p, MEMTYPE_DB|MEMTYPE_HEAP)
+			db.mallocFailed = 1
+		}
+		sqlite3MemdebugSetType(pNew, MEMTYPE_DB | (db.lookaside.bEnabled ? MEMTYPE_LOOKASIDE : MEMTYPE_HEAP))
+	}
+	return
 }
