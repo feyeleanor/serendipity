@@ -37,7 +37,6 @@
 ** that we have taken it all out and gone back to using simple
 ** noop macros.
 */
-#define SQLITE_DEPRECATED
 #define SQLITE_EXPERIMENTAL
 
 /*
@@ -3992,26 +3991,6 @@ typedef struct sqlite3_context sqlite3_context;
 #define SQLITE_UTF16_ALIGNED  8    /* sqlite3_create_collation only */
 
 /*
-** CAPI3REF: Deprecated Functions
-** DEPRECATED
-**
-** These functions are [deprecated].  In order to maintain
-** backwards compatibility with older code, these functions continue 
-** to be supported.  However, new applications should avoid
-** the use of these functions.  To help encourage people to avoid
-** using these functions, we are not going to tell you what they do.
-*/
-#ifndef SQLITE_OMIT_DEPRECATED
- SQLITE_DEPRECATED int sqlite3_aggregate_count(sqlite3_context*);
- SQLITE_DEPRECATED int sqlite3_expired(sqlite3_stmt*);
- SQLITE_DEPRECATED int sqlite3_transfer_bindings(sqlite3_stmt*, sqlite3_stmt*);
- SQLITE_DEPRECATED int sqlite3_global_recover(void);
- SQLITE_DEPRECATED void sqlite3_thread_cleanup(void);
- SQLITE_DEPRECATED int sqlite3_memory_alarm(void(*)(void*,sqlite3_int64,int),
-                      void*,sqlite3_int64);
-#endif
-
-/*
 ** CAPI3REF: Obtaining SQL Function Parameter Values
 **
 ** The C-language implementation of SQL functions and aggregates uses
@@ -4902,17 +4881,6 @@ typedef void (*sqlite3_destructor_type)(void*);
 ** changes in future releases of SQLite.
 */
  sqlite3_int64 sqlite3_soft_heap_limit64(sqlite3_int64 N);
-
-/*
-** CAPI3REF: Deprecated Soft Heap Limit Interface
-** DEPRECATED
-**
-** This is a deprecated version of the [sqlite3_soft_heap_limit64()]
-** interface.  This routine is provided for historical compatibility
-** only.  All new applications should use the
-** [sqlite3_soft_heap_limit64()] interface rather than this one.
-*/
- SQLITE_DEPRECATED void sqlite3_soft_heap_limit(int N);
 
 
 /*
