@@ -239,14 +239,6 @@ typedef sqlite_int64 sqlite3_int64;
 typedef sqlite_uint64 sqlite3_uint64;
 
 /*
-** If compiling for a processor that lacks floating point support,
-** substitute integer for floating-point.
-*/
-#ifdef SQLITE_OMIT_FLOATING_POINT
-# define float64 sqlite3_int64
-#endif
-
-/*
 ** CAPI3REF: Closing A Database Connection
 **
 ** ^The sqlite3_close() and sqlite3_close_v2() routines are destructors
@@ -7151,14 +7143,6 @@ SQLITE_API int sqlite3_vtab_on_conflict(sqlite3 *);
 #define SQLITE_REPLACE  5
 
 
-
-/*
-** Undo the hack that converts floating point types to integer for
-** builds on processors without floating point support.
-*/
-#ifdef SQLITE_OMIT_FLOATING_POINT
-# undef float64
-#endif
 
 #endif
 
