@@ -1,14 +1,4 @@
 /*
-** 2001 September 15
-**
-** The author disclaims copyright to this source code.  In place of
-** a legal notice, here is a blessing:
-**
-**    May you do good and not evil.
-**    May you find forgiveness for yourself and forgive others.
-**    May you share freely, never taking more than you give.
-**
-*************************************************************************
 ** This header file defines the interface that the SQLite library
 ** presents to client programs.  If a C-function, structure, datatype,
 ** or constant definition does not appear in this file, then it is
@@ -7171,19 +7161,6 @@ SQLITE_API int sqlite3_vtab_on_conflict(sqlite3 *);
 #endif
 
 #endif
-
-/*
-** 2010 August 30
-**
-** The author disclaims copyright to this source code.  In place of
-** a legal notice, here is a blessing:
-**
-**    May you do good and not evil.
-**    May you find forgiveness for yourself and forgive others.
-**    May you share freely, never taking more than you give.
-**
-*************************************************************************
-*/
 
 #ifndef _SQLITE3RTREE_H_
 #define _SQLITE3RTREE_H_
