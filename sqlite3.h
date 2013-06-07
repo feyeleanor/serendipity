@@ -25,13 +25,6 @@
 #include <stdarg.h>     /* Needed for the definition of va_list */
 
 /*
-** Add the ability to override 'extern'
-*/
-#ifndef SQLITE_EXTERN
-# define SQLITE_EXTERN extern
-#endif
-
-/*
 ** These no-op macros are used in front of interfaces to mark those
 ** interfaces as either deprecated or experimental.  New applications
 ** should not use deprecated interfaces - they are support for backwards
@@ -118,7 +111,7 @@
 **
 ** See also: [sqlite_version()] and [sqlite_source_id()].
 */
- SQLITE_EXTERN const char sqlite3_version[];
+ const char sqlite3_version[];
  const char *sqlite3_libversion(void);
  const char *sqlite3_sourceid(void);
  int sqlite3_libversion_number(void);
@@ -4583,7 +4576,7 @@ typedef void (*sqlite3_destructor_type)(void*);
 ** sqlite3_temp_directory = sqlite3_mprintf("%s", zPathBuf);
 ** </pre></blockquote>
 */
- SQLITE_EXTERN char *sqlite3_temp_directory;
+ char *sqlite3_temp_directory;
 
 /*
 ** CAPI3REF: Name Of The Folder Holding Database Files
@@ -4620,7 +4613,7 @@ typedef void (*sqlite3_destructor_type)(void*);
 ** made NULL or made to point to memory obtained from [sqlite3_malloc]
 ** or else the use of the [data_store_directory pragma] should be avoided.
 */
- SQLITE_EXTERN char *sqlite3_data_directory;
+ char *sqlite3_data_directory;
 
 /*
 ** CAPI3REF: Test For Auto-Commit Mode
