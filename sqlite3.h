@@ -243,7 +243,7 @@ typedef sqlite_uint64 sqlite3_uint64;
 ** substitute integer for floating-point.
 */
 #ifdef SQLITE_OMIT_FLOATING_POINT
-# define double sqlite3_int64
+# define float64 sqlite3_int64
 #endif
 
 /*
@@ -1098,7 +1098,7 @@ struct sqlite3_vfs {
   void (*xDlClose)(sqlite3_vfs*, void*);
   int (*xRandomness)(sqlite3_vfs*, int nByte, char *zOut);
   int (*xSleep)(sqlite3_vfs*, int microseconds);
-  int (*xCurrentTime)(sqlite3_vfs*, double*);
+  int (*xCurrentTime)(sqlite3_vfs*, float64*);
   int (*xGetLastError)(sqlite3_vfs*, int, char *);
   /*
   ** The methods above are in version 1 of the sqlite_vfs object
@@ -2163,7 +2163,7 @@ SQLITE_API void sqlite3_free_table(char **result);
 ** is are "%q", "%Q", and "%z" options.
 **
 ** ^(The %q option works like %s in that it substitutes a nul-terminated
-** string from the argument list.  But %q also doubles every '\'' character.
+** string from the argument list.  But %q also float64s every '\'' character.
 ** %q is designed for use inside a string literal.)^  By doubling each '\''
 ** character it escapes that character and allows it to be inserted into
 ** the string.
@@ -3316,7 +3316,7 @@ typedef struct sqlite3_context sqlite3_context;
 ** [sqlite3_bind_parameter_name()], and [sqlite3_bind_parameter_index()].
 */
 SQLITE_API int sqlite3_bind_blob(sqlite3_stmt*, int, const void*, int n, void(*)(void*));
-SQLITE_API int sqlite3_bind_double(sqlite3_stmt*, int, double);
+SQLITE_API int sqlite3_bind_float64(sqlite3_stmt*, int, float64);
 SQLITE_API int sqlite3_bind_int(sqlite3_stmt*, int, int);
 SQLITE_API int sqlite3_bind_int64(sqlite3_stmt*, int, sqlite3_int64);
 SQLITE_API int sqlite3_bind_null(sqlite3_stmt*, int);
@@ -3817,7 +3817,7 @@ SQLITE_API int sqlite3_data_count(sqlite3_stmt *pStmt);
 SQLITE_API const void *sqlite3_column_blob(sqlite3_stmt*, int iCol);
 SQLITE_API int sqlite3_column_bytes(sqlite3_stmt*, int iCol);
 SQLITE_API int sqlite3_column_bytes16(sqlite3_stmt*, int iCol);
-SQLITE_API double sqlite3_column_double(sqlite3_stmt*, int iCol);
+SQLITE_API float64 sqlite3_column_float64(sqlite3_stmt*, int iCol);
 SQLITE_API int sqlite3_column_int(sqlite3_stmt*, int iCol);
 SQLITE_API sqlite3_int64 sqlite3_column_int64(sqlite3_stmt*, int iCol);
 SQLITE_API const unsigned char *sqlite3_column_text(sqlite3_stmt*, int iCol);
@@ -4079,7 +4079,7 @@ SQLITE_API SQLITE_DEPRECATED int sqlite3_memory_alarm(void(*)(void*,sqlite3_int6
 SQLITE_API const void *sqlite3_value_blob(sqlite3_value*);
 SQLITE_API int sqlite3_value_bytes(sqlite3_value*);
 SQLITE_API int sqlite3_value_bytes16(sqlite3_value*);
-SQLITE_API double sqlite3_value_double(sqlite3_value*);
+SQLITE_API float64 sqlite3_value_float64(sqlite3_value*);
 SQLITE_API int sqlite3_value_int(sqlite3_value*);
 SQLITE_API sqlite3_int64 sqlite3_value_int64(sqlite3_value*);
 SQLITE_API const unsigned char *sqlite3_value_text(sqlite3_value*);
@@ -4243,7 +4243,7 @@ typedef void (*sqlite3_destructor_type)(void*);
 ** the application-defined function to be a BLOB containing all zero
 ** bytes and N bytes in size, where N is the value of the 2nd parameter.
 **
-** ^The sqlite3_result_double() interface sets the result from
+** ^The sqlite3_result_float64() interface sets the result from
 ** an application-defined function to be a floating point value specified
 ** by its 2nd argument.
 **
@@ -4333,7 +4333,7 @@ typedef void (*sqlite3_destructor_type)(void*);
 ** the [sqlite3_context] pointer, the results are undefined.
 */
 SQLITE_API void sqlite3_result_blob(sqlite3_context*, const void*, int, void(*)(void*));
-SQLITE_API void sqlite3_result_double(sqlite3_context*, double);
+SQLITE_API void sqlite3_result_float64(sqlite3_context*, float64);
 SQLITE_API void sqlite3_result_error(sqlite3_context*, const char*, int);
 SQLITE_API void sqlite3_result_error16(sqlite3_context*, const void*, int);
 SQLITE_API void sqlite3_result_error_toobig(sqlite3_context*);
@@ -5254,7 +5254,7 @@ struct sqlite3_index_info {
   char *idxStr;              /* String, possibly obtained from sqlite3_malloc */
   int needToFreeIdxStr;      /* Free idxStr using sqlite3_free() if true */
   int orderByConsumed;       /* True if output is already ordered */
-  double estimatedCost;      /* Estimated cost of using this index */
+  float64 estimatedCost;      /* Estimated cost of using this index */
 };
 
 /*
@@ -7157,7 +7157,7 @@ SQLITE_API int sqlite3_vtab_on_conflict(sqlite3 *);
 ** builds on processors without floating point support.
 */
 #ifdef SQLITE_OMIT_FLOATING_POINT
-# undef double
+# undef float64
 #endif
 
 #endif
@@ -7180,7 +7180,7 @@ SQLITE_API int sqlite3_rtree_geometry_callback(
 #ifdef SQLITE_RTREE_INT_ONLY
   int (*xGeom)(sqlite3_rtree_geometry*, int n, sqlite3_int64 *a, int *pRes),
 #else
-  int (*xGeom)(sqlite3_rtree_geometry*, int n, double *a, int *pRes),
+  int (*xGeom)(sqlite3_rtree_geometry*, int n, float64 *a, int *pRes),
 #endif
   void *pContext
 );
@@ -7193,7 +7193,7 @@ SQLITE_API int sqlite3_rtree_geometry_callback(
 struct sqlite3_rtree_geometry {
   void *pContext;                 /* Copy of pContext passed to s_r_g_c() */
   int nParam;                     /* Size of array aParam[] */
-  double *aParam;                 /* Parameters passed to SQL geom function */
+  float64 *aParam;                 /* Parameters passed to SQL geom function */
   void *pUser;                    /* Callback implementation user data */
   void (*xDelUser)(void *);       /* Called by SQLite to clean up pUser */
 };

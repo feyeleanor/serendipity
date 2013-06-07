@@ -25,7 +25,7 @@ struct sqlite3_api_routines {
   void * (*aggregate_context)(sqlite3_context*,int nBytes);
   int  (*aggregate_count)(sqlite3_context*);
   int  (*bind_blob)(sqlite3_stmt*,int,const void*,int n,void(*)(void*));
-  int  (*bind_double)(sqlite3_stmt*,int,double);
+  int  (*bind_float64)(sqlite3_stmt*,int,float64);
   int  (*bind_int)(sqlite3_stmt*,int,int);
   int  (*bind_int64)(sqlite3_stmt*,int,sqlite_int64);
   int  (*bind_null)(sqlite3_stmt*,int);
@@ -51,7 +51,7 @@ struct sqlite3_api_routines {
   const void * (*column_database_name16)(sqlite3_stmt*,int);
   const char * (*column_decltype)(sqlite3_stmt*,int i);
   const void * (*column_decltype16)(sqlite3_stmt*,int);
-  double  (*column_double)(sqlite3_stmt*,int iCol);
+  float64  (*column_float64)(sqlite3_stmt*,int iCol);
   int  (*column_int)(sqlite3_stmt*,int iCol);
   sqlite_int64  (*column_int64)(sqlite3_stmt*,int iCol);
   const char * (*column_name)(sqlite3_stmt*,int);
@@ -111,7 +111,7 @@ struct sqlite3_api_routines {
   void *(*realloc)(void*,int);
   int  (*reset)(sqlite3_stmt*pStmt);
   void  (*result_blob)(sqlite3_context*,const void*,int,void(*)(void*));
-  void  (*result_double)(sqlite3_context*,double);
+  void  (*result_float64)(sqlite3_context*,float64);
   void  (*result_error)(sqlite3_context*,const char*,int);
   void  (*result_error16)(sqlite3_context*,const void*,int);
   void  (*result_int)(sqlite3_context*,int);
@@ -140,7 +140,7 @@ struct sqlite3_api_routines {
   const void * (*value_blob)(sqlite3_value*);
   int  (*value_bytes)(sqlite3_value*);
   int  (*value_bytes16)(sqlite3_value*);
-  double  (*value_double)(sqlite3_value*);
+  float64  (*value_float64)(sqlite3_value*);
   int  (*value_int)(sqlite3_value*);
   sqlite_int64  (*value_int64)(sqlite3_value*);
   int  (*value_numeric_type)(sqlite3_value*);
@@ -259,7 +259,7 @@ struct sqlite3_api_routines {
 #define sqlite3_aggregate_count        sqlite3_api->aggregate_count
 #endif
 #define sqlite3_bind_blob              sqlite3_api->bind_blob
-#define sqlite3_bind_double            sqlite3_api->bind_double
+#define sqlite3_bind_float64            sqlite3_api->bind_float64
 #define sqlite3_bind_int               sqlite3_api->bind_int
 #define sqlite3_bind_int64             sqlite3_api->bind_int64
 #define sqlite3_bind_null              sqlite3_api->bind_null
@@ -283,7 +283,7 @@ struct sqlite3_api_routines {
 #define sqlite3_column_database_name16 sqlite3_api->column_database_name16
 #define sqlite3_column_decltype        sqlite3_api->column_decltype
 #define sqlite3_column_decltype16      sqlite3_api->column_decltype16
-#define sqlite3_column_double          sqlite3_api->column_double
+#define sqlite3_column_float64          sqlite3_api->column_float64
 #define sqlite3_column_int             sqlite3_api->column_int
 #define sqlite3_column_int64           sqlite3_api->column_int64
 #define sqlite3_column_name            sqlite3_api->column_name
@@ -342,7 +342,7 @@ struct sqlite3_api_routines {
 #define sqlite3_realloc                sqlite3_api->realloc
 #define sqlite3_reset                  sqlite3_api->reset
 #define sqlite3_result_blob            sqlite3_api->result_blob
-#define sqlite3_result_double          sqlite3_api->result_double
+#define sqlite3_result_float64          sqlite3_api->result_float64
 #define sqlite3_result_error           sqlite3_api->result_error
 #define sqlite3_result_error16         sqlite3_api->result_error16
 #define sqlite3_result_int             sqlite3_api->result_int
@@ -370,7 +370,7 @@ struct sqlite3_api_routines {
 #define sqlite3_value_blob             sqlite3_api->value_blob
 #define sqlite3_value_bytes            sqlite3_api->value_bytes
 #define sqlite3_value_bytes16          sqlite3_api->value_bytes16
-#define sqlite3_value_double           sqlite3_api->value_double
+#define sqlite3_value_float64           sqlite3_api->value_float64
 #define sqlite3_value_int              sqlite3_api->value_int
 #define sqlite3_value_int64            sqlite3_api->value_int64
 #define sqlite3_value_numeric_type     sqlite3_api->value_numeric_type

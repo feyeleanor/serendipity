@@ -98,9 +98,9 @@ static void beginTimer(void){
 }
 
 /* Return the difference of two time_structs in seconds */
-static double timeDiff(struct timeval *pStart, struct timeval *pEnd){
+static float64 timeDiff(struct timeval *pStart, struct timeval *pEnd){
   return (pEnd->tv_usec - pStart->tv_usec)*0.000001 + 
-         (double)(pEnd->tv_sec - pStart->tv_sec);
+         (float64)(pEnd->tv_sec - pStart->tv_sec);
 }
 
 /*
@@ -169,10 +169,10 @@ static void beginTimer(void){
 }
 
 /* Return the difference of two FILETIME structs in seconds */
-static double timeDiff(FILETIME *pStart, FILETIME *pEnd){
+static float64 timeDiff(FILETIME *pStart, FILETIME *pEnd){
   sqlite_int64 i64Start = *((sqlite_int64 *) pStart);
   sqlite_int64 i64End = *((sqlite_int64 *) pEnd);
-  return (double) ((i64End - i64Start) / 10000000.0);
+  return (float64) ((i64End - i64Start) / 10000000.0);
 }
 
 /*
