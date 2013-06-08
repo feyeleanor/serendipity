@@ -995,18 +995,9 @@ static int run_table_dump_query(
   return rc;
 }
 
-/*
-** Allocate space and save off current error string.
-*/
-static char *save_err_msg(
-  sqlite3 *db            /* Database to query */
-){
-  int nErrMsg = 1+strlen30(sqlite3_errmsg(db));
-  char *zErrMsg = sqlite3_malloc(nErrMsg);
-  if( zErrMsg ){
-    memcpy(zErrMsg, sqlite3_errmsg(db), nErrMsg);
-  }
-  return zErrMsg;
+//	Allocate space and save off current error string.
+func save_err_msg(db *sqlite3) string {
+	return CopyString(sqlite3_errmsg(db))
 }
 
 /*

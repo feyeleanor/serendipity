@@ -23,3 +23,9 @@ func HexToBlob(db *sqlite3, z []byte, n int) (blob []byte) {
 	return
 }
 #endif /* !SQLITE_OMIT_BLOB_LITERAL || SQLITE_HAS_CODEC */
+
+func CopyString(s string) string {
+	dst := make([]byte, len(s))
+	copy(dst, s)
+	return string(dst)
+}
