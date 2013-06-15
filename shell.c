@@ -829,8 +829,8 @@ static int shell_callback(void *pArg, int nArg, char **azArg, char **azCol, int 
         }else if( aiType && (aiType[i]==SQLITE_INTEGER || aiType[i]==SQLITE_FLOAT) ){
           fprintf(p->out,"%s%s",zSep, azArg[i]);
         }else if( aiType && aiType[i]==SQLITE_BLOB && p->pStmt ){
-          const void *pBlob = sqlite3_column_blob(p->pStmt, i);
-          int nBlob = sqlite3_column_bytes(p->pStmt, i);
+          const void *pBlob = ppStmt.ColumnBlob(i)
+          int nBlob = p.pStmt.ColumnBytes(i)
           if( zSep[0] ) fprintf(p->out,"%s",zSep);
           output_hex_blob(p->out, pBlob, nBlob);
         }else if( isNumber(azArg[i], 0) ){
@@ -966,7 +966,7 @@ static int run_table_dump_query(
     p->nErr++;
     return rc;
   }
-  rc = sqlite3_step(pSelect);
+  rc = pSelect.Step()
   nResult = sqlite3_column_count(pSelect);
   while( rc==SQLITE_ROW ){
     if( zFirstRow ){
@@ -985,9 +985,9 @@ static int run_table_dump_query(
     }else{
       fprintf(p->out, ";\n");
     }    
-    rc = sqlite3_step(pSelect);
+    rc = pSelect.Step()
   }
-  rc = sqlite3_finalize(pSelect);
+  rc = pSelect.Finalize()
   if( rc!=SQLITE_OK ){
     fprintf(p->out, "/**** ERROR: (%d) %s *****/\n", rc, sqlite3_errmsg(p->db));
     p->nErr++;
@@ -1109,7 +1109,7 @@ static int shell_exec(
   }
 
   while( zSql[0] && (SQLITE_OK == rc) ){
-    rc = sqlite3_prepare_v2(db, zSql, -1, &pStmt, &zLeftover);
+    pStmt, zLeftover, rc = db.Prepare_v2(zSql)
     if( SQLITE_OK != rc ){
       if( pzErrMsg ){
         *pzErrMsg = save_err_msg(db);
@@ -1146,7 +1146,7 @@ static int shell_exec(
       /* perform the first step.  this will tell us if we
       ** have a result set or not and how wide it is.
       */
-      rc = sqlite3_step(pStmt);
+      rc = pStmt.Step()
       /* if we have a result set... */
       if( SQLITE_ROW == rc ){
         /* if we have a callback... */
@@ -1183,7 +1183,7 @@ static int shell_exec(
                 if( xCallback(pArg, nCol, azVals, azCols, aiTypes) ){
                   rc = SQLITE_ABORT;
                 }else{
-                  rc = sqlite3_step(pStmt);
+                  rc = pStmt.Step()
                 }
               }
             } while( SQLITE_ROW == rc );
@@ -1191,7 +1191,7 @@ static int shell_exec(
           }
         }else{
           do{
-            rc = sqlite3_step(pStmt);
+            rc = pStmt.Step()
           } while( rc == SQLITE_ROW );
         }
       }
@@ -1204,7 +1204,7 @@ static int shell_exec(
       /* Finalize the statement just executed. If this fails, save a 
       ** copy of the error message. Otherwise, set zSql to point to the
       ** next statement to execute. */
-      rc2 = sqlite3_finalize(pStmt);
+      rc2 = pStmt.Finalize()
       if( rc!=SQLITE_NOMEM ) rc = rc2;
       if( rc==SQLITE_OK ){
         zSql = zLeftover;
@@ -1293,12 +1293,12 @@ static int dump_callback(void *pArg, int nArg, char **azArg, char **azCol){
       free(zTmp);
     }
     zSelect = appendText(zSelect, " || ' VALUES(' || ", 0);
-    rc = sqlite3_step(pTableInfo);
+    rc = pTableInfo.Step()
     while( rc==SQLITE_ROW ){
       const char *zText = (const char *)sqlite3_column_text(pTableInfo, 1);
       zSelect = appendText(zSelect, "quote(", 0);
       zSelect = appendText(zSelect, zText, '"');
-      rc = sqlite3_step(pTableInfo);
+      rc = pTableInfo.Step()
       if( rc==SQLITE_ROW ){
         zSelect = appendText(zSelect, "), ", 0);
       }else{
@@ -1306,7 +1306,7 @@ static int dump_callback(void *pArg, int nArg, char **azArg, char **azCol){
       }
       nRow++;
     }
-    rc = sqlite3_finalize(pTableInfo);
+    rc = pTableInfo.Finalize()
     if( rc!=SQLITE_OK || nRow==0 ){
       free(zSelect);
       return 1;
@@ -1857,13 +1857,13 @@ static int do_meta_command(char *zLine, struct callback_data *p){
     rc = sqlite3_prepare(p->db, zSql, -1, &pStmt, 0);
     sqlite3_free(zSql);
     if( rc ){
-      if (pStmt) sqlite3_finalize(pStmt);
+      pStmt.Finalize()
       fprintf(stderr,"Error: %s\n", sqlite3_errmsg(db));
       return 1;
     }
     nCol = sqlite3_column_count(pStmt);
-    sqlite3_finalize(pStmt);
-    pStmt = 0;
+    pStmt.Finalize()
+    pStmt = nil
     if( nCol==0 ) return 0; /* no columns, no error */
     zSql = malloc( nByte + 20 + nCol*2 );
     if( zSql==0 ){
@@ -1882,20 +1882,20 @@ static int do_meta_command(char *zLine, struct callback_data *p){
     free(zSql);
     if( rc ){
       fprintf(stderr, "Error: %s\n", sqlite3_errmsg(db));
-      if (pStmt) sqlite3_finalize(pStmt);
+	  pStmt.Finalize()
       return 1;
     }
     in = fopen(zFile, "rb");
     if( in==0 ){
       fprintf(stderr, "Error: cannot open \"%s\"\n", zFile);
-      sqlite3_finalize(pStmt);
+      pStmt.Finalize()
       return 1;
     }
     azCol = malloc( sizeof(azCol[0])*(nCol+1) );
     if( azCol==0 ){
       fprintf(stderr, "Error: out of memory\n");
       fclose(in);
-      sqlite3_finalize(pStmt);
+      pStmt.Finalize()
       return 1;
     }
     sqlite3_exec(p->db, "BEGIN", 0, 0, 0);
@@ -1938,8 +1938,8 @@ static int do_meta_command(char *zLine, struct callback_data *p){
         }
         sqlite3_bind_text(pStmt, i+1, azCol[i], -1, SQLITE_STATIC);
       }
-      sqlite3_step(pStmt);
-      rc = sqlite3_reset(pStmt);
+      pStmt.Step()
+      rc = pStmt.Reset()
       free(zLine);
       if( rc!=SQLITE_OK ){
         fprintf(stderr,"Error: %s\n", sqlite3_errmsg(db));
@@ -1950,7 +1950,7 @@ static int do_meta_command(char *zLine, struct callback_data *p){
     } /* end while */
     free(azCol);
     fclose(in);
-    sqlite3_finalize(pStmt);
+    pStmt.Finalize()
     sqlite3_exec(p->db, zCommit, 0, 0, 0);
   }else
 
@@ -2311,14 +2311,14 @@ static int do_meta_command(char *zLine, struct callback_data *p){
     char *zSql = 0;
     int ii;
     open_db(p);
-    rc = sqlite3_prepare_v2(p->db, "PRAGMA database_list", -1, &pStmt, 0);
+    pStmt, _, rc = p.db.Prepare_v2("PRAGMA database_list")
     if( rc ) return rc;
     zSql = sqlite3_mprintf(
         "SELECT name FROM sqlite_master"
         " WHERE type IN ('table','view')"
         "   AND name NOT LIKE 'sqlite_%%'"
         "   AND name LIKE ?1");
-    while( sqlite3_step(pStmt)==SQLITE_ROW ){
+    while( pStmt.Step() == SQLITE_ROW ){
       const char *zDbName = (const char*)sqlite3_column_text(pStmt, 1);
       if( zDbName==0 || strcmp(zDbName,"main")==0 ) continue;
       if( strcmp(zDbName,"temp")==0 ){
@@ -2337,9 +2337,9 @@ static int do_meta_command(char *zLine, struct callback_data *p){
                  "   AND name LIKE ?1", zSql, zDbName, zDbName);
       }
     }
-    sqlite3_finalize(pStmt);
+    pStmt.Finalize()
     zSql = sqlite3_mprintf("%z ORDER BY 1", zSql);
-    rc = sqlite3_prepare_v2(p->db, zSql, -1, &pStmt, 0);
+    pStmt, _, rc = p.db.Prepare_v2(zSql)
     sqlite3_free(zSql);
     if( rc ) return rc;
     nRow = nAlloc = 0;
@@ -2349,7 +2349,7 @@ static int do_meta_command(char *zLine, struct callback_data *p){
     }else{
       sqlite3_bind_text(pStmt, 1, "%", -1, SQLITE_STATIC);
     }
-    while( sqlite3_step(pStmt)==SQLITE_ROW ){
+    while( pStmt.Step() == SQLITE_ROW ){
       if( nRow>=nAlloc ){
         char **azNew;
         int n = nAlloc*2 + 10;
@@ -2364,7 +2364,7 @@ static int do_meta_command(char *zLine, struct callback_data *p){
       azResult[nRow] = sqlite3_mprintf("%s", sqlite3_column_text(pStmt, 0));
       if( azResult[nRow] ) nRow++;
     }
-    sqlite3_finalize(pStmt);        
+    pStmt.Finalize()
     if( nRow>0 ){
       int len, maxlen = 0;
       int i, j;
