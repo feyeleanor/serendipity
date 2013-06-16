@@ -2,10 +2,6 @@
 ** This file contains code to implement the "sqlite" command line
 ** utility for accessing SQLite databases.
 */
-#if (defined(_WIN32) || defined(WIN32)) && !defined(_CRT_SECURE_NO_WARNINGS)
-/* This needs to come before any includes for MSVC compiler */
-#define _CRT_SECURE_NO_WARNINGS
-#endif
 
 /*
 ** Enable large-file support for fopen() and friends on unix.
@@ -26,14 +22,12 @@
 #include <ctype.h>
 #include <stdarg.h>
 
-#if !defined(_WIN32) && !defined(WIN32)
 # include <signal.h>
 # if !defined(__RTP__) && !defined(_WRS_KERNEL)
 #  include <pwd.h>
 # endif
 # include <unistd.h>
 # include <sys/types.h>
-#endif
 
 #ifdef HAVE_EDITLINE
 # include <editline/editline.h>
@@ -50,27 +44,6 @@
 # define stifle_history(X)
 #endif
 
-#if defined(_WIN32) || defined(WIN32)
-# include <io.h>
-#define isatty(h) _isatty(h)
-#define access(f,m) _access((f),(m))
-#undef popen
-#define popen(a,b) _popen((a),(b))
-#undef pclose
-#define pclose(x) _pclose(x)
-#else
-/* Make sure isatty() has a prototype.
-*/
-extern int isatty(int);
-#endif
-
-#if defined(_WIN32_WCE)
-/* Windows CE (arm-wince-mingw32ce-gcc) does not provide isatty()
- * thus we always assume that we have a console. That can be
- * overridden with the -batch command line option.
- */
-#define isatty(x) 1
-#endif
 
 /* True if the timer is enabled */
 static int enableTimer = 0;
@@ -79,8 +52,7 @@ static int enableTimer = 0;
 #define IsSpace(X)  isspace((unsigned char)X)
 #define IsDigit(X)  isdigit((unsigned char)X)
 
-#if !defined(_WIN32) && !defined(WIN32) && !defined(_WRS_KERNEL) \
- && !defined(__minux)
+#if !defined(_WRS_KERNEL) && !defined(__minux)
 #include <sys/time.h>
 #include <sys/resource.h>
 
@@ -118,78 +90,6 @@ static void endTimer(void){
 #define BEGIN_TIMER beginTimer()
 #define END_TIMER endTimer()
 #define HAS_TIMER 1
-
-#elif (defined(_WIN32) || defined(WIN32))
-
-#include <windows.h>
-
-/* Saved resource information for the beginning of an operation */
-static HANDLE hProcess;
-static FILETIME ftKernelBegin;
-static FILETIME ftUserBegin;
-typedef BOOL (WINAPI *GETPROCTIMES)(HANDLE, LPFILETIME, LPFILETIME, LPFILETIME, LPFILETIME);
-static GETPROCTIMES getProcessTimesAddr = NULL;
-
-/*
-** Check to see if we have timer support.  Return 1 if necessary
-** support found (or found previously).
-*/
-static int hasTimer(void){
-  if( getProcessTimesAddr ){
-    return 1;
-  } else {
-    /* GetProcessTimes() isn't supported in WIN95 and some other Windows versions.
-    ** See if the version we are running on has it, and if it does, save off
-    ** a pointer to it and the current process handle.
-    */
-    hProcess = GetCurrentProcess();
-    if( hProcess ){
-      HINSTANCE hinstLib = LoadLibrary(TEXT("Kernel32.dll"));
-      if( NULL != hinstLib ){
-        getProcessTimesAddr = (GETPROCTIMES) GetProcAddress(hinstLib, "GetProcessTimes");
-        if( NULL != getProcessTimesAddr ){
-          return 1;
-        }
-        FreeLibrary(hinstLib); 
-      }
-    }
-  }
-  return 0;
-}
-
-/*
-** Begin timing an operation
-*/
-static void beginTimer(void){
-  if( enableTimer && getProcessTimesAddr ){
-    FILETIME ftCreation, ftExit;
-    getProcessTimesAddr(hProcess, &ftCreation, &ftExit, &ftKernelBegin, &ftUserBegin);
-  }
-}
-
-/* Return the difference of two FILETIME structs in seconds */
-static float64 timeDiff(FILETIME *pStart, FILETIME *pEnd){
-  sqlite_int64 i64Start = *((sqlite_int64 *) pStart);
-  sqlite_int64 i64End = *((sqlite_int64 *) pEnd);
-  return (float64) ((i64End - i64Start) / 10000000.0);
-}
-
-/*
-** Print the timing results.
-*/
-static void endTimer(void){
-  if( enableTimer && getProcessTimesAddr){
-    FILETIME ftCreation, ftExit, ftKernelEnd, ftUserEnd;
-    getProcessTimesAddr(hProcess, &ftCreation, &ftExit, &ftKernelEnd, &ftUserEnd);
-    printf("CPU Time: user %f sys %f\n",
-       timeDiff(&ftUserBegin, &ftUserEnd),
-       timeDiff(&ftKernelBegin, &ftKernelEnd));
-  }
-}
-
-#define BEGIN_TIMER beginTimer()
-#define END_TIMER endTimer()
-#define HAS_TIMER hasTimer()
 
 #else
 #define BEGIN_TIMER 
@@ -1164,7 +1064,7 @@ static int shell_exec(
             assert(sizeof(int) <= sizeof(char *)); 
             /* save off ptrs to column names */
             for(i=0; i<nCol; i++){
-              azCols[i] = (char *)sqlite3_column_name(pStmt, i);
+              azCols[i] = pStmt.columnName(i, COLNAME_NAME)
             }
             do{
               /* extract the data and data types */
@@ -2758,7 +2658,7 @@ static char *find_home_dir(void){
   static char *home_dir = NULL;
   if( home_dir ) return home_dir;
 
-#if !defined(_WIN32) && !defined(WIN32) && !defined(_WIN32_WCE) && !defined(__RTP__) && !defined(_WRS_KERNEL)
+#if && !defined(__RTP__) && !defined(_WRS_KERNEL)
   {
     struct passwd *pwent;
     uid_t uid = getuid();
@@ -2768,40 +2668,9 @@ static char *find_home_dir(void){
   }
 #endif
 
-#if defined(_WIN32_WCE)
-  /* Windows CE (arm-wince-mingw32ce-gcc) does not provide getenv()
-   */
-  home_dir = "/";
-#else
-
-#if defined(_WIN32) || defined(WIN32)
-  if (!home_dir) {
-    home_dir = getenv("USERPROFILE");
-  }
-#endif
-
   if (!home_dir) {
     home_dir = getenv("HOME");
   }
-
-#if defined(_WIN32) || defined(WIN32)
-  if (!home_dir) {
-    char *zDrive, *zPath;
-    int n;
-    zDrive = getenv("HOMEDRIVE");
-    zPath = getenv("HOMEPATH");
-    if( zDrive && zPath ){
-      n = strlen30(zDrive) + strlen30(zPath) + 1;
-      home_dir = malloc( n );
-      if( home_dir==0 ) return 0;
-      sqlite3_snprintf(n, home_dir, "%s%s", zDrive, zPath);
-      return home_dir;
-    }
-    home_dir = "c:\\";
-  }
-#endif
-
-#endif /* !_WIN32_WCE */
 
   if( home_dir ){
     int n = strlen30(home_dir) + 1;

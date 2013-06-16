@@ -214,7 +214,7 @@ typedef struct sqlite3 sqlite3;
 #ifdef SQLITE_INT64_TYPE
   typedef SQLITE_INT64_TYPE sqlite_int64;
   typedef unsigned SQLITE_INT64_TYPE sqlite_uint64;
-#elif defined(_MSC_VER) || defined(__BORLANDC__)
+#elif defined(_MSC_VER)
   typedef __int64 sqlite_int64;
   typedef unsigned __int64 sqlite_uint64;
 #else
@@ -316,7 +316,7 @@ typedef int (*sqlite3_callback)(void*,int,char**, char**);
 ** sqlite3_exec() callback is a NULL pointer.  ^The 4th argument to the
 ** sqlite3_exec() callback is an array of pointers to strings where each
 ** entry represents the name of corresponding result column as obtained
-** from [sqlite3_column_name()].
+** from [statement.columnName()].
 **
 ** ^If the 2nd parameter to sqlite3_exec() is a NULL pointer, a pointer
 ** to an empty string, or a pointer that contains only whitespace and/or 
@@ -751,23 +751,6 @@ struct sqlite3_io_methods {
 ** opcode as doing so may disrupt the operation of the specialized VFSes
 ** that do require it.  
 **
-** <li>[[SQLITE_FCNTL_WIN32_AV_RETRY]]
-** ^The [SQLITE_FCNTL_WIN32_AV_RETRY] opcode is used to configure automatic
-** retry counts and intervals for certain disk I/O operations for the
-** windows [VFS] in order to provide robustness in the presence of
-** anti-virus programs.  By default, the windows VFS will retry file read,
-** file write, and file delete operations up to 10 times, with a delay
-** of 25 milliseconds before the first retry and with the delay increasing
-** by an additional 25 milliseconds with each subsequent retry.  This
-** opcode allows these two values (10 retries and 25 milliseconds of delay)
-** to be adjusted.  The values are changed for all database connections
-** within the same process.  The argument is a pointer to an array of two
-** integers where the first integer i the new retry count and the second
-** integer is the delay.  If either integer is negative, then the setting
-** is not changed but instead the prior value of that setting is written
-** into the array entry, allowing the current retry settings to be
-** interrogated.  The zDbName parameter is ignored.
-**
 ** <li>[[SQLITE_FCNTL_PERSIST_WAL]]
 ** ^The [SQLITE_FCNTL_PERSIST_WAL] opcode is used to set or query the
 ** persistent [WAL | Write Ahead Log] setting.  By default, the auxiliary
@@ -875,7 +858,6 @@ struct sqlite3_io_methods {
 #define SQLITE_FCNTL_CHUNK_SIZE              6
 #define SQLITE_FCNTL_FILE_POINTER            7
 #define SQLITE_FCNTL_SYNC_OMITTED            8
-#define SQLITE_FCNTL_WIN32_AV_RETRY          9
 #define SQLITE_FCNTL_PERSIST_WAL            10
 #define SQLITE_FCNTL_OVERWRITE              11
 #define SQLITE_FCNTL_VFSNAME                12
@@ -1223,7 +1205,7 @@ struct sqlite3_vfs {
 ** interface is called automatically by sqlite3_initialize() and
 ** sqlite3_os_end() is called by sqlite3_shutdown().  Appropriate
 ** implementations for sqlite3_os_init() and sqlite3_os_end()
-** are built into SQLite when it is compiled for Unix, Windows, or OS/2.
+** are built into SQLite when it is compiled for Unix or OS/2.
 ** When [custom builds | built for other platforms]
 ** (using the [SQLITE_OS_OTHER=1] compile-time
 ** option) the application must supply a suitable implementation for
@@ -2159,8 +2141,7 @@ struct sqlite3_mem_methods {
 **
 ** The SQLite core uses these three routines for all of its own
 ** internal memory allocation needs. "Core" in the previous sentence
-** does not include operating-system specific VFS implementation.  The
-** Windows VFS uses native malloc() and free() for some operations.
+** does not include operating-system specific VFS implementation.
 **
 ** ^The sqlite3_malloc() routine returns a pointer to a block
 ** of memory at least N bytes in length, where N is the parameter.
@@ -2206,14 +2187,6 @@ struct sqlite3_mem_methods {
 ** the SQLITE_OMIT_MEMORY_ALLOCATION which would cause the built-in
 ** implementation of these routines to be omitted.  That capability
 ** is no longer provided.  Only built-in memory allocators can be used.
-**
-** Prior to SQLite version 3.7.10, the Windows OS interface layer called
-** the system malloc() and free() directly when converting
-** filenames between the UTF-8 encoding used by SQLite
-** and whatever filename encoding is used by the particular Windows
-** installation.  Memory allocation errors were detected, but
-** they were reported back as [SQLITE_CANTOPEN] or
-** [SQLITE_IOERR] rather than [SQLITE_NOMEM].
 **
 ** The pointer arguments to [sqlite3_free()] and [sqlite3_realloc()]
 ** must be either NULL or else pointers obtained from a prior
@@ -2596,8 +2569,6 @@ struct sqlite3_mem_methods {
 ** then it is interpreted as an absolute path. ^If the path does not begin 
 ** with a '/' (meaning that the authority section is omitted from the URI)
 ** then the path is interpreted as a relative path. 
-** ^On windows, the first component of an absolute path 
-** is a drive specification (e.g. "C:").
 **
 ** [[core URI query parameters]]
 ** The query component of a URI may contain parameters that are interpreted
@@ -2655,12 +2626,6 @@ struct sqlite3_mem_methods {
 **          Open the database file "/home/fred/data.db".
 ** <tr><td> file://darkstar/home/fred/data.db <td> 
 **          An error. "darkstar" is not a recognized authority.
-** <tr><td style="white-space:nowrap"> 
-**          file:///C:/Documents%20and%20Settings/fred/Desktop/data.db
-**     <td> Windows only: Open the file "data.db" on fred's desktop on drive
-**          C:. Note that the %20 escaping in this example is not strictly 
-**          necessary - space characters can be used literally
-**          in URI filenames.
 ** <tr><td> file:data.db?mode=ro&cache=private <td> 
 **          Open file "data.db" in the current directory for read-only access.
 **          Regardless of whether or not shared-cache mode is enabled by
@@ -2679,16 +2644,6 @@ struct sqlite3_mem_methods {
 ** hexadecimal escape sequences replaced by a single byte containing the
 ** corresponding octet. If this process generates an invalid UTF-8 encoding,
 ** the results are undefined.
-**
-** <b>Note to Windows users:</b>  The encoding used for the filename argument
-** of sqlite3_open() and sqlite3_open_v2() must be UTF-8, not whatever
-** codepage is currently defined.  Filenames containing international
-** characters must be converted to UTF-8 prior to passing them into
-** sqlite3_open() or sqlite3_open_v2().
-**
-** <b>Note to Windows Runtime users:</b>  The temporary directory must be set
-** prior to calling sqlite3_open() or sqlite3_open_v2().  Otherwise, various
-** features that require the use of temporary files may fail.
 **
 ** See also: [sqlite3_temp_directory]
 */
@@ -3302,30 +3257,6 @@ typedef struct sqlite3_context sqlite3_context;
  int sqlite3_column_count(sqlite3_stmt *pStmt);
 
 /*
-** CAPI3REF: Column Names In A Result Set
-**
-** ^These routines return the name assigned to a particular column
-** in the result set of a [SELECT] statement.  ^The sqlite3_column_name()
-** interface returns a pointer to a zero-terminated UTF-8 string.  ^The first parameter is the [prepared statement]
-** that implements the [SELECT] statement. ^The second parameter is the
-** column number.  ^The leftmost column is number 0.
-**
-** ^The returned string pointer is valid until either the [prepared statement]
-** is destroyed by [sqlite3_stmt.Finalize()] or until the statement is automatically
-** reprepared by the first call to [sqlite3_stmt.Step()] for a particular run
-** or until the next call to sqlite3_column_name() on the same column.
-**
-** ^If sqlite3_malloc() fails during the processing of either routine
-** then a NULL pointer is returned.
-**
-** ^The name of a result column is the value of the "AS" clause for
-** that column, if there is an AS clause.  If there is no AS clause
-** then the name of the column is unspecified and may change from
-** one release of SQLite to the next.
-*/
- const char *sqlite3_column_name(sqlite3_stmt*, int N);
-
-/*
 ** CAPI3REF: Source Of Data In A Query Result
 **
 ** ^These routines provide a means to determine the database, table, and
@@ -3355,21 +3286,13 @@ typedef struct sqlite3_context sqlite3_context;
 ** occurs.  ^Otherwise, they return the name of the attached database, table,
 ** or column that query result column was extracted from.
 **
-** ^These APIs are only available if the library was compiled with the
-** [SQLITE_ENABLE_COLUMN_METADATA] C-preprocessor symbol.
-**
 ** If two or more threads call one or more of these routines against the same
 ** prepared statement and column at the same time then the results are
 ** undefined.
 **
-** If two or more threads call one or more
-** [sqlite3_column_database_name | column metadata interfaces]
-** for the same [prepared statement] and result column
-** at the same time then the results are undefined.
+** If two or more threads call one or more [columnName | column metadata interfaces]
+** for the same [prepared statement] and result column at the same time then the results are undefined.
 */
- const char *sqlite3_column_database_name(sqlite3_stmt*,int);
- const char *sqlite3_column_table_name(sqlite3_stmt*,int);
- const char *sqlite3_column_origin_name(sqlite3_stmt*,int);
 
 /*
 ** CAPI3REF: Declared Datatype Of A Query Result
@@ -3400,7 +3323,6 @@ typedef struct sqlite3_context sqlite3_context;
 ** is associated with individual values, not with the containers
 ** used to hold those values.
 */
- const char *sqlite3_column_decltype(sqlite3_stmt*,int);
 
 /*
 ** CAPI3REF: Evaluate An SQL Statement
@@ -3586,7 +3508,7 @@ typedef struct sqlite3_context sqlite3_context;
 ** may only be used with [sqlite3_bind_value()] and [sqlite3_result_value()].
 ** If the [unprotected sqlite3_value] object returned by
 ** [sqlite3_column_value()] is used in any other way, including calls
-** to routines like [sqlite3_value_int()], [sqlite3_value_text()],
+** to routines like [sqlite3_value_int()],
 ** or [sqlite3_value_bytes()], then the behavior is undefined.
 **
 ** These routines attempt to convert the value where appropriate.  ^For
@@ -3761,14 +3683,6 @@ typedef struct sqlite3_context sqlite3_context;
 );
 
 /*
-** CAPI3REF: Text Encodings
-**
-** These constant define integer codes that represent the various
-** text encodings supported by SQLite.
-*/
-#define SQLITE_UTF8           1
-
-/*
 ** CAPI3REF: Obtaining SQL Function Parameter Values
 **
 ** The C-language implementation of SQL functions and aggregates uses
@@ -3799,8 +3713,8 @@ typedef struct sqlite3_context sqlite3_context;
 ** The [SQLITE_INTEGER | datatype] after conversion is returned.)^
 **
 ** Please pay particular attention to the fact that the pointer returned
-** from [sqlite3_value_blob()] or [sqlite3_value_text()] can be invalidated by a subsequent call to
-** [sqlite3_value_bytes()] or [sqlite3_value_text()].
+** from [sqlite3_value_blob()] can be invalidated by a subsequent call to
+** [sqlite3_value_bytes()].
 **
 ** These routines must be called from the same thread as
 ** the SQL function that supplied the [sqlite3_value*] parameters.
@@ -3810,7 +3724,6 @@ typedef struct sqlite3_context sqlite3_context;
  float64 sqlite3_value_float64(sqlite3_value*);
  int sqlite3_value_int(sqlite3_value*);
  sqlite3_int64 sqlite3_value_int64(sqlite3_value*);
- const unsigned char *sqlite3_value_text(sqlite3_value*);
  int sqlite3_value_type(sqlite3_value*);
  int sqlite3_value_numeric_type(sqlite3_value*);
 
@@ -4133,60 +4046,8 @@ typedef void (*sqlite3_destructor_type)(void*);
 ** Hence, if this variable is modified directly, either it should be
 ** made NULL or made to point to memory obtained from [sqlite3_malloc]
 ** or else the use of the [temp_store_directory pragma] should be avoided.
-**
-** <b>Note to Windows Runtime users:</b>  The temporary directory must be set
-** prior to calling [sqlite3_open] or [sqlite3_open_v2].  Otherwise, various
-** features that require the use of temporary files may fail.  Here is an
-** example of how to do this using C++ with the Windows Runtime:
-**
-** <blockquote><pre>
-** LPCWSTR zPath = Windows::Storage::ApplicationData::Current->
-** &nbsp;     TemporaryFolder->Path->Data();
-** char zPathBuf&#91;MAX_PATH + 1&#93;;
-** memset(zPathBuf, 0, sizeof(zPathBuf));
-** WideCharToMultiByte(CP_UTF8, 0, zPath, -1, zPathBuf, sizeof(zPathBuf),
-** &nbsp;     NULL, NULL);
-** sqlite3_temp_directory = sqlite3_mprintf("%s", zPathBuf);
-** </pre></blockquote>
 */
  char *sqlite3_temp_directory;
-
-/*
-** CAPI3REF: Name Of The Folder Holding Database Files
-**
-** ^(If this global variable is made to point to a string which is
-** the name of a folder (a.k.a. directory), then all database files
-** specified with a relative pathname and created or accessed by
-** SQLite when using a built-in windows [sqlite3_vfs | VFS] will be assumed
-** to be relative to that directory.)^ ^If this variable is a NULL
-** pointer, then SQLite assumes that all database files specified
-** with a relative pathname are relative to the current directory
-** for the process.  Only the windows VFS makes use of this global
-** variable; it is ignored by the unix VFS.
-**
-** Changing the value of this variable while a database connection is
-** open can result in a corrupt database.
-**
-** It is not safe to read or modify this variable in more than one
-** thread at a time.  It is not safe to read or modify this variable
-** if a [database connection] is being used at the same time in a separate
-** thread.
-** It is intended that this variable be set once
-** as part of process initialization and before any SQLite interface
-** routines have been called and that this variable remain unchanged
-** thereafter.
-**
-** ^The [data_store_directory pragma] may modify this variable and cause
-** it to point to memory obtained from [sqlite3_malloc].  ^Furthermore,
-** the [data_store_directory pragma] always assumes that any string
-** that this variable points to is held in memory obtained from 
-** [sqlite3_malloc] and the pragma may attempt to free that memory
-** using [sqlite3_free].
-** Hence, if this variable is modified directly, either it should be
-** made NULL or made to point to memory obtained from [sqlite3_malloc]
-** or else the use of the [data_store_directory pragma] should be avoided.
-*/
- char *sqlite3_data_directory;
 
 /*
 ** CAPI3REF: Test For Auto-Commit Mode
@@ -4535,9 +4396,6 @@ typedef void (*sqlite3_destructor_type)(void*);
 ** error occurs during this process, or if the requested table or column
 ** cannot be found, an [error code] is returned and an error message left
 ** in the [database connection] (to be retrieved using sqlite3_errmsg()).)^
-**
-** ^This API is only available if the library was compiled with the
-** [SQLITE_ENABLE_COLUMN_METADATA] C-preprocessor symbol defined.
 */
  int sqlite3_table_column_metadata(
   sqlite3 *db,                /* Connection handle */
@@ -5194,15 +5052,13 @@ typedef struct sqlite3_blob sqlite3_blob;
 **
 ** <ul>
 ** <li>   SQLITE_MUTEX_PTHREADS
-** <li>   SQLITE_MUTEX_W32
 ** <li>   SQLITE_MUTEX_NOOP
 ** </ul>)^
 **
 ** ^The SQLITE_MUTEX_NOOP implementation is a set of routines
 ** that does no real locking and is appropriate for use in
-** a single-threaded application.  ^The SQLITE_MUTEX_PTHREADS and
-** SQLITE_MUTEX_W32 implementations are appropriate for use on Unix
-** and Windows.
+** a single-threaded application.  ^The SQLITE_MUTEX_PTHREADS
+** implementation is appropriate for use on Unix.
 **
 ** ^(If SQLite is compiled with the SQLITE_MUTEX_APPDEF preprocessor
 ** macro defined (with "-DSQLITE_MUTEX_APPDEF=1"), then no mutex
