@@ -1438,8 +1438,7 @@ static void open_db(struct callback_data *p){
     sqlite3_open(p->zDbFilename, &p->db);
     db = p->db;
     if( db && sqlite3_errcode(db)==SQLITE_OK ){
-      sqlite3_create_function(db, "shellstatic", 0, SQLITE_UTF8, 0,
-          shellstaticFunc, 0, 0);
+      sqlite3_create_function(db, "shellstatic", 0, 0, shellstaticFunc, 0, 0)
     }
     if( db==0 || SQLITE_OK!=sqlite3_errcode(db) ){
       fprintf(stderr,"Error: unable to open database \"%s\": %s\n", 

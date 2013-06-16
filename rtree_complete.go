@@ -2209,8 +2209,8 @@ func rtreedepth(context *sqlite3_context, args []*sqlite3_value) {
 
 //	Register the r-tree module with database handle db. This creates the virtual table module "rtree" and the debugging/analysis scalar function "rtreenode".
 func sqlite3RtreeInit(db *sqlite3) (rc int) {
-	if rc = sqlite3_create_function(db, "rtreenode", 2, SQLITE_UTF8, 0, rtreenode, 0, 0); rc == SQLITE_OK {
-		if rc = sqlite3_create_function(db, "rtreedepth", 1, SQLITE_UTF8, 0,rtreedepth, 0, 0); rc == SQLITE_OK {
+	if rc = sqlite3_create_function(db, "rtreenode", 2, 0, rtreenode, 0, 0); rc == SQLITE_OK {
+		if rc = sqlite3_create_function(db, "rtreedepth", 1, 0,rtreedepth, 0, 0); rc == SQLITE_OK {
 			void *c = (void *)RTREE_COORD_REAL32
 			if rc = sqlite3_create_module_v2(db, "rtree", &rtreeModule, c, 0); rc == SQLITE_OK {
 				void *c = (void *)RTREE_COORD_INT32
@@ -2254,7 +2254,7 @@ func sqlite3_rtree_geometry_callback(db *sqlite3, Geometry string, xGeom func (*
 	pGeomCtx := &RtreeGeomCallback{ xGeom: xGeom, pContext: Context }
 
 	//	Create the new user-function. Register a destructor function to delete the context object when it is no longer required.
-	return sqlite3_create_function_v2(db, Geometry, -1, SQLITE_ANY, pGeomCtx, geomCallback, 0, 0, doSqlite3Free)
+	return sqlite3_create_function_v2(db, Geometry, -1, pGeomCtx, geomCallback, 0, 0, doSqlite3Free)
 }
 
 func (tree *Rtree) Reinsert(node *RtreeNode, cell *RtreeCell, height int) (rc int) {
