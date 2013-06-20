@@ -16548,9 +16548,6 @@ static int remove_diacritic(int c){
 ** is less than zero.
 */
 func UnicodeFold(c rune, remove_diacritics bool) rune {
-}
-
-int sqlite3FtsUnicodeFold(int c, int bRemoveDiacritic){
   /* Each entry in the following array defines a rule for folding a range
   ** of codepoints to lower case. The rule applies to a range of nRange
   ** codepoints starting at codepoint iCode.

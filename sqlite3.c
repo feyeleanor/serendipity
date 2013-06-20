@@ -97844,16 +97844,6 @@ whereBeginError:
 ** LALR(1) grammar but which are always false in the
 ** specific grammar used by SQLite.
 */
-/* First off, code is included that follows the "include" declaration
-** in the input grammar file. */
-/* #include <stdio.h> */
-
-
-/*
-** Disable all error recovery processing in the parser push-down
-** automaton.
-*/
-#define YYNOERRORRECOVERY 1
 
 /*
 ** An instance of this structure holds information about the
@@ -98700,7 +98690,6 @@ struct yyParser {
 typedef struct yyParser yyParser;
 
 #ifndef NDEBUG
-/* #include <stdio.h> */
 static FILE *yyTraceFILE = 0;
 static char *yyTracePrompt = 0;
 #endif /* NDEBUG */
@@ -101065,26 +101054,6 @@ static void yy_reduce(
 }
 
 /*
-** The following code executes when the parse fails
-*/
-#ifndef YYNOERRORRECOVERY
-static void yy_parse_failed(
-  yyParser *yypParser           /* The parser */
-){
-  sqlite3ParserARG_FETCH;
-#ifndef NDEBUG
-  if( yyTraceFILE ){
-    fprintf(yyTraceFILE,"%sFail!\n",yyTracePrompt);
-  }
-#endif
-  while( yypParser->yyidx>=0 ) yy_pop_parser_stack(yypParser);
-  /* Here code is inserted which will be executed whenever the
-  ** parser fails */
-  sqlite3ParserARG_STORE; /* Suppress warning about unused %extra_argument variable */
-}
-#endif /* YYNOERRORRECOVERY */
-
-/*
 ** The following code executes when a syntax error first occurs.
 */
 static void yy_syntax_error(
@@ -101146,9 +101115,6 @@ static void yy_accept(
 ){
   YYMINORTYPE yyminorunion;
   int yyact;            /* The parser action. */
-#if !defined(YYERRORSYMBOL) && !defined(YYNOERRORRECOVERY)
-  int yyendofinput;     /* True if we are at the end of input */
-#endif
 #ifdef YYERRORSYMBOL
   int yyerrorhit = 0;   /* True if yymajor has invoked an error */
 #endif
@@ -101171,9 +101137,6 @@ static void yy_accept(
     yypParser->yystack[0].major = 0;
   }
   yyminorunion.yy0 = yyminor;
-#if !defined(YYERRORSYMBOL) && !defined(YYNOERRORRECOVERY)
-  yyendofinput = (yymajor==0);
-#endif
   sqlite3ParserARG_STORE;
 
 #ifndef NDEBUG
@@ -101255,36 +101218,12 @@ static void yy_accept(
       }
       yypParser->yyerrcnt = 3;
       yyerrorhit = 1;
-#elif defined(YYNOERRORRECOVERY)
-      /* If the YYNOERRORRECOVERY macro is defined, then do not attempt to
-      ** do any kind of error recovery.  Instead, simply invoke the syntax
+#else
+      /* Do not attempt to do any kind of error recovery.  Instead, simply invoke the syntax
       ** error routine and continue going as if nothing had happened.
-      **
-      ** Applications can set this macro (for example inside %include) if
-      ** they intend to abandon the parse upon the first syntax error seen.
       */
       yy_syntax_error(yypParser,yymajor,yyminorunion);
       yy_destructor(yypParser,(YYCODETYPE)yymajor,&yyminorunion);
-      yymajor = YYNOCODE;
-      
-#else  /* YYERRORSYMBOL is not defined */
-      /* This is what we do if the grammar does not define ERROR:
-      **
-      **  * Report an error message, and throw away the input token.
-      **
-      **  * If the input token is $, then fail the parse.
-      **
-      ** As before, subsequent error messages are suppressed until
-      ** three input tokens have been successfully shifted.
-      */
-      if( yypParser->yyerrcnt<=0 ){
-        yy_syntax_error(yypParser,yymajor,yyminorunion);
-      }
-      yypParser->yyerrcnt = 3;
-      yy_destructor(yypParser,(YYCODETYPE)yymajor,&yyminorunion);
-      if( yyendofinput ){
-        yy_parse_failed(yypParser);
-      }
       yymajor = YYNOCODE;
 #endif
     }
@@ -101301,7 +101240,6 @@ static void yy_accept(
 ** individual tokens and sends those tokens one-by-one over to the
 ** parser for analysis.
 */
-/* #include <stdlib.h> */
 
 /*
 ** The sqlite3KeywordCode function looks up an identifier to determine if
