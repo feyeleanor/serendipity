@@ -7,7 +7,6 @@
 */
 #ifndef _SQLITE3EXT_H_
 #define _SQLITE3EXT_H_
-#include "sqlite3.h"
 
 typedef struct sqlite3_api_routines sqlite3_api_routines;
 

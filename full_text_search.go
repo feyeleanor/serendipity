@@ -934,13 +934,6 @@ struct Fts3MultiSegReader {
 /************** Continuing where we left off in fts3.c ***********************/
 #if defined(SQLITE_ENABLE_FTS3)
 
-/* #include <assert.h> */
-/* #include <stdlib.h> */
-/* #include <stddef.h> */
-/* #include <stdio.h> */
-/* #include <string.h> */
-/* #include <stdarg.h> */
-
 static int fts3EvalNext(Fts3Cursor *pCsr);
 static int fts3EvalStart(Fts3Cursor *pCsr);
 static int fts3TermSegReaderCursor(
@@ -5960,9 +5953,6 @@ static int fts3EvalGatherStats(
 /************** Begin file fts3_aux.c ****************************************/
 #if defined(SQLITE_ENABLE_FTS3)
 
-/* #include <string.h> */
-/* #include <assert.h> */
-
 typedef struct Fts3auxTable Fts3auxTable;
 typedef struct Fts3auxCursor Fts3auxCursor;
 
@@ -6480,9 +6470,6 @@ static int fts3auxRowidMethod(
 ** Default span for NEAR operators.
 */
 #define SQLITE_FTS3_DEFAULT_NEAR_PARAM 10
-
-/* #include <string.h> */
-/* #include <assert.h> */
 
 /*
 ** isNot:
@@ -7404,11 +7391,6 @@ static void fts3FreeExprNode(Fts3Expr *p){
 
 #if defined(SQLITE_ENABLE_FTS3)
 
-/* #include <assert.h> */
-/* #include <stdlib.h> */
-/* #include <string.h> */
-
-
 /*
 ** Malloc and Free functions
 */
@@ -7767,12 +7749,6 @@ static void fts3RemoveElementByHash(
 */
 
 #if defined(SQLITE_ENABLE_FTS3)
-
-/* #include <assert.h> */
-/* #include <stdlib.h> */
-/* #include <stdio.h> */
-/* #include <string.h> */
-
 
 /*
 ** Class derived from sqlite3_tokenizer
@@ -8396,9 +8372,6 @@ static const sqlite3_tokenizer_module porterTokenizerModule = {
 
 #if defined(SQLITE_ENABLE_FTS3)
 
-/* #include <assert.h> */
-/* #include <string.h> */
-
 /*
 ** Implementation of the SQL scalar function for accessing the underlying 
 ** hash table. This function may be called as follows:
@@ -8614,12 +8587,6 @@ static void scalarFunc(
 */
 
 #if defined(SQLITE_ENABLE_FTS3)
-
-/* #include <assert.h> */
-/* #include <stdlib.h> */
-/* #include <stdio.h> */
-/* #include <string.h> */
-
 
 typedef struct simple_tokenizer {
   sqlite3_tokenizer base;
@@ -8854,9 +8821,6 @@ static const sqlite3_tokenizer_module simpleTokenizerModule = {
 **
 */
 #if defined(SQLITE_ENABLE_FTS3)
-
-/* #include <string.h> */
-/* #include <assert.h> */
 
 typedef struct Fts3tokTable Fts3tokTable;
 typedef struct Fts3tokCursor Fts3tokCursor;
@@ -9278,11 +9242,6 @@ static int fts3tokRowidMethod(
 */
 
 #if defined(SQLITE_ENABLE_FTS3)
-
-/* #include <string.h> */
-/* #include <assert.h> */
-/* #include <stdlib.h> */
-
 
 #define FTS_MAX_APPENDABLE_HEIGHT 16
 
@@ -14648,9 +14607,6 @@ static int fts3DeleteByRowid(
 /************** Begin file fts3_snippet.c ************************************/
 #if defined(SQLITE_ENABLE_FTS3)
 
-/* #include <string.h> */
-/* #include <assert.h> */
-
 /*
 ** Characters that may appear in the second argument to matchinfo().
 */
@@ -16160,12 +16116,6 @@ static int fts3ExprTermOffsetInit(Fts3Expr *pExpr, int iPhrase, void *ctx){
 
 #if defined(SQLITE_ENABLE_FTS3)
 
-/* #include <assert.h> */
-/* #include <stdlib.h> */
-/* #include <stdio.h> */
-/* #include <string.h> */
-
-
 typedef struct unicode_tokenizer unicode_tokenizer;
 typedef struct unicode_cursor unicode_cursor;
 
@@ -16707,14 +16657,6 @@ func UnicodeFold(c rune, remove_diacritics bool) rune {
 
 #if defined(SQLITE_ENABLE_ICU)
 
-/* Include ICU headers */
-#include <unicode/utypes.h>
-#include <unicode/uregex.h>
-#include <unicode/ustring.h>
-#include <unicode/ucol.h>
-
-/* #include <assert.h> */
-
 /*
 ** Maximum length (in bytes) of the pattern in a LIKE or GLOB
 ** operator.
@@ -17055,14 +16997,6 @@ static void icuLoadCollation(
 */
 #if defined(SQLITE_ENABLE_FTS3)
 #ifdef SQLITE_ENABLE_ICU
-
-/* #include <assert.h> */
-/* #include <string.h> */
-
-#include <unicode/ubrk.h>
-/* #include <unicode/ucol.h> */
-/* #include <unicode/ustring.h> */
-#include <unicode/utf16.h>
 
 typedef struct IcuTokenizer IcuTokenizer;
 typedef struct IcuCursor IcuCursor;

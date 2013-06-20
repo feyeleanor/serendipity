@@ -6,36 +6,12 @@
 /*
 ** Enable large-file support for fopen() and friends on unix.
 */
-#ifndef SQLITE_DISABLE_LFS
 # define _LARGE_FILE       1
 # ifndef _FILE_OFFSET_BITS
 #   define _FILE_OFFSET_BITS 64
 # endif
 # define _LARGEFILE_SOURCE 1
-#endif
 
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-#include <assert.h>
-#include "sqlite3.h"
-#include <ctype.h>
-#include <stdarg.h>
-
-# include <signal.h>
-# if !defined(__RTP__) && !defined(_WRS_KERNEL)
-#  include <pwd.h>
-# endif
-# include <unistd.h>
-# include <sys/types.h>
-
-#ifdef HAVE_EDITLINE
-# include <editline/editline.h>
-#endif
-#if defined(HAVE_READLINE) && HAVE_READLINE==1
-# include <readline/readline.h>
-# include <readline/history.h>
-#endif
 #if !defined(HAVE_EDITLINE) && (!defined(HAVE_READLINE) || HAVE_READLINE!=1)
 # define readline(p) local_getline(p,stdin,0)
 # define add_history(X)
@@ -53,8 +29,6 @@ static int enableTimer = 0;
 #define IsDigit(X)  isdigit((unsigned char)X)
 
 #if !defined(_WRS_KERNEL) && !defined(__minux)
-#include <sys/time.h>
-#include <sys/resource.h>
 
 /* Saved resource information for the beginning of an operation */
 static struct rusage sBegin;
@@ -138,33 +112,6 @@ static char *Argv0;
 */
 static char mainPrompt[20];     /* First line prompt. default: "sqlite> "*/
 static char continuePrompt[20]; /* Continuation prompt. default: "   ...> " */
-
-/*
-** Write I/O traces to the following stream.
-*/
-#ifdef SQLITE_ENABLE_IOTRACE
-static FILE *iotrace = 0;
-#endif
-
-/*
-** This routine works like printf in that its first argument is a
-** format string and subsequent arguments are values to be substituted
-** in place of % fields.  The result of formatting this string
-** is written to iotrace.
-*/
-#ifdef SQLITE_ENABLE_IOTRACE
-static void iotracePrintf(const char *zFormat, ...){
-  va_list ap;
-  char *z;
-  if( iotrace==0 ) return;
-  va_start(ap, zFormat);
-  z = sqlite3_vmprintf(zFormat, ap);
-  va_end(ap);
-  fprintf(iotrace, "%s", z);
-  sqlite3_free(z);
-}
-#endif
-
 
 /*
 ** Determines if a string is a number of not.
@@ -1282,9 +1229,6 @@ static char zHelp[] =
   ".indices ?TABLE?       Show names of all indices\n"
   "                         If TABLE specified, only show indices for tables\n"
   "                         matching LIKE pattern TABLE.\n"
-#ifdef SQLITE_ENABLE_IOTRACE
-  ".iotrace FILE          Enable I/O diagnostic logging to FILE\n"
-#endif
 #ifndef SQLITE_OMIT_LOAD_EXTENSION
   ".load FILE ?ENTRY?     Load an extension library\n"
 #endif
@@ -1892,29 +1836,6 @@ static int do_meta_command(char *zLine, struct callback_data *p){
       rc = 1;
     }
   }else
-
-#ifdef SQLITE_ENABLE_IOTRACE
-  if( c=='i' && strncmp(azArg[0], "iotrace", n)==0 ){
-    extern void (*sqlite3IoTrace)(const char*, ...);
-    if( iotrace && iotrace!=stdout ) fclose(iotrace);
-    iotrace = 0;
-    if( nArg<2 ){
-      sqlite3IoTrace = 0;
-    }else if( strcmp(azArg[1], "-")==0 ){
-      sqlite3IoTrace = iotracePrintf;
-      iotrace = stdout;
-    }else{
-      iotrace = fopen(azArg[1], "w");
-      if( iotrace==0 ){
-        fprintf(stderr, "Error: cannot open \"%s\"\n", azArg[1]);
-        sqlite3IoTrace = 0;
-        rc = 1;
-      }else{
-        sqlite3IoTrace = iotracePrintf;
-      }
-    }
-  }else
-#endif
 
 #ifndef SQLITE_OMIT_LOAD_EXTENSION
   if( c=='l' && strncmp(azArg[0], "load", n)==0 && nArg>=2 ){

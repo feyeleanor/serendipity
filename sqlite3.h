@@ -22,7 +22,6 @@
 */
 #ifndef _SQLITE3_H_
 #define _SQLITE3_H_
-#include <stdarg.h>     /* Needed for the definition of va_list */
 
 /*
 ** These no-op macros are used in front of interfaces to mark those

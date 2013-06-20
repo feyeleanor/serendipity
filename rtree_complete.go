@@ -1332,15 +1332,6 @@ func SortByDistance(Idx []int, Distance []float64, Spare []int) {
 				}
 			}
 		}
-
-#if 0
-		//	Check that the sort worked
-		for j := 1; j < nIdx; j++ {
-			left := aDistance[Idx[j - 1]]
-			right := aDistance[Idx[j]]
-			assert( left <= right )
-		}
-#endif
 	}
 }
 
@@ -1375,17 +1366,6 @@ func (tree *Rtree) SortByDimension(Idx []int, Dim int, cells []*RtreeCell, Spare
 				Right++
 			}
 		}
-
-#if 0
-		//	Check that the sort worked
-		for jj := 1; jj < nIdx; jj++ {
-			xleft1 := aCell[Idx[jj - 1]].aCoord[Dim * 2]
-			xleft2 := aCell[Idx[jj - 1]].aCoord[Dim * 2 + 1]
-			xright1 := aCell[Idx[jj]].aCoord[Dim * 2]
-			xright2 := aCell[Idx[jj]].aCoord[Dim * 2 + 1]
-			assert( xleft1 <= xright1 && (xleft1 < xright1 || xleft2 <= xright2) )
-		}
-#endif
 	}
 }
 

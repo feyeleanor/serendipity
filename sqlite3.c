@@ -29,36 +29,12 @@
 ** These #defines should enable >2GB file support on POSIX if the
 ** underlying operating system supports it.  If the OS lacks
 ** large file support, or if the OS is windows, these should be no-ops.
-**
-** Ticket #2739:  The _LARGEFILE_SOURCE macro must appear before any
-** system #includes.  Hence, this block of code must be the very first
-** code in all source files.
-**
-** Large file support can be disabled using the -DSQLITE_DISABLE_LFS switch
-** on the compiler command line.  This is necessary if you are compiling
-** on a recent machine (ex: Red Hat 7.2) but you want your code to work
-** on an older machine (ex: Red Hat 6.0).  If you compile on Red Hat 7.2
-** without this option, LFS is enable.  But LFS does not exist in the kernel
-** in Red Hat 6.0, so the code won't work.  Hence, for maximum binary
-** portability you should omit LFS.
-**
-** Similar is true for Mac OS X.  LFS is only supported on Mac OS X 9 and later.
 */
-#ifndef SQLITE_DISABLE_LFS
 # define _LARGE_FILE       1
 # ifndef _FILE_OFFSET_BITS
 #   define _FILE_OFFSET_BITS 64
 # endif
 # define _LARGEFILE_SOURCE 1
-#endif
-
-/*
-** Include the configuration header output by 'configure' if we're using the
-** autoconf-based build
-*/
-#ifdef _HAVE_SQLITE_CONFIG_H
-#include "config.h"
-#endif
 
 /************** Include sqliteLimit.h in the middle of sqliteInt.h ***********/
 /************** Begin file sqliteLimit.h *************************************/
@@ -273,16 +249,6 @@
 #endif
 
 /*
-** Include standard header files as necessary
-*/
-#ifdef HAVE_STDINT_H
-#include <stdint.h>
-#endif
-#ifdef HAVE_INTTYPES_H
-#include <inttypes.h>
-#endif
-
-/*
 ** The following macros are used to cast pointers to integers and
 ** integers to pointers.  The way you do this varies from one compiler
 ** to the next, so we have developed the following set of #if statements
@@ -401,13 +367,6 @@
 #endif
 
 /*
-** The TCL headers are only needed when compiling the TCL bindings.
-*/
-#if defined(SQLITE_TCL) || defined(TCLSH)
-# include <tcl.h>
-#endif
-
-/*
 ** NDEBUG and SQLITE_DEBUG are opposites.  It should always be true that
 ** defined(NDEBUG)==!defined(SQLITE_DEBUG).  If this is not currently true,
 ** make it true by defining or undefining NDEBUG.
@@ -513,7 +472,6 @@
 */
 #ifndef _SQLITE3_H_
 #define _SQLITE3_H_
-#include <stdarg.h>     /* Needed for the definition of va_list */
 
 /*
 ** These no-op macros are used in front of interfaces to mark those
@@ -7343,12 +7301,6 @@ struct HashElem {
 
 /************** End of parse.h ***********************************************/
 /************** Continuing where we left off in sqliteInt.h ******************/
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
-#include <stddef.h>
-
 const BIG_FLOAT = 1e99
 
 /*
@@ -7520,16 +7472,13 @@ typedef INT8_TYPE i8;              /* 1-byte signed integer */
 ** Default maximum size of memory used by memory-mapped I/O in the VFS
 */
 #ifdef __APPLE__
-# include <TargetConditionals.h>
 # if TARGET_OS_IPHONE
 #   undef SQLITE_MAX_MMAP_SIZE
 #   define SQLITE_MAX_MMAP_SIZE 0
 # endif
 #endif
 #ifndef SQLITE_MAX_MMAP_SIZE
-# if defined(__linux__) \
-  || (defined(__APPLE__) && defined(__MACH__)) \
-  || defined(__sun)
+# if defined(__linux__) || (defined(__APPLE__) && defined(__MACH__)) || defined(__sun)
 #   define SQLITE_MAX_MMAP_SIZE 0x7fff0000  /* 2147418112 */
 # else
 #   define SQLITE_MAX_MMAP_SIZE 0
@@ -7954,7 +7903,6 @@ typedef struct BtShared BtShared;
 */
 #ifndef _SQLITE_VDBE_H_
 #define _SQLITE_VDBE_H_
-/* #include <stdio.h> */
 
 /*
 ** A single VDBE is an opaque structure named "Vdbe".  Only routines
@@ -8689,9 +8637,6 @@ struct PgHdr {
 ** This header file (together with is companion C source-code file
 ** "os.c") attempt to abstract the underlying operating system so that
 ** the SQLite library will work on both POSIX and windows systems.
-**
-** This header file is #include-ed by sqliteInt.h and thus ends up
-** being included by every source file.
 */
 #ifndef _SQLITE_OS_H_
 #define _SQLITE_OS_H_
@@ -8902,13 +8847,6 @@ struct PgHdr {
 /************** Begin file mutex.h *******************************************/
 /*
 ** This file contains the common header for all mutex implementations.
-** The sqliteInt.h header #includes this file so that it is available
-** to all source files.  We break it out in an effort to keep the code
-** better organized.
-**
-** NOTE:  source files should *not* #include this header file directly.
-** Source files should #include the sqliteInt.h file and let that file
-** include this one indirectly.
 */
 
 
@@ -10793,14 +10731,6 @@ struct Walker {
 #endif
 
 /*
-** The ctype.h header is needed for non-ASCII systems.  It is also
-** needed by FTS3 when FTS3 is included in the amalgamation.
-*/
-#if defined(SQLITE_ENABLE_FTS3)
-# include <ctype.h>
-#endif
-
-/*
 ** The following macros mimic the standard library functions
 ** isspace(), isalnum(), isdigit() and isxdigit(), respectively. The
 ** sqlite versions only work for ASCII characters, regardless of locale.
@@ -11396,20 +11326,6 @@ struct Walker {
 #endif
 
 /*
-** If the SQLITE_ENABLE IOTRACE exists then the global variable
-** sqlite3IoTrace is a pointer to a printf-like routine used to
-** print I/O tracing messages. 
-*/
-#ifdef SQLITE_ENABLE_IOTRACE
-# define IOTRACE(A)  if( sqlite3IoTrace ){ sqlite3IoTrace A; }
-   void sqlite3VdbeIOTraceSql(Vdbe*);
- void (*sqlite3IoTrace)(const char*,...);
-#else
-# define IOTRACE(A)
-# define sqlite3VdbeIOTraceSql(X)
-#endif
-
-/*
 ** These routines are available for the mem2.c debugging memory allocator
 ** only.  They are used to verify that different "types" of memory
 ** allocations are properly tracked by the system.
@@ -11657,9 +11573,6 @@ static const char * const azCompileOpt[] = {
 #ifdef SQLITE_DISABLE_DIRSYNC
   "DISABLE_DIRSYNC",
 #endif
-#ifdef SQLITE_DISABLE_LFS
-  "DISABLE_LFS",
-#endif
 #ifdef SQLITE_ENABLE_ATOMIC_WRITE
   "ENABLE_ATOMIC_WRITE",
 #endif
@@ -11684,9 +11597,6 @@ static const char * const azCompileOpt[] = {
 #endif
 #ifdef SQLITE_ENABLE_ICU
   "ENABLE_ICU",
-#endif
-#ifdef SQLITE_ENABLE_IOTRACE
-  "ENABLE_IOTRACE",
 #endif
 #ifdef SQLITE_ENABLE_LOAD_EXTENSION
   "ENABLE_LOAD_EXTENSION",
@@ -12664,9 +12574,6 @@ static SQLITE_WSD struct sqlite3StatType {
 **      Willmann-Bell, Inc
 **      Richmond, Virginia (USA)
 */
-/* #include <stdlib.h> */
-/* #include <assert.h> */
-#include <time.h>
 
 /*
 ** A structure for holding a single date and time.
@@ -14129,9 +14036,6 @@ static void sqlite3MemShutdown(void *NotUsed){ return; }
 ** Use the zone allocator available on apple products unless the
 ** SQLITE_WITHOUT_ZONEMALLOC symbol is defined.
 */
-#include <sys/sysctl.h>
-#include <malloc/malloc.h>
-#include <libkern/OSAtomic.h>
 static malloc_zone_t* _sqliteZone_;
 #define SQLITE_MALLOC(x) malloc_zone_malloc(_sqliteZone_, (x))
 #define SQLITE_FREE(x) malloc_zone_free(_sqliteZone_, (x));
@@ -14149,10 +14053,6 @@ static malloc_zone_t* _sqliteZone_;
 #define SQLITE_FREE(x)      free(x)
 #define SQLITE_REALLOC(x,y) realloc((x),(y))
 
-#if (defined(_MSC_VER) && !defined(SQLITE_WITHOUT_MSIZE)) \
-      || (defined(HAVE_MALLOC_H) && defined(HAVE_MALLOC_USABLE_SIZE))
-# include <malloc.h>    /* Needed for malloc_usable_size on linux */
-#endif
 #ifdef HAVE_MALLOC_USABLE_SIZE
 # ifndef SQLITE_MALLOCSIZE
 #  define SQLITE_MALLOCSIZE(x) malloc_usable_size(x)
@@ -14367,7 +14267,6 @@ static void sqlite3MemShutdown(void *NotUsed){
 # define backtrace(A,B) 1
 # define backtrace_symbols_fd(A,B,C)
 #endif
-/* #include <stdio.h> */
 
 /*
 ** Each memory allocation looks like this:
@@ -16423,8 +16322,6 @@ static void debugMutexLeave(sqlite3_mutex *pX){
 */
 #ifdef SQLITE_MUTEX_PTHREADS
 
-#include <pthread.h>
-
 /*
 ** The sqlite3_mutex.id, sqlite3_mutex.nRef, and sqlite3_mutex.owner fields
 ** are necessary under two condidtions:  (1) Debug builds and (2) using
@@ -16756,7 +16653,6 @@ static void pthreadMutexLeave(sqlite3_mutex *p){
 /*
 ** Memory allocation functions used throughout sqlite.
 */
-/* #include <stdarg.h> */
 
 /*
 ** Attempt to release up to n bytes of non-essential memory currently
@@ -17596,13 +17492,7 @@ static char et_getdigit(val *float64, cnt *int){
           else                         prefix = 0;
         }
         if( xtype==etGENERIC && precision>0 ) precision--;
-#if 0
-        /* Rounding works like BSD when the constant 0.4999 is used.  Wierd! */
-        for(idx=precision, rounder=0.4999; idx>0; idx--, rounder*=0.1);
-#else
-        /* It makes more sense to use 0.5 */
         for(idx=precision, rounder=0.5; idx>0; idx--, rounder*=0.1){}
-#endif
         if( xtype==etFLOAT ) realvalue += rounder;
         /* Normalize realvalue to within 10.0 > realvalue >= 1.0 */
         exp = 0;
@@ -19545,61 +19435,12 @@ static void logBadConnection(const char *zType){
 ** These #defines should enable >2GB file support on Posix if the
 ** underlying operating system supports it.  If the OS lacks
 ** large file support, these should be no-ops.
-**
-** Large file support can be disabled using the -DSQLITE_DISABLE_LFS switch
-** on the compiler command line.  This is necessary if you are compiling
-** on a recent machine (ex: RedHat 7.2) but you want your code to work
-** on an older machine (ex: RedHat 6.0).  If you compile on RedHat 7.2
-** without this option, LFS is enable.  But LFS does not exist in the kernel
-** in RedHat 6.0, so the code won't work.  Hence, for maximum binary
-** portability you should omit LFS.
-**
-** The previous paragraph was written in 2005.  (This paragraph is written
-** on 2008-11-28.) These days, all Linux kernels support large files, so
-** you should probably leave LFS enabled.  But some embedded platforms might
-** lack LFS in which case the SQLITE_DISABLE_LFS macro might still be useful.
 */
-#ifndef SQLITE_DISABLE_LFS
 # define _LARGE_FILE       1
 # ifndef _FILE_OFFSET_BITS
 #   define _FILE_OFFSET_BITS 64
 # endif
 # define _LARGEFILE_SOURCE 1
-#endif
-
-/*
-** standard include files.
-*/
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
-/* #include <time.h> */
-#include <sys/time.h>
-#include <errno.h>
-#if !defined(SQLITE_OMIT_WAL) || SQLITE_MAX_MMAP_SIZE>0
-#include <sys/mman.h>
-#endif
-
-
-#if SQLITE_ENABLE_LOCKING_STYLE
-# include <sys/ioctl.h>
-# if OS_VXWORKS
-#  include <semaphore.h>
-#  include <limits.h>
-# else
-#  include <sys/file.h>
-#  include <sys/param.h>
-# endif
-#endif /* SQLITE_ENABLE_LOCKING_STYLE */
-
-#if defined(__APPLE__) || (SQLITE_ENABLE_LOCKING_STYLE && !OS_VXWORKS)
-# include <sys/mount.h>
-#endif
-
-#ifdef HAVE_UTIME
-# include <utime.h>
-#endif
 
 /*
 ** Allowed values of unixFile.fsFlags
@@ -19611,7 +19452,6 @@ static void logBadConnection(const char *zType){
 ** the SQLITE_UNIX_THREADS macro.
 */
 #if SQLITE_THREADSAFE
-/* # include <pthread.h> */
 # define SQLITE_UNIX_THREADS 1
 #endif
 
@@ -19733,11 +19573,7 @@ struct unixFile {
 /************** Begin file os_common.h ***************************************/
 /*
 ** This file contains macros and a little bit of code that is common to
-** all of the platform-specific files (os_*.c) and is #included into those
-** files.
-**
-** This file should be #included by the os_*.c files only.  It is not a
-** general purpose header file.
+** all of the platform-specific files (os_*.c).
 */
 #ifndef _OS_COMMON_H_
 #define _OS_COMMON_H_
@@ -19861,10 +19697,6 @@ static sqlite_uint64 g_elapsed;
 ** Define various macros that are missing from some systems.
 */
 #ifndef O_LARGEFILE
-# define O_LARGEFILE 0
-#endif
-#ifdef SQLITE_DISABLE_LFS
-# undef O_LARGEFILE
 # define O_LARGEFILE 0
 #endif
 #ifndef O_NOFOLLOW
@@ -20276,22 +20108,6 @@ static int robust_ftruncate(int h, sqlite3_int64 sz){
 */
 static int sqliteErrorFromPosixError(int posixError, int sqliteIOErr) {
   switch (posixError) {
-#if 0
-  /* At one point this code was not commented out. In theory, this branch
-  ** should never be hit, as this function should only be called after
-  ** a locking-related function (i.e. fcntl()) has returned non-zero with
-  ** the value of errno as the first argument. Since a system call has failed,
-  ** errno should be non-zero.
-  **
-  ** Despite this, if errno really is zero, we still don't want to return
-  ** SQLITE_OK. The system call failed, and *some* SQLite error should be
-  ** propagated back to the caller. Commenting this branch out means errno==0
-  ** will be handled by the "default:" case below.
-  */
-  case 0: 
-    return SQLITE_OK;
-#endif
-
   case EAGAIN:
   case ETIMEDOUT:
   case EBUSY:
@@ -20313,15 +20129,11 @@ static int sqliteErrorFromPosixError(int posixError, int sqliteIOErr) {
   case EPERM: 
     return SQLITE_PERM;
     
-  /* EDEADLK is only possible if a call to fcntl(F_SETLKW) is made. And
-  ** this module never makes such a call. And the code in SQLite itself 
-  ** asserts that SQLITE_IOERR_BLOCKED is never returned. For these reasons
-  ** this case is also commented out. If the system does set errno to EDEADLK,
-  ** the default SQLITE_IOERR_XXX code will be returned. */
-#if 0
   case EDEADLK:
+	  /* EDEADLK is only possible if a call to fcntl(F_SETLKW) is made. And
+	  ** this module never makes such a call. And the code in SQLite itself 
+	  ** asserts that SQLITE_IOERR_BLOCKED is never returned. */
     return SQLITE_IOERR_BLOCKED;
-#endif
     
 #if EOPNOTSUPP!=ENOTSUP
   case EOPNOTSUPP: 
@@ -22640,15 +22452,6 @@ static int unixRead(
   assert( offset>=0 );
   assert( amt>0 );
 
-  /* If this is a database file (not a journal, master-journal or temp
-  ** file), the bytes in the locking range should never be read or written. */
-#if 0
-  assert( pFile->pUnused==0
-       || offset>=PENDING_BYTE+512
-       || offset+amt<=PENDING_BYTE 
-  );
-#endif
-
 #if SQLITE_MAX_MMAP_SIZE>0
   /* Deal with as much of this read request as possible by transfering
   ** data from the memory mapping using memcpy().  */
@@ -22749,15 +22552,6 @@ static int unixWrite(
   int wrote = 0;
   assert( id );
   assert( amt>0 );
-
-  /* If this is a database file (not a journal, master-journal or temp
-  ** file), the bytes in the locking range should never be read or written. */
-#if 0
-  assert( pFile->pUnused==0
-       || offset>=PENDING_BYTE+512
-       || offset+amt<=PENDING_BYTE 
-  );
-#endif
 
 #ifdef SQLITE_DEBUG
   /* If we are doing a normal write to a database file (as opposed to
@@ -23272,8 +23066,6 @@ static int unixSectorSize(sqlite3_file *NotUsed){
 ** The following version of unixSectorSize() is optimized for QNX.
 */
 #ifdef __QNXNTO__
-#include <sys/dcmd_blk.h>
-#include <sys/statvfs.h>
 static int unixSectorSize(sqlite3_file *id){
   unixFile *pFile = (unixFile*)id;
   if( pFile->sectorSize == 0 ){
@@ -25330,7 +25122,6 @@ static int unixFullPathname(
 ** Interfaces for opening a shared library, finding entry points
 ** within the shared library, and closing the shared library.
 */
-#include <dlfcn.h>
 static void *unixDlOpen(sqlite3_vfs *NotUsed, const char *zFilename){
   UNUSED_PARAMETER(NotUsed);
   return dlopen(zFilename, RTLD_NOW | RTLD_GLOBAL);
@@ -28911,25 +28702,20 @@ static struct RowSetEntry *rowSetEntrySort(struct RowSetEntry *pIn){
 ** Convert this tree into a linked list connected by the pRight pointers
 ** and return pointers to the first and last elements of the new list.
 */
-static void rowSetTreeToList(
-  struct RowSetEntry *pIn,         /* Root of the input tree */
-  struct RowSetEntry **ppFirst,    /* Write head of the output list here */
-  struct RowSetEntry **ppLast      /* Write tail of the output list here */
-){
-  assert( pIn!=0 );
-  if( pIn->pLeft ){
-    struct RowSetEntry *p;
-    rowSetTreeToList(pIn->pLeft, ppFirst, &p);
-    p->pRight = pIn;
-  }else{
-    *ppFirst = pIn;
-  }
-  if( pIn->pRight ){
-    rowSetTreeToList(pIn->pRight, &pIn->pRight, ppLast);
-  }else{
-    *ppLast = pIn;
-  }
-  assert( (*ppLast)->pRight==0 );
+func (pIn *RowSetEntry) TreeToList() (First, Last *RowSetEntry) {
+	assert( pIn != nil )
+	if pIn.pLeft {
+		First, p := pIn.pLeft.TreeToList()
+		p.pRight = pIn
+	} else {
+		First = pIn
+	}
+	if pIn.pRight != nil {
+		pIn.pRight, Last = pIn.pRight.TreeToList()
+	} else {
+		Last = pIn
+	}
+	assert( Last.pRight == 0 )
 }
 
 
@@ -29002,31 +28788,23 @@ static struct RowSetEntry *rowSetListToTree(struct RowSetEntry *pList){
 ** This routine should only be called once in the life of a RowSet.
 */
 static void rowSetToList(RowSet *p){
+	assert( p != 0 && (p.rsFlags & ROWSET_NEXT) == 0 )
 
-  /* This routine is called only once */
-  assert( p!=0 && (p->rsFlags & ROWSET_NEXT)==0 );
+	if (p.rsFlags & ROWSET_SORTED) == 0 {
+		p.pEntry = rowSetEntrySort(p.pEntry)
+	}
 
-  if( (p->rsFlags & ROWSET_SORTED)==0 ){
-    p->pEntry = rowSetEntrySort(p->pEntry);
-  }
-
-  /* While this module could theoretically support it, sqlite3RowSetNext()
-  ** is never called after sqlite3RowSetText() for the same RowSet.  So
-  ** there is never a forest to deal with.  Should this change, simply
-  ** remove the assert() and the #if 0. */
-  assert( p->pForest==0 );
-#if 0
-  while( p->pForest ){
-    struct RowSetEntry *pTree = p->pForest->pLeft;
-    if( pTree ){
-      struct RowSetEntry *pHead, *pTail;
-      rowSetTreeToList(pTree, &pHead, &pTail);
-      p->pEntry = rowSetEntryMerge(p->pEntry, pHead);
-    }
-    p->pForest = p->pForest->pRight;
-  }
-#endif
-  p->rsFlags |= ROWSET_NEXT;  /* Verify this routine is never called again */
+	/* While this module could theoretically support it, sqlite3RowSetNext()
+	** is never called after sqlite3RowSetText() for the same RowSet.
+	** Should this change, the following code will clean it up.
+	*/
+	for ; p.pForest != nil; p.pForest = p.pForest.pRight {
+		if pTree := p.pForest.pLeft; pTree != nil {
+			pHead, pTail := pTree.TreeToList()
+			p.pEntry = rowSetEntryMerge(p.pEntry, pHead)
+		}
+	}
+	p.rsFlags |= ROWSET_NEXT	//	Verify this routine is never called again
 }
 
 /*
@@ -29085,9 +28863,8 @@ static void rowSetToList(RowSet *p){
           pTree->pLeft = rowSetListToTree(p);
           break;
         }else{
-          struct RowSetEntry *pAux, *pTail;
-          rowSetTreeToList(pTree->pLeft, &pAux, &pTail);
-          pTree->pLeft = 0;
+          pAux, pTail := pTree.pLeft.TreeToList()
+          pTree.pLeft = nil
           p = rowSetEntryMerge(pAux, p);
         }
       }
@@ -29355,28 +29132,6 @@ typedef struct Wal Wal;
 **      content out of the database file.
 **
 ******************************************************************************/
-
-/*
-** Macros for troubleshooting.  Normally turned off
-*/
-#if 0
-int sqlite3PagerTrace=1;  /* True to enable tracing */
-#define sqlite3DebugPrintf printf
-#define PAGERTRACE(X)     if( sqlite3PagerTrace ){ sqlite3DebugPrintf X; }
-#else
-#define PAGERTRACE(X)
-#endif
-
-/*
-** The following two macros are used within the PAGERTRACE() macros above
-** to print out file-descriptors. 
-**
-** PAGERID() takes a pointer to a Pager struct as its argument. The
-** associated file-descriptor is returned. FILEHANDLEID() takes an sqlite3_file
-** struct as its argument.
-*/
-#define PAGERID(p) ((int)(p->fd))
-#define FILEHANDLEID(fd) ((int)fd)
 
 /*
 ** The Pager.eState variable stores the current 'state' of a pager. A
@@ -30314,7 +30069,6 @@ static int pagerUnlockDb(Pager *pPager, int eLock){
     if( pPager->eLock!=UNKNOWN_LOCK ){
       pPager->eLock = (u8)eLock;
     }
-    IOTRACE(("UNLOCK %p %d\n", pPager, eLock))
   }
   return rc;
 }
@@ -30337,7 +30091,6 @@ static int pagerLockDb(Pager *pPager, int eLock){
     rc = sqlite3OsLock(pPager->fd, eLock);
     if( rc==SQLITE_OK && (pPager->eLock!=UNKNOWN_LOCK||eLock==EXCLUSIVE_LOCK) ){
       pPager->eLock = (u8)eLock;
-      IOTRACE(("LOCK %p %d\n", pPager, eLock))
     }
   }
   return rc;
@@ -30544,7 +30297,6 @@ static int zeroJournalHdr(Pager *pPager, int doTruncate){
   if( pPager->journalOff ){
     const i64 iLimit = pPager->journalSizeLimit;    /* Local cache of jsl */
 
-    IOTRACE(("JZEROHDR %p\n", pPager))
     if( doTruncate || iLimit==0 ){
       rc = sqlite3OsTruncate(pPager->jfd, 0);
     }else{
@@ -30679,7 +30431,6 @@ static int writeJournalHdr(Pager *pPager){
   ** to populate the entire journal header sector.
   */ 
   for(nWrite=0; rc==SQLITE_OK&&nWrite<JOURNAL_HDR_SZ(pPager); nWrite+=nHeader){
-    IOTRACE(("JHDR %p %lld %d\n", pPager, pPager->journalHdr, nHeader))
     rc = sqlite3OsWrite(pPager->jfd, zHeader, nHeader, pPager->journalOff);
     assert( pPager->journalHdr <= pPager->journalOff );
     pPager->journalOff += nHeader;
@@ -31473,10 +31224,6 @@ static int pager_playback_one_page(
   }
   assert( pPg || !MEMDB );
   assert( pPager->eState!=PAGER_OPEN || pPg==0 );
-  PAGERTRACE(("PLAYBACK %d page %d hash(%08x) %s\n",
-           PAGERID(pPager), pgno, pager_datahash(pPager->pageSize, (u8*)aData),
-           (isMainJrnl?"main-journal":"sub-journal")
-  ));
   if( isMainJrnl ){
     isSynced = pPager->noSync || (*pOffset <= pPager->journalHdr);
   }else{
@@ -32121,11 +31868,6 @@ static int readDbPage(PgHdr *pPg, u32 iFrame){
     }
   }
   CODEC1(pPager, pPg->pData, pgno, 3, rc = SQLITE_NOMEM);
-
-  IOTRACE(("PGIN %p %d\n", pPager, pgno));
-  PAGERTRACE(("FETCH %d page %d hash(%08x)\n",
-               PAGERID(pPager), pgno, pager_pagehash(pPg)));
-
   return rc;
 }
 
@@ -32887,7 +32629,6 @@ static int pagerOpentemp(
   assert( !pagerUseWal(pPager) );
 
   if( isOpen(pPager->fd) ){
-    IOTRACE(("DBHDR %p 0 %d\n", pPager, N))
     rc = sqlite3OsRead(pPager->fd, pDest, N, 0);
     if( rc==SQLITE_IOERR_SHORT_READ ){
       rc = SQLITE_OK;
@@ -33150,8 +32891,6 @@ static void pagerFreeMapHdrs(Pager *pPager){
     }
     pagerUnlockAndRollback(pPager);
   }
-  PAGERTRACE(("CLOSE %d\n", PAGERID(pPager)));
-  IOTRACE(("CLOSE %p\n", pPager))
   sqlite3OsClose(pPager->jfd);
   sqlite3OsClose(pPager->fd);
   sqlite3PageFree(pTmp);
@@ -33289,20 +33028,15 @@ static int syncJournal(Pager *pPager, int newHdr){
         ** and never needs to be updated.
         */
         if( pPager->fullSync && 0==(iDc&SQLITE_IOCAP_SEQUENTIAL) ){
-          PAGERTRACE(("SYNC journal of %d\n", PAGERID(pPager)));
-          IOTRACE(("JSYNC %p\n", pPager))
           rc = sqlite3OsSync(pPager->jfd, pPager->syncFlags);
           if( rc!=SQLITE_OK ) return rc;
         }
-        IOTRACE(("JHDR %p %lld\n", pPager, pPager->journalHdr));
         rc = sqlite3OsWrite(
             pPager->jfd, zHeader, sizeof(zHeader), pPager->journalHdr
         );
         if( rc!=SQLITE_OK ) return rc;
       }
       if( 0==(iDc&SQLITE_IOCAP_SEQUENTIAL) ){
-        PAGERTRACE(("SYNC journal of %d\n", PAGERID(pPager)));
-        IOTRACE(("JSYNC %p\n", pPager))
         rc = sqlite3OsSync(pPager->jfd, pPager->syncFlags| 
           (pPager->syncFlags==SQLITE_SYNC_FULL?SQLITE_SYNC_DATAONLY:0)
         );
@@ -33429,12 +33163,6 @@ static int pager_write_pagelist(Pager *pPager, PgHdr *pList){
 
       /* Update any backup objects copying the contents of this pager. */
       sqlite3BackupUpdate(pPager->pBackup, pgno, (u8*)pList->pData);
-
-      PAGERTRACE(("STORE %d page %d hash(%08x)\n",
-                   PAGERID(pPager), pgno, pager_pagehash(pList)));
-      IOTRACE(("PGOUT %p %d\n", pPager, pgno));
-    }else{
-      PAGERTRACE(("NOSTORE %d page %d\n", PAGERID(pPager), pgno));
     }
     pager_set_pagehash(pList);
     pList = pList->pDirty;
@@ -33499,7 +33227,6 @@ static int subjournalPage(PgHdr *pPg){
       char *pData2;
   
       CODEC2(pPager, pData, pPg->pgno, 7, return SQLITE_NOMEM, pData2);
-      PAGERTRACE(("STMT-JOURNAL %d page %d\n", PAGERID(pPager), pPg->pgno));
       rc = write32bits(pPager->sjfd, offset, pPg->pgno);
       if( rc==SQLITE_OK ){
         rc = sqlite3OsWrite(pPager->sjfd, pData2, pPager->pageSize, offset+4);
@@ -33621,7 +33348,6 @@ static int pagerStress(void *p, PgHdr *pPg){
 
   /* Mark the page as clean. */
   if( rc==SQLITE_OK ){
-    PAGERTRACE(("STRESS %d page %d\n", PAGERID(pPager), pPg->pgno));
     sqlite3PcacheMakeClean(pPg);
   }
 
@@ -33884,9 +33610,6 @@ static int pagerStress(void *p, PgHdr *pPg){
   sqlite3PcacheOpen(szPageDflt, nExtra, !memDb,
                     !memDb?pagerStress:0, (void *)pPager, pPager->pPCache);
 
-  PAGERTRACE(("OPEN %d %s\n", FILEHANDLEID(pPager->fd), pPager->zFilename));
-  IOTRACE(("OPEN %p %s\n", pPager, pPager->zFilename))
-
   pPager->useJournal = (u8)useJournal;
   /* pPager->stmtOpen = 0; */
   /* pPager->stmtInUse = 0; */
@@ -33896,9 +33619,6 @@ static int pagerStress(void *p, PgHdr *pPg){
   /* pPager->nPage = 0; */
   pPager->mxPgno = SQLITE_MAX_PAGE_COUNT;
   /* pPager->state = PAGER_UNLOCK; */
-#if 0
-  assert( pPager->state == (tempFile ? PAGER_EXCLUSIVE : PAGER_UNLOCK) );
-#endif
   /* pPager->errMask = 0; */
   pPager->tempFile = (u8)tempFile;
   assert( tempFile==PAGER_LOCKINGMODE_NORMAL 
@@ -34255,7 +33975,6 @@ static int hasHotJournal(Pager *pPager, int *pExists){
       if( rc ) goto failed;
 
       if( nPage>0 ){
-        IOTRACE(("CKVERS %p %d\n", pPager, sizeof(dbFileVers)));
         rc = sqlite3OsRead(pPager->fd, &dbFileVers, sizeof(dbFileVers), 24);
         if( rc!=SQLITE_OK && rc!=SQLITE_IOERR_SHORT_READ ){
           goto failed;
@@ -34492,7 +34211,6 @@ static void pagerUnlockIfUnused(Pager *pPager){
         TESTONLY( rc = ) addToSavepointBitvecs(pPager, pgno);
       }
       memset(pPg->pData, 0, pPager->pageSize);
-      IOTRACE(("ZERO %p %d\n", pPager, pgno));
     }else{
       if( pagerUseWal(pPager) && bMmapOk==0 ){
         rc = sqlite3WalFindFrame(pPager->pWal, pgno, &iFrame);
@@ -34728,8 +34446,6 @@ static int pager_open_journal(Pager *pPager){
     assert( rc!=SQLITE_OK || pPager->eState==PAGER_WRITER_LOCKED );
     assert( assert_pager_state(pPager) );
   }
-
-  PAGERTRACE(("TRANSACTION %d\n", PAGERID(pPager)));
   return rc;
 }
 
@@ -34825,12 +34541,6 @@ static int pager_write(PgHdr *pPg){
         rc = write32bits(pPager->jfd, iOff+pPager->pageSize+4, cksum);
         if( rc!=SQLITE_OK ) return rc;
 
-        IOTRACE(("JOUT %p %d %lld %d\n", pPager, pPg->pgno, 
-                 pPager->journalOff, pPager->pageSize));
-        PAGERTRACE(("JOURNAL %d page %d needSync=%d hash(%08x)\n",
-             PAGERID(pPager), pPg->pgno, 
-             ((pPg->flags&PGHDR_NEED_SYNC)?1:0), pager_pagehash(pPg)));
-
         pPager->journalOff += 8 + pPager->pageSize;
         pPager->nRec++;
         assert( pPager->pInJournal!=0 );
@@ -34845,9 +34555,6 @@ static int pager_write(PgHdr *pPg){
         if( pPager->eState!=PAGER_WRITER_DBMOD ){
           pPg->flags |= PGHDR_NEED_SYNC;
         }
-        PAGERTRACE(("APPEND %d page %d needSync=%d\n",
-                PAGERID(pPager), pPg->pgno,
-               ((pPg->flags&PGHDR_NEED_SYNC)?1:0)));
       }
     }
   
@@ -35003,8 +34710,6 @@ static int pager_write(PgHdr *pPg){
  void sqlite3PagerDontWrite(PgHdr *pPg){
   Pager *pPager = pPg->pPager;
   if( (pPg->flags&PGHDR_DIRTY) && pPager->nSavepoint==0 ){
-    PAGERTRACE(("DONT_WRITE page %d of %d\n", pPg->pgno, PAGERID(pPager)));
-    IOTRACE(("CLEAN %p %d\n", pPager, pPg->pgno))
     pPg->flags |= PGHDR_DONT_WRITE;
     pager_set_pagehash(pPg);
   }
@@ -35197,9 +34902,6 @@ static int pager_incr_changecounter(Pager *pPager, int isDirectMode){
   /* If a prior error occurred, report that error again. */
   if( NEVER(pPager->errCode) ) return pPager->errCode;
 
-  PAGERTRACE(("DATABASE SYNC: File=%s zMaster=%s nSize=%d\n", 
-      pPager->zFilename, zMaster, pPager->dbSize));
-
   /* If no database changes have been made, return early. */
   if( pPager->eState<PAGER_WRITER_CACHEMOD ) return SQLITE_OK;
 
@@ -35326,7 +35028,6 @@ static int pager_incr_changecounter(Pager *pPager, int isDirectMode){
       if( !noSync ){
         rc = sqlite3PagerSync(pPager);
       }
-      IOTRACE(("DBSYNC %p\n", pPager))
     }
   }
 
@@ -35387,7 +35088,6 @@ commit_phase_one_exit:
     return SQLITE_OK;
   }
 
-  PAGERTRACE(("COMMIT %d\n", PAGERID(pPager)));
   rc = pager_end_transaction(pPager, pPager->setMaster, 1);
   return pager_error(pPager, rc);
 }
@@ -35420,7 +35120,6 @@ commit_phase_one_exit:
 */
  int sqlite3PagerRollback(Pager *pPager){
   int rc = SQLITE_OK;                  /* Return code */
-  PAGERTRACE(("ROLLBACK %d\n", PAGERID(pPager)));
 
   /* PagerRollback() is a no-op if called in READER or OPEN state. If
   ** the pager is already in the ERROR state, the rollback is not 
@@ -35800,10 +35499,6 @@ commit_phase_one_exit:
   ){
     return rc;
   }
-
-  PAGERTRACE(("MOVE %d page %d (needSync=%d) moves to %d\n", 
-      PAGERID(pPager), pPg->pgno, (pPg->flags&PGHDR_NEED_SYNC)?1:0, pgno));
-  IOTRACE(("MOVE %p %d %d\n", pPager, pPg->pgno, pgno))
 
   /* If the journal needs to be sync()ed before page pPg->pgno can
   ** be written to, store pPg->pgno in local variable needSyncPgno.
@@ -51601,36 +51296,6 @@ static void releaseMemArray(Mem *p, int N){
 }
 #endif
 
-#if defined(SQLITE_ENABLE_IOTRACE)
-/*
-** Print an IOTRACE message showing SQL content.
-*/
- void sqlite3VdbeIOTraceSql(Vdbe *p){
-  int nOp = p->nOp;
-  VdbeOp *pOp;
-  if( sqlite3IoTrace==0 ) return;
-  if( nOp<1 ) return;
-  pOp = &p->aOp[0];
-  if( pOp->opcode==OP_Trace && pOp->p4.z!=0 ){
-    int i, j;
-    char z[1000];
-    sqlite3_snprintf(sizeof(z), z, "%s", pOp->p4.z);
-    for(i=0; sqlite3Isspace(z[i]); i++){}
-    for(j=0; z[i]; i++){
-      if( sqlite3Isspace(z[i]) ){
-        if( z[i-1]!=' ' ){
-          z[j++] = ' ';
-        }
-      }else{
-        z[j++] = z[i];
-      }
-    }
-    z[j] = 0;
-    sqlite3IoTrace("SQL %s\n", z);
-  }
-}
-#endif /* SQLITE_ENABLE_IOTRACE */
-
 /*
 ** Allocate space from a fixed size buffer and return a pointer to
 ** that space.  If insufficient space is available, return NULL.
@@ -55725,7 +55390,6 @@ static void importVtabErrMsg(Vdbe *p, sqlite3_vtab *pVtab){
   p->pResultSet = 0;
   db->busyHandler.nBusy = 0;
   CHECK_FOR_INTERRUPT;
-  sqlite3VdbeIOTraceSql(p);
 #ifndef SQLITE_OMIT_PROGRESS_CALLBACK
   checkProgress = db->xProgress!=0;
 #endif
@@ -62917,9 +62581,6 @@ static const struct sqlite3_io_methods MemJournalMethods = {
 ** This file contains routines used for walking the parser tree for
 ** an SQL statement.
 */
-/* #include <stdlib.h> */
-/* #include <string.h> */
-
 
 /*
 ** Walk an expression tree.  Invoke the callback once for each node
@@ -63061,8 +62722,6 @@ static const struct sqlite3_io_methods MemJournalMethods = {
 ** resolve all identifiers by associating them with a particular
 ** table and column.
 */
-/* #include <stdlib.h> */
-/* #include <string.h> */
 
 /*
 ** Walk the expression tree pExpr and increase the aggregate function
@@ -75494,8 +75153,6 @@ delete_from_cleanup:
 ** sqliteRegisterBuildinFunctions() found at the bottom of the file.
 ** All other code has file scope.
 */
-/* #include <stdlib.h> */
-/* #include <assert.h> */
 
 /*
 ** Return the collating function associated with a function.
@@ -80615,8 +80272,6 @@ struct sqlite3_api_routines {
 
 /************** End of sqlite3ext.h ******************************************/
 /************** Continuing where we left off in loadext.c ********************/
-/* #include <string.h> */
-
 #ifndef SQLITE_OMIT_LOAD_EXTENSION
 
 /*
@@ -100592,8 +100247,7 @@ static void yy_accept(
 ** The implementation of this routine was generated by a program,
 ** mkkeywordhash.h, located in the tool subdirectory of the distribution.
 ** The output of the mkkeywordhash.c program is written into a file
-** named keywordhash.h and then included into this source file by
-** the #include below.
+** named keywordhash.h.
 */
 /************** Include keywordhash.h in the middle of tokenize.c ************/
 /************** Begin file keywordhash.h *************************************/
@@ -101421,16 +101075,6 @@ abort_parse:
 ** the SQLITE_THREADSAFE compile-time option being set to 0.
 */
  int sqlite3_threadsafe(void){ return SQLITE_THREADSAFE; }
-
-#if defined(SQLITE_ENABLE_IOTRACE)
-/*
-** If the following function pointer is not NULL and if
-** SQLITE_ENABLE_IOTRACE is enabled, then messages describing
-** I/O active are written using this function.  These messages
-** are intended for debugging activity only.
-*/
- void (*sqlite3IoTrace)(const char*, ...) = 0;
-#endif
 
 /*
 ** If the following global variable points to a string which is the
