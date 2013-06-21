@@ -145,7 +145,7 @@ func (functions *FuncDefHash) Search(h int, name string) *FuncDef {
   FuncDef *pDef        /* The function definition to insert */
 ){
 	FuncDef *pOther;
-	int nName = sqlite3Strlen30(pDef->zName);
+	int nName = len(pDef->zName);
 	u8 c1 = (u8)pDef->zName[0];
 	int h = (strings.ToLower(c1) + nName) % ArraySize(pHash->a);
 	if pOther = pHash.Search(h, pDef.zName); pOther != nil {
