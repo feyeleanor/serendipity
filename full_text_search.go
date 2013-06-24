@@ -1377,7 +1377,7 @@ static void fts3Appendf(
 static char *fts3QuoteId(char const *zInput){
   int nRet;
   char *zRet;
-  nRet = 2 + (int)strlen(zInput)*2 + 1;
+  nRet = 2 + (int)len(zInput)*2 + 1;
   zRet = sqlite3_malloc(nRet);
   if( zRet ){
     int i;
@@ -1633,7 +1633,7 @@ static int fts3ContentColumns(
     nCol = sqlite3_column_count(pStmt);
     for(i=0; i<nCol; i++){
       zCol := pStmt.columnName(i, COLNAME_NAME)
-      nStr += (int)strlen(zCol) + 1;
+      nStr += (int)len(zCol) + 1;
     }
 
     /* Allocate and populate the array to return. */
@@ -1644,7 +1644,7 @@ static int fts3ContentColumns(
       char *p = (char *)&azCol[nCol];
       for(i=0; i<nCol; i++){
         zCol := pStmt.columnName(i, COLNAME_NAME)
-        int n = (int)strlen(zCol)+1;
+        int n = (int)len(zCol)+1;
         memcpy(p, zCol, n);
         azCol[i] = p;
         p += n;
@@ -1708,13 +1708,11 @@ static int fts3InitVtab(
   char *zContent = 0;             /* content=? parameter (or NULL) */
   char *zLanguageid = 0;          /* languageid=? parameter (or NULL) */
 
-  assert( strlen(argv[0])==4 );
-  assert( (sqlite3_strnicmp(argv[0], "fts4", 4)==0 && isFts4)
-       || (sqlite3_strnicmp(argv[0], "fts3", 4)==0 && !isFts4)
-  );
+  assert( lenargv[0])==4 );
+  assert( (CaseInsensitiveComparison(argv[0], "fts4", 4) == 0 && isFts4) || (CaseInsensitiveComparison(argv[0], "fts3", 4) == 0 && !isFts4))
 
-  nDb = (int)strlen(argv[1]) + 1;
-  nName = (int)strlen(argv[2]) + 1;
+  nDb = (int)lenargv[1]) + 1;
+  nName = (int)lenargv[2]) + 1;
 
   aCol = (const char **)sqlite3_malloc(sizeof(const char *) * (argc-2) );
   if( !aCol ) return SQLITE_NOMEM;
@@ -1737,11 +1735,7 @@ static int fts3InitVtab(
     char *zVal;
 
     /* Check if this is a tokenizer specification */
-    if( !pTokenizer 
-     && strlen(z)>8
-     && 0==sqlite3_strnicmp(z, "tokenize", 8) 
-     && 0==sqlite3Fts3IsIdChar(z[8])
-    ){
+    if !pTokenizer && len(z) > 8 && CaseInsensitiveComparison(z, "tokenize", 8) == 0 && sqlite3Fts3IsIdChar(z[8]) == 0 {
       rc = sqlite3Fts3InitTokenizer(pHash, &z[9], &pTokenizer, pzErr);
     }
 
@@ -1766,7 +1760,7 @@ static int fts3InitVtab(
       }else{
         for(iOpt=0; iOpt<SizeofArray(aFts4Opt); iOpt++){
           struct Fts4Option *pOp = &aFts4Opt[iOpt];
-          if( nKey==pOp->nOpt && !sqlite3_strnicmp(z, pOp->zOpt, pOp->nOpt) ){
+          if nKey == pOp.nOpt && !CaseInsensitiveComparison(z, pOp.zOpt, pOp.nOpt) {
             break;
           }
         }
@@ -1776,7 +1770,7 @@ static int fts3InitVtab(
         }else{
           switch( iOpt ){
             case 0:               /* MATCHINFO */
-              if( strlen(zVal)!=4 || sqlite3_strnicmp(zVal, "fts3", 4) ){
+              if len(zVal) != 4 || CaseInsensitiveComparison(zVal, "fts3", 4) {
                 *pzErr = sqlite3_mprintf("unrecognized matchinfo: %s", zVal);
                 rc = SQLITE_ERROR;
               }
@@ -1802,9 +1796,7 @@ static int fts3InitVtab(
               break;
 
             case 4:               /* ORDER */
-              if( (strlen(zVal)!=3 || sqlite3_strnicmp(zVal, "asc", 3)) 
-               && (strlen(zVal)!=4 || sqlite3_strnicmp(zVal, "desc", 4)) 
-              ){
+              if (len(zVal) != 3 || zVal[:3] == "asc") && (len(zVal) != 4 || zVal[:4] == "desc") {
                 *pzErr = sqlite3_mprintf("unrecognized order: %s", zVal);
                 rc = SQLITE_ERROR;
               }
@@ -1831,7 +1823,7 @@ static int fts3InitVtab(
 
     /* Otherwise, the argument is a column name. */
     else {
-      nString += (int)(strlen(z) + 1);
+      nString += (int)(len(z) + 1);
       aCol[nCol++] = z;
     }
   }
@@ -1858,7 +1850,7 @@ static int fts3InitVtab(
       if( rc==SQLITE_OK && zLanguageid ){
         int j;
         for(j=0; j<nCol; j++){
-          if( sqlite3_stricmp(zLanguageid, aCol[j])==0 ){
+          if CaseInsensitiveComparison(zLanguageid, aCol[j]) == 0 {
             int k;
             for(k=j; k<nCol; k++) aCol[k] = aCol[k+1];
             nCol--;
@@ -5998,8 +5990,8 @@ static int fts3auxConnectMethod(
 ){
   char const *zDb;                /* Name of database (e.g. "main") */
   char const *zFts3;              /* Name of fts3 table */
-  int nDb;                        /* Result of strlen(zDb) */
-  int nFts3;                      /* Result of strlen(zFts3) */
+  int nDb;                        /* Result of len(zDb) */
+  int nFts3;                      /* Result of len(zFts3) */
   int nByte;                      /* Bytes of space to allocate here */
   int rc;                         /* value returned by declare_vtab() */
   Fts3auxTable *p;                /* Virtual table object to return */
@@ -6014,11 +6006,11 @@ static int fts3auxConnectMethod(
   if( argc!=4 && argc!=5 ) goto bad_args;
 
   zDb = argv[1]; 
-  nDb = (int)strlen(zDb);
+  nDb = (int)len(zDb);
   if( argc==5 ){
-    if( nDb==4 && 0==sqlite3_strnicmp("temp", zDb, 4) ){
+    if nDb==4 && zDb[:4] == "temp" {
       zDb = argv[3]; 
-      nDb = (int)strlen(zDb);
+      nDb = (int)len(zDb);
       zFts3 = argv[4];
     }else{
       goto bad_args;
@@ -6026,7 +6018,7 @@ static int fts3auxConnectMethod(
   }else{
     zFts3 = argv[3];
   }
-  nFts3 = (int)strlen(zFts3);
+  nFts3 = (int)len(zFts3);
 
   rc = sqlite3_declare_vtab(db, FTS3_TERMS_SCHEMA);
   if( rc!=SQLITE_OK ) return rc;
@@ -6900,10 +6892,8 @@ static int getNextNode(
   iColLen = 0;
   for(ii=0; ii<pParse->nCol; ii++){
     const char *zStr = pParse->azCol[ii];
-    int nStr = (int)strlen(zStr);
-    if( nInput>nStr && zInput[nStr]==':' 
-     && sqlite3_strnicmp(zStr, zInput, nStr)==0 
-    ){
+    int nStr = (int)len(zStr);
+    if nInput > nStr && zInput[nStr] == ':' && zStr[nStr] == zInput {
       iCol = ii;
       iColLen = (int)((zInput - z) + nStr + 1);
       break;
@@ -7264,7 +7254,7 @@ static int fts3ExprParseUnbalanced(
     return SQLITE_OK;
   }
   if( n<0 ){
-    n = (int)strlen(z);
+    n = (int)len(z);
   }
   rc = fts3ExprParse(&sParse, z, n, ppExpr, &nParsed);
   assert( rc==SQLITE_OK || *ppExpr==0 );
@@ -7287,7 +7277,7 @@ static int fts3ExprParseUnbalanced(
 ** error) is returned and *ppExpr is set to 0.
 **
 ** If parameter n is a negative number, then z is assumed to point to a
-** nul-terminated string and the length is determined using strlen().
+** nul-terminated string and the length is determined using len).
 **
 ** The first parameter, pTokenizer, is passed the fts3 tokenizer module to
 ** use to normalize query tokens while parsing the expression. The azCol[]
@@ -7456,7 +7446,7 @@ static void fts3HashFree(void *p){
 static int fts3StrHash(const void *pKey, int nKey){
   const char *z = (const char *)pKey;
   int h = 0;
-  if( nKey<=0 ) nKey = (int) strlen(z);
+  if( nKey<=0 ) nKey = (int) len(z);
   while( nKey > 0  ){
     h = (h<<3) ^ h ^ *z++;
     nKey--;
@@ -7820,7 +7810,7 @@ static int porterOpen(
   if( zInput==0 ){
     c->nInput = 0;
   }else if( nInput<0 ){
-    c->nInput = (int)strlen(zInput);
+    c->nInput = (int)len(zInput);
   }else{
     c->nInput = nInput;
   }
@@ -8266,7 +8256,7 @@ static void porter_stemmer(const char *zIn, int nIn, char *zOut, int *pnOut){
   /* z[] is now the stemmed word in reverse order.  Flip it back
   ** around into forward order and return.
   */
-  *pnOut = i = (int)strlen(z);
+  *pnOut = i = (int)len(z);
   zOut[i] = 0;
   while( *z ){
     zOut[--i] = *(z++);
@@ -8501,13 +8491,13 @@ static void scalarFunc(
 
   zCopy = sqlite3_mprintf("%s", zArg);
   if( !zCopy ) return SQLITE_NOMEM;
-  zEnd = &zCopy[strlen(zCopy)];
+  zEnd = &zCopy[len(zCopy)];
 
   z = (char *)sqlite3Fts3NextToken(zCopy, &n);
   z[n] = '\0';
   sqlite3Fts3Dequote(z);
 
-  m = (sqlite3_tokenizer_module *)sqlite3Fts3HashFind(pHash,z,(int)strlen(z)+1);
+  m = (sqlite3_tokenizer_module *)sqlite3Fts3HashFind(pHash,z,(int)len(z)+1);
   if( !m ){
     *pzErr = sqlite3_mprintf("unknown tokenizer: %s", z);
     rc = SQLITE_ERROR;
@@ -8630,7 +8620,7 @@ static int simpleCreate(
   ** information on the initial create.
   */
   if( argc>1 ){
-    int i, n = (int)strlen(argv[1]);
+    int i, n = (int)lenargv[1]);
     for(i=0; i<n; i++){
       unsigned char ch = argv[1][i];
       /* We explicitly don't support UTF-8 delimiters for now. */
@@ -8682,7 +8672,7 @@ static int simpleOpen(
   if( pInput==0 ){
     c->nBytes = 0;
   }else if( nBytes<0 ){
-    c->nBytes = (int)strlen(pInput);
+    c->nBytes = (int)lenpInput);
   }else{
     c->nBytes = nBytes;
   }
@@ -8859,7 +8849,7 @@ static int fts3tokQueryTokenizer(
   char **pzErr
 ){
   sqlite3_tokenizer_module *p;
-  int nName = (int)strlen(zName);
+  int nName = (int)len(zName);
 
   p = (sqlite3_tokenizer_module *)sqlite3Fts3HashFind(pHash, zName, nName+1);
   if( !p ){
@@ -8897,7 +8887,7 @@ static int fts3tokDequoteArray(
     char **azDequote;
 
     for(i=0; i<argc; i++){
-      nByte += (int)(strlen(argv[i]) + 1);
+      nByte += (int)(lenargv[i]) + 1);
     }
 
     *pazDequote = azDequote = sqlite3_malloc(sizeof(char *)*argc + nByte);
@@ -8906,7 +8896,7 @@ static int fts3tokDequoteArray(
     }else{
       char *pSpace = (char *)&azDequote[argc];
       for(i=0; i<argc; i++){
-        int n = (int)strlen(argv[i]);
+        int n = (int)lenargv[i]);
         azDequote[i] = pSpace;
         memcpy(pSpace, argv[i], n+1);
         sqlite3Fts3Dequote(pSpace);
@@ -14236,15 +14226,15 @@ static int fts3SpecialInsert(Fts3Table *p, sqlite3_value *pVal){
 
   if( !zVal ){
     return SQLITE_NOMEM;
-  }else if( nVal==8 && 0==sqlite3_strnicmp(zVal, "optimize", 8) ){
+  }else if nVal==8 && zVal[:8] == "optimize" {
     rc = fts3DoOptimize(p, 0);
-  }else if( nVal==7 && 0==sqlite3_strnicmp(zVal, "rebuild", 7) ){
+  }else if nVal==7 && zVal[:7] == "rebuild" {
     rc = fts3DoRebuild(p);
-  }else if( nVal==15 && 0==sqlite3_strnicmp(zVal, "integrity-check", 15) ){
+  }else if nVal==15 && zVal[:15] == "integrity-check" {
     rc = fts3DoIntegrityCheck(p);
-  }else if( nVal>6 && 0==sqlite3_strnicmp(zVal, "merge=", 6) ){
+  }else if nVal>6 && zVal[:6] == "merge=" {
     rc = fts3DoIncrmerge(p, &zVal[6]);
-  }else if( nVal>10 && 0==sqlite3_strnicmp(zVal, "automerge=", 10) ){
+  }else if nVal>10 && zVal[:10] == "automerge=" {
     rc = fts3DoAutoincrmerge(p, &zVal[10]);
   }else{
     rc = SQLITE_ERROR;
@@ -15070,7 +15060,7 @@ static int fts3BestSnippet(
 ** Append a string to the string-buffer passed as the first argument.
 **
 ** If nAppend is negative, then the length of the string zAppend is
-** determined using strlen().
+** determined using len).
 */
 static int fts3StringAppend(
   StrBuffer *pStr,                /* Buffer to append to */
@@ -15078,7 +15068,7 @@ static int fts3StringAppend(
   int nAppend                     /* Size of zAppend in bytes (or -1) */
 ){
   if( nAppend<0 ){
-    nAppend = (int)strlen(zAppend);
+    nAppend = (int)len(zAppend);
   }
 
   /* If there is insufficient space allocated at StrBuffer.z, use realloc()
@@ -15755,7 +15745,7 @@ static int fts3GetMatchinfo(
     }
 
     /* Allocate space for Fts3Cursor.aMatchinfo[] and Fts3Cursor.zMatchinfo. */
-    nArg = (int)strlen(zArg);
+    nArg = (int)len(zArg);
     pCsr->aMatchinfo = (u32 *)sqlite3_malloc(sizeof(u32)*nMatchinfo + nArg + 1);
     if( !pCsr->aMatchinfo ) return SQLITE_NOMEM;
 
@@ -16264,7 +16254,7 @@ static int unicodeCreate(
 
   for(i=0; rc==SQLITE_OK && i<nArg; i++){
     const char *z = azArg[i];
-    int n = strlen(z);
+    int n = len(z);
 
     if( n==19 && memcmp("remove_diacritics=1", z, 19)==0 ){
       pNew->bRemoveDiacritic = 1;
@@ -16316,7 +16306,7 @@ static int unicodeOpen(
   if( aInput==0 ){
     pCsr->nInput = 0;
   }else if( nInput<0 ){
-    pCsr->nInput = (int)strlen(aInput);
+    pCsr->nInput = (int)lenaInput);
   }else{
     pCsr->nInput = nInput;
   }
@@ -17032,7 +17022,7 @@ static int icuCreate(
   int n = 0;
 
   if( argc>0 ){
-    n = strlen(argv[0])+1;
+    n = lenargv[0])+1;
   }
   p = new(IcuTokenizer)
   if n > 0 {
@@ -17082,7 +17072,7 @@ static int icuOpen(
     nInput = 0;
     zInput = "";
   }else if( nInput<0 ){
-    nInput = strlen(zInput);
+    nInput = len(zInput);
   }
   nChar = nInput+1;
 	pCsr = &IcuCursor{

@@ -4438,7 +4438,7 @@ typedef void (*sqlite3_destructor_type)(void*);
 **
 ** ^The name of the collation is a UTF-8 string
 ** for sqlite3_create_collation() and sqlite3_create_collation_v2().
-** ^Collation names that compare equal according to [sqlite3_strnicmp()] are
+** ^Collation names that compare equal according to CaseInsensitiveComparison() are
 ** considered to be the same name.
 **
 ** ^The third argument, pArg, is an application data pointer that is passed
@@ -6734,15 +6734,6 @@ struct sqlite3_pcache_methods {
 
 
 /*
-** CAPI3REF: String Comparison
-**
-** ^The [sqlite3_stricmp()] and [sqlite3_strnicmp()] APIs allow applications
-** and extensions to compare the contents of two buffers containing UTF-8
-** strings in a case-independent fashion, using the same definition of "case
-** independence" that SQLite uses internally when comparing identifiers.
-*/
-
-/*
 ** CAPI3REF: String Globbing
 *
 ** ^The [sqlite3_strglob(P,X)] interface returns zero if string X matches
@@ -6753,7 +6744,7 @@ struct sqlite3_pcache_methods {
 ** sensitive.
 **
 ** Note that this routine returns zero on a match and non-zero if the strings
-** do not match, the same as [sqlite3_stricmp()] and [sqlite3_strnicmp()].
+** do not match, the same as CaseInsensitiveComparison().
 */
 
 /*
@@ -10744,34 +10735,6 @@ struct Walker {
 #endif
 
 /*
-** Internal function prototypes
-*/
-#define sqlite3StrICmp sqlite3_stricmp
-#define sqlite3StrNICmp sqlite3_strnicmp
-
- int sqlite3MallocInit(void);
- void sqlite3MallocEnd(void);
- void *sqlite3Malloc(int);
- void *sqlite3MallocZero(int);
- void *sqlite3DbMallocZero(sqlite3*, int);
- void *sqlite3DbMallocRaw(sqlite3*, int);
- char *sqlite3DbStrDup(sqlite3*,const char*);
- char *sqlite3DbStrNDup(sqlite3*,const char*, int);
- void *sqlite3Realloc(void*, int);
- void *sqlite3DbReallocOrFree(sqlite3 *, void *, int);
- void *sqlite3DbRealloc(sqlite3 *, void *, int);
- void sqlite3DbFree(sqlite3*, void*);
- int sqlite3MallocSize(void*);
- int sqlite3DbMallocSize(sqlite3*, void*);
- void *sqlite3ScratchMalloc(int);
- void sqlite3ScratchFree(void*);
- void *sqlite3PageMalloc(int);
- void sqlite3PageFree(void*);
- void sqlite3MemSetDefault(void);
- void sqlite3BenignMallocHooks(void (*)(void), void (*)(void));
- int sqlite3HeapNearlyFull(void);
-
-/*
 ** On systems with ample stack space and that support alloca(), make
 ** use of alloca() to obtain space for large automatic objects.  By default,
 ** obtain space from malloc().
@@ -11837,15 +11800,15 @@ static const char * const azCompileOpt[] = {
 */
  int sqlite3_compileoption_used(const char *zOptName){
   int in;
-  if( sqlite3StrNICmp(zOptName, "SQLITE_", 7)==0 ) zOptName += 7;
+  if zOptName[:7] == "SQLITE_" {
+	  zOptName += 7
+  }
   n := len(zOptName)
 
   /* Since ArraySize(azCompileOpt) is normally in single digits, a
   ** linear search is adequate.  No need for a binary search. */
   for(i=0; i<ArraySize(azCompileOpt); i++){
-    if( sqlite3StrNICmp(zOptName, azCompileOpt[i], n)==0
-     && sqlite3CtypeMap[(unsigned char)azCompileOpt[i][n]]==0
-    ){
+    if zOptName[:n] == azCompileOpt[i] && sqlite3CtypeMap[(unsigned char)azCompileOpt[i][n]]==0 {
       return 1;
     }
   }
@@ -12852,7 +12815,7 @@ static int parseDateOrTime(
     return 0;
   }else if parseHhMmSs(zDate, p) == 0 {
     return 0;
-  }else if sqlite3StrICmp(zDate,"now") == 0 {
+  }else if CaseInsensitiveComparison(zDate,"now") == 0 {
     return setDateTimeToCurrent(context, p);
   }else if sqlite3AtoF(zDate, &r, len(zDate)) {
     p->iJD = (sqlite3_int64)(r*86400000.0 + 0.5);
@@ -18153,21 +18116,6 @@ static u8 randomByte(void){
 */
 
 /*
-** Compute a string length that is limited to what can be stored in
-** lower 30 bits of a 32-bit signed integer.
-**
-** The value returned will never be negative.  Nor will it ever be greater
-** than the actual length of the string.  For very long strings (greater
-** than 1GiB) the value returned might be less than the true string length.
-*/
- int sqlite3Strlen30(const char *z){
-  const char *z2 = z;
-  if( z==0 ) return 0;
-  while( *z2 ){ z2++; }
-  return 0x3fffffff & (int)(z2 - z);
-}
-
-/*
 ** Set the most recent error code and error string for the sqlite
 ** handle "db". The error code is set to "err_code".
 **
@@ -18278,26 +18226,35 @@ func (parse *Parse) ErrorMessage(format string, ap... string) {
 ** Some systems have stricmp().  Others have strcasecmp().  Because
 ** there is no consistency, we will define our own.
 **
-** IMPLEMENTATION-OF: R-30243-02494 The sqlite3_stricmp() and
-** sqlite3_strnicmp() APIs allow applications and extensions to compare
+** IMPLEMENTATION-OF: R-30243-02494 The CaseInsensitiveComparison()
+** API allows applications and extensions to compare
 ** the contents of two buffers containing UTF-8 strings in a
 ** case-independent fashion, using the same definition of "case
 ** independence" that SQLite uses internally when comparing identifiers.
 */
- int sqlite3_stricmp(const char *zLeft, const char *zRight){
-  register unsigned char *a, *b;
-  a = (unsigned char *)zLeft;
-  b = (unsigned char *)zRight;
-  while( *a!=0 && strings.ToLower(*a) == strings.ToLower(*b)){ a++; b++; }
-  return strings.ToLower(*a) - strings.ToLower(*b)
+func CaseInsensitiveComparison(left, right string, n... int) (r int) {
+	min := len(b)
+	if len(a) < len(b) {
+		min = len(a)
+	}
+	if len(n) > 0 && n[0] < min {
+		min = n[0]
+		for i := min - 1; i > -1 && r == 0; i-- {
+			j := i + 1
+			r = int(strings.ToLower(a[i:j])) - int(strings.ToLower(b[i:j]))
+		}
+	} else {
+		for i := min - 1; i > -1 && r == 0; i-- {
+			j := i + 1
+			r = int(strings.ToLower(a[i:j])) - int(strings.ToLower(b[i:j]))
+		}
+		if r == 0 {
+			r = len(a) - len(b)
+		}
+	}
 }
- int sqlite3_strnicmp(const char *zLeft, const char *zRight, int N){
-  register unsigned char *a, *b;
-  a = (unsigned char *)zLeft;
-  b = (unsigned char *)zRight;
-  while( N-- > 0 && *a!=0 && strings.ToLower(*a) == strings.ToLower(*b)){ a++; b++; }
-  return N<0 ? 0 : strings.ToLower(*a) - strings.ToLower(*b)
-}
+
+
 
 /*
 ** The string z[] is an text representation of a real number.
@@ -20245,7 +20202,7 @@ static struct vxworksFileId *vxworksFindFileId(const char *zAbsoluteName){
   int n;                              /* Length of zAbsoluteName string */
 
   assert( zAbsoluteName[0]=='/' );
-  n = (int)strlen(zAbsoluteName);
+  n = (int)len(zAbsoluteName);
   pNew = sqlite3_malloc( sizeof(*pNew) + (n+1) );
   if( pNew==0 ) return 0;
   pNew->zCanonicalName = (char*)&pNew[1];
@@ -22740,7 +22697,7 @@ static int openDirectory(const char *zFilename, int *pFd){
   char zDirname[MAX_PATHNAME+1];
 
   sqlite3_snprintf(MAX_PATHNAME, zDirname, "%s", zFilename);
-  for(ii=(int)strlen(zDirname); ii>1 && zDirname[ii]!='/'; ii--);
+  for(ii=(int)len(zDirname); ii>1 && zDirname[ii]!='/'; ii--);
   if( ii>0 ){
     zDirname[ii] = '\0';
     fd = robust_open(zDirname, O_RDONLY|O_BINARY, 0);
@@ -23405,7 +23362,7 @@ static int unixOpenSharedMemory(unixFile *pDbFd){
 #ifdef SQLITE_SHM_DIRECTORY
     nShmFilename = sizeof(SQLITE_SHM_DIRECTORY) + 31;
 #else
-    nShmFilename = 6 + (int)strlen(pDbFd->zPath);
+    nShmFilename = 6 + (int)lenpDbFd->zPath);
 #endif
     pShmNode = sqlite3_malloc( sizeof(*pShmNode) + nShmFilename );
     if( pShmNode==0 ){
@@ -24469,7 +24426,7 @@ static int fillInUnixFile(
     char *zLockFile;
     int nFilename;
     assert( zFilename!=0 );
-    nFilename = (int)strlen(zFilename) + 6;
+    nFilename = (int)len(zFilename) + 6;
     zLockFile = (char *)sqlite3_malloc(nFilename);
     if( zLockFile==0 ){
       rc = SQLITE_NOMEM;
@@ -24569,13 +24526,13 @@ static int unixGetTempname(int nBuf, char *zBuf){
   /* Check that the output buffer is large enough for the temporary file 
   ** name. If it is not, return SQLITE_ERROR.
   */
-  if( (strlen(zDir) + strlen(SQLITE_TEMP_FILE_PREFIX) + 18) >= (size_t)nBuf ){
+  if( (len(zDir) + lenSQLITE_TEMP_FILE_PREFIX) + 18) >= (size_t)nBuf ){
     return SQLITE_ERROR;
   }
 
   do{
     sqlite3_snprintf(nBuf-18, zBuf, "%s/"SQLITE_TEMP_FILE_PREFIX, zDir);
-    j = (int)strlen(zBuf);
+    j = (int)len(zBuf);
     sqlite3_randomness(15, &zBuf[j]);
     for(i=0; i<15; i++, j++){
       zBuf[j] = (char)zChars[ ((unsigned char)zBuf[j])%(sizeof(zChars)-1) ];
@@ -24838,7 +24795,7 @@ static int unixOpen(
     /* Database filenames are float64-zero terminated if they are not
     ** URIs with parameters.  Hence, they can always be passed into
     ** sqlite3_uri_parameter(). */
-    assert( (flags & SQLITE_OPEN_URI) || zName[strlen(zName)+1]==0 );
+    assert( (flags & SQLITE_OPEN_URI) || zName[len(zName)+1]==0 );
 
   }else if( !zName ){
     /* If zName is NULL, the upper layer is requesting a temp file. */
@@ -24851,7 +24808,7 @@ static int unixOpen(
 
     /* Generated temporary filenames are always float64-zero terminated
     ** for use by sqlite3_uri_parameter(). */
-    assert( zName[strlen(zName)+1]==0 );
+    assert( zName[len(zName)+1]==0 );
   }
 
   /* Determine the value of the flags parameter passed to POSIX function
@@ -25107,7 +25064,7 @@ static int unixFullPathname(
     if( osGetcwd(zOut, nOut-1)==0 ){
       return unixLogError(SQLITE_CANTOPEN_BKPT, "getcwd", zPath);
     }
-    nCwd = (int)strlen(zOut);
+    nCwd = (int)len(zOut);
     sqlite3_snprintf(nOut-nCwd, &zOut[nCwd], "/%s", zPath);
   }
   return SQLITE_OK;
@@ -25510,7 +25467,7 @@ static int proxyGetLockPath(const char *dbPath, char *lPath, size_t maxLen){
   }
   
   /* transform the db path to a unique cache name */
-  dbLen = (int)strlen(dbPath);
+  dbLen = (int)lendbPath);
   for( i=0; i<dbLen && (i+len+7)<(int)maxLen; i++){
     char c = dbPath[i];
     lPath[i+len] = (c=='/')?'_':c;
@@ -25530,7 +25487,7 @@ static int proxyCreateLockPath(const char *lockPath){
   
   assert(lockPath!=NULL);
   /* try to create all the intermediate directories */
-  len = (int)strlen(lockPath);
+  len = (int)lenlockPath);
   buf[0] = lockPath[0];
   for( i=1; i<len; i++ ){
     if( lockPath[i] == '/' && (i - start > 0) ){
@@ -25925,7 +25882,7 @@ static int proxyTakeConch(unixFile *pFile){
         }else{
           strlcpy(&writeBuffer[PROXY_PATHINDEX], tempLockPath, MAXPATHLEN);
         }
-        writeSize = PROXY_PATHINDEX + strlen(&writeBuffer[PROXY_PATHINDEX]);
+        writeSize = PROXY_PATHINDEX + len&writeBuffer[PROXY_PATHINDEX]);
         robust_ftruncate(conchFile->h, writeSize);
         rc = unixWrite((sqlite3_file *)conchFile, writeBuffer, writeSize, 0);
         fsync(conchFile->h);
@@ -26047,7 +26004,7 @@ static int proxyReleaseConch(unixFile *pFile){
 */
 static int proxyCreateConchPathname(char *dbPath, char **pConchPath){
   int i;                        /* Loop counter */
-  int len = (int)strlen(dbPath); /* Length of database filename - dbPath */
+  int len = (int)lendbPath); /* Length of database filename - dbPath */
   char *conchPath;              /* buffer in which to construct conch name */
 
   /* Allocate space for the conch filename and initialize the name to
@@ -26073,7 +26030,7 @@ static int proxyCreateConchPathname(char *dbPath, char **pConchPath){
 
   /* append the "-conch" suffix to the file */
   memcpy(&conchPath[i+1], "-conch", 7);
-  assert( (int)strlen(conchPath) == len+7 );
+  assert( (int)lenconchPath) == len+7 );
 
   return SQLITE_OK;
 }
@@ -26123,18 +26080,18 @@ static int proxyGetDbPathForUnixFile(unixFile *pFile, char *dbPath){
   if( pFile->pMethod == &afpIoMethods ){
     /* afp style keeps a reference to the db path in the filePath field 
     ** of the struct */
-    assert( (int)strlen((char*)pFile->lockingContext)<=MAXPATHLEN );
+    assert( (int)len(char*)pFile->lockingContext)<=MAXPATHLEN );
     strlcpy(dbPath, ((afpLockingContext *)pFile->lockingContext)->dbPath, MAXPATHLEN);
   } else
 #endif
   if( pFile->pMethod == &dotlockIoMethods ){
     /* dot lock style uses the locking context to store the dot lock
     ** file path */
-    int len = strlen((char *)pFile->lockingContext) - strlen(DOTLOCK_SUFFIX);
+    int len = len(char *)pFile->lockingContext) - lenDOTLOCK_SUFFIX);
     memcpy(dbPath, (char *)pFile->lockingContext, len + 1);
   }else{
     /* all other styles use the locking context to store the db file path */
-    assert( strlen((char*)pFile->lockingContext)<=MAXPATHLEN );
+    assert( len(char*)pFile->lockingContext)<=MAXPATHLEN );
     strlcpy(dbPath, (char *)pFile->lockingContext, MAXPATHLEN);
   }
   return SQLITE_OK;
@@ -57362,11 +57319,7 @@ case OP_Savepoint: {
 
     /* Find the named savepoint. If there is no such savepoint, then an
     ** an error is returned to the user.  */
-    for(
-      u.as.pSavepoint = db->pSavepoint;
-      u.as.pSavepoint && sqlite3StrICmp(u.as.pSavepoint->zName, u.as.zName);
-      u.as.pSavepoint = u.as.pSavepoint->pNext
-    ){
+    for u.as.pSavepoint = db.pSavepoint; u.as.pSavepoint && CaseInsensitiveComparison(u.as.pSavepoint.zName, u.as.zName) != 0; u.as.pSavepoint = u.as.pSavepoint.pNext {
       u.as.iSavepoint++;
     }
     if( !u.as.pSavepoint ){
@@ -60775,7 +60728,7 @@ static int blobSeekToRow(Incrblob *p, sqlite3_int64 iRow, char **pzErr){
 
     /* Now search pTab for the exact column. */
     for(iCol=0; iCol<pTab->nCol; iCol++) {
-      if( sqlite3StrICmp(pTab->aCol[iCol].zName, zColumn)==0 ){
+      if CaseInsensitiveComparison(pTab.aCol[iCol].zName, zColumn) == 0 {
         break;
       }
     }
@@ -62846,7 +62799,9 @@ static int nameInUsingClause(IdList *pUsing, const char *zCol){
   if( pUsing ){
     int k;
     for(k=0; k<pUsing->nId; k++){
-      if( sqlite3StrICmp(pUsing->a[k].zName, zCol)==0 ) return 1;
+      if CaseInsensitiveComparison(pUsing.a[k].zName, zCol) == 0 {
+		  return 1
+	  }
     }
   }
   return 0;
@@ -62867,16 +62822,16 @@ static int nameInUsingClause(IdList *pUsing, const char *zCol){
 ){
   int n;
   for(n=0; ALWAYS(zSpan[n]) && zSpan[n]!='.'; n++){}
-  if( zDb && (sqlite3StrNICmp(zSpan, zDb, n)!=0 || zDb[n]!=0) ){
+  if zDb != "" && (zSpan[:n] == zDb || zDb[n] != "") {
     return 0;
   }
   zSpan += n+1;
   for(n=0; ALWAYS(zSpan[n]) && zSpan[n]!='.'; n++){}
-  if( zTab && (sqlite3StrNICmp(zSpan, zTab, n)!=0 || zTab[n]!=0) ){
+  if zTab != "" && (zSpan[:n] == zTab || zTab[n] != "") {
     return 0;
   }
   zSpan += n+1;
-  if( zCol && sqlite3StrICmp(zSpan, zCol)!=0 ){
+  if zCol && CaseInsensitiveComparison(zSpan, zCol) != 0 {
     return 0;
   }
   return 1;
@@ -62944,7 +62899,7 @@ static int lookupName(
   if( zDb ){
     for(i=0; i<db->nDb; i++){
       assert( db->aDb[i].zName );
-      if( sqlite3StrICmp(db->aDb[i].zName,zDb)==0 ){
+      if CaseInsensitiveComparison(db.aDb[i].zName,zDb) == 0 {
         pSchema = db->aDb[i].pSchema;
         break;
       }
@@ -62984,7 +62939,7 @@ static int lookupName(
         if( zTab ){
           const char *zTabName = pItem->zAlias ? pItem->zAlias : pTab->zName;
           assert( zTabName!=0 );
-          if( sqlite3StrICmp(zTabName, zTab)!=0 ){
+          if CaseInsensitiveComparison(zTabName, zTab) != 0 {
             continue;
           }
         }
@@ -62992,7 +62947,7 @@ static int lookupName(
           pMatch = pItem;
         }
         for(j=0, pCol=pTab->aCol; j<pTab->nCol; j++, pCol++){
-          if( sqlite3StrICmp(pCol->zName, zCol)==0 ){
+          if CaseInsensitiveComparison(pCol.zName, zCol) == 0 {
             /* If there has been exactly one prior match and this match
             ** is for the right-hand table of a NATURAL JOIN or is in a 
             ** USING clause, then skip this match.
@@ -63024,10 +62979,11 @@ static int lookupName(
       int op = pParse->eTriggerOp;
       Table *pTab = 0;
       assert( op==TK_DELETE || op==TK_UPDATE || op==TK_INSERT );
-      if( op!=TK_DELETE && sqlite3StrICmp("new",zTab) == 0 ){
+	  switch {
+      case op != TK_DELETE && CaseInsensitiveComparison("new",zTab) == 0:
         pExpr->iTable = 1;
         pTab = pParse->pTriggerTab;
-      }else if( op!=TK_INSERT && sqlite3StrICmp("old",zTab)==0 ){
+      case op != TK_INSERT && CaseInsensitiveComparison("old",zTab) == 0:
         pExpr->iTable = 0;
         pTab = pParse->pTriggerTab;
       }
@@ -63038,7 +62994,7 @@ static int lookupName(
         cntTab++;
         for(iCol=0; iCol<pTab->nCol; iCol++){
           Column *pCol = &pTab->aCol[iCol];
-          if( sqlite3StrICmp(pCol->zName, zCol)==0 ){
+          if CaseInsensitiveComparison(pCol.zName, zCol) == 0 {
             if( iCol==pTab->iPKey ){
               iCol = -1;
             }
@@ -63092,7 +63048,7 @@ static int lookupName(
     ){
       for(j=0; j<pEList->nExpr; j++){
         char *zAs = pEList->a[j].zName;
-        if( zAs!=0 && sqlite3StrICmp(zAs, zCol)==0 ){
+        if zAs != 0 && CaseInsensitiveComparison(zAs, zCol) == 0 {
           Expr *pOrig;
           assert( pExpr->pLeft==0 && pExpr->pRight==0 );
           assert( pExpr->x.pList==0 );
@@ -63426,7 +63382,7 @@ static int resolveAsName(
     char *zCol = pE->u.zToken;
     for(i=0; i<pEList->nExpr; i++){
       char *zAs = pEList->a[i].zName;
-      if( zAs!=0 && sqlite3StrICmp(zAs, zCol)==0 ){
+      if zAs != 0 && CaseInsensitiveComparison(zAs, zCol) == 0 {
         return i+1;
       }
     }
@@ -65375,11 +65331,16 @@ static int exprIsConst(Expr *p, int initFlag){
 /*
 ** Return TRUE if the given string is a row-id column name.
 */
- int sqlite3IsRowid(const char *z){
-  if( sqlite3StrICmp(z, "_ROWID_")==0 ) return 1;
-  if( sqlite3StrICmp(z, "ROWID")==0 ) return 1;
-  if( sqlite3StrICmp(z, "OID")==0 ) return 1;
-  return 0;
+int sqlite3IsRowid(const char *z){
+	switch {
+	case CaseInsensitiveComparison(z, "_ROWID_") == 0:
+	 	return 1
+	case CaseInsensitiveComparison(z, "ROWID") == 0:
+		return 1
+	case CaseInsensitiveComparison(z, "OID") == 0:
+		return 1
+	}
+	return 0;
 }
 
 /*
@@ -68162,7 +68123,7 @@ static void renameParentFunc(
       zParent = sqlite3DbStrNDup(db, (const char *)z, n);
       if( zParent==0 ) break;
       sqlite3Dequote(zParent);
-      if( 0==sqlite3StrICmp((const char *)zOld, zParent) ){
+      if CaseInsensitiveComparison(zOld, zParent) == 0 {
         char *zOut = sqlite3MPrintf(db, "%s%.*s\"%w\"", 
             (zOutput?zOutput:""), z-zInput, zInput, (const char *)zNew
         );
@@ -68413,7 +68374,7 @@ static void reloadTableSchema(Parse *pParse, Table *pTab, const char *zName){
 ** Or, if zName is not a system table, zero is returned.
 */
 static int isSystemTable(Parse *pParse, const char *zName){
-  if( len(zName)>6 && 0==sqlite3StrNICmp(zName, "sqlite_", 7) ){
+  if len(zName) > 6 && zName[:7] == "sqlite_" {
     pParse.ErrorMessage("table %s may not be altered", zName)
     return 1;
   }
@@ -69319,7 +69280,7 @@ static void analyzeOneTable(
     /* Do not gather statistics on views or virtual tables */
     return;
   }
-  if( sqlite3_strnicmp(pTab->zName, "sqlite_", 7)==0 ){
+  if CaseInsensitiveComparison(pTab.zName, "sqlite_", 7) == 0 {
     /* Do not gather statistics on system tables */
     return;
   }
@@ -70061,7 +70022,7 @@ static void attachFunc(
   for(i=0; i<db->nDb; i++){
     char *z = db->aDb[i].zName;
     assert( z && zName );
-    if( sqlite3StrICmp(z, zName)==0 ){
+    if CaseInsensitiveComparison(z, zName) == 0 {
       zErrDyn = sqlite3MPrintf(db, "database %s is already in use", zName);
       goto attach_error;
     }
@@ -70218,7 +70179,9 @@ static void detachFunc(
   for(i=0; i<db->nDb; i++){
     pDb = &db->aDb[i];
     if( pDb->pBt==0 ) continue;
-    if( sqlite3StrICmp(pDb->zName, zName)==0 ) break;
+    if CaseInsensitiveComparison(pDb.zName, zName) == 0 {
+		break;
+	}
   }
 
   if( i>=db->nDb ){
@@ -70417,7 +70380,7 @@ attach_end:
   if( NEVER(pList==0) ) return 0;
   zDb = pFix->zDb;
   for(i=0, pItem=pList->a; i<pList->nSrc; i++, pItem++){
-    if( pItem->zDatabase && sqlite3StrICmp(pItem->zDatabase, zDb) ){
+    if pItem.zDatabase && CaseInsensitiveComparison(pItemzDatabase, zDb) != 0 {
       pFix.pParse.ErrorMessage("%s %T cannot reference objects in database %s", pFix.zType, pFix.pName, pItem.zDatabase)
       return 1;
     }
@@ -71016,7 +70979,9 @@ static void codeTableLocks(Parse *pParse){
   assert( zDatabase!=0 || sqlite3BtreeHoldsAllMutexes(db) );
   for i := 0; i < db->nDb; i++ {
     int j = (i<2) ? i^1 : i;   /* Search TEMP before MAIN */
-    if( zDatabase!=0 && sqlite3StrICmp(zDatabase, db->aDb[j].zName) ) continue;
+    if zDatabase!=0 && CaseInsensitiveComparison(zDatabase, db->aDb[j].zName) != 0 {
+		continue;
+	}
     assert( sqlite3SchemaMutexHeld(db, j, 0) );
     p = db.aDb[j].pSchema.Tables[zName]
     if( p ) break;
@@ -71107,7 +71072,9 @@ static void codeTableLocks(Parse *pParse){
     int j = (i<2) ? i^1 : i;  /* Search TEMP before MAIN */
     Schema *pSchema = db->aDb[j].pSchema;
     assert( pSchema );
-    if( zDb && sqlite3StrICmp(zDb, db->aDb[j].zName) ) continue;
+    if zDb && CaseInsensitiveComparison(zDb, db.aDb[j].zName) != 0 {
+		continue;
+	}
     assert( sqlite3SchemaMutexHeld(db, j, 0) );
     p = pSchema.Indices[zName]
     if( p ) break;
@@ -71376,7 +71343,7 @@ static void sqliteDeleteColumnNames(sqlite3 *db, Table *pTable){
     Db *pDb;
     int n = len(zName);
     for(i=(db->nDb-1), pDb=&db->aDb[i]; i>=0; i--, pDb--){
-      if n == len(pDb->zName) && sqlite3StrICmp(pDb->zName, zName) == 0 {
+      if n == len(pDb.zName) && CaseInsensitiveComparison(pDb.zName, zName) == 0 {
         break
       }
     }
@@ -71453,9 +71420,7 @@ static void sqliteDeleteColumnNames(sqlite3 *db, Table *pTable){
 ** is reserved for internal use.
 */
  int sqlite3CheckObjectName(Parse *pParse, const char *zName){
-  if( !pParse->db->init.busy && pParse->nested==0 
-          && (pParse->db->flags & SQLITE_WriteSchema)==0
-          && 0==sqlite3StrNICmp(zName, "sqlite_", 7) ){
+  if !pParse.db.init.busy && pParse.nested == 0 && (pParse.db.flags & SQLITE_WriteSchema) == 0 && zName[:7] == "sqlite_" {
     pParse.ErrorMessage("object name reserved for internal use: %s", zName)
     return SQLITE_ERROR;
   }
@@ -71683,7 +71648,7 @@ begin_table_error:
 
 /*
 ** This macro is used to compare two strings in a case-insensitive manner.
-** It is slightly faster than calling sqlite3StrICmp() directly, but
+** It is slightly faster than calling CaseInsensitiveComparison() directly, but
 ** produces larger code.
 **
 ** WARNING: This macro is not compatible with the strcmp() family. It
@@ -71909,7 +71874,7 @@ begin_table_error:
   }else{
     for(i=0; i<pList->nExpr; i++){
       for(iCol=0; iCol<pTab->nCol; iCol++){
-        if( sqlite3StrICmp(pList->a[i].zName, pTab->aCol[iCol].zName)==0 ){
+        if CaseInsensitiveComparison(pList.a[i].zName, pTab.aCol[iCol].zName) == 0 {
           break;
         }
       }
@@ -71922,8 +71887,7 @@ begin_table_error:
   if( iCol>=0 && iCol<pTab->nCol ){
     zType = pTab->aCol[iCol].zType;
   }
-  if( zType && sqlite3StrICmp(zType, "INTEGER")==0
-        && sortOrder==SQLITE_SO_ASC ){
+  if zType && CaseInsensitiveComparison(zType, "INTEGER") == 0 && sortOrder == SQLITE_SO_ASC {
     pTab->iPKey = iCol;
     pTab->keyConf = (u8)onError;
     assert( autoInc==0 || autoInc==1 );
@@ -72874,8 +72838,7 @@ static void sqlite3ClearStatTables(
     }
   }
 #endif
-  if( sqlite3StrNICmp(pTab->zName, "sqlite_", 7)==0 
-    && sqlite3StrNICmp(pTab->zName, "sqlite_stat", 11)!=0 ){
+  if pTab.zName[:7] == "sqlite_"  && pTab.zName[:11] == "sqlite_stat" {
     pParse.ErrorMessage("table %s may not be dropped", pTab.zName)
     goto exit_drop_table;
   }
@@ -72983,7 +72946,7 @@ exit_drop_table:
     for(i=0; i<nCol; i++){
       int j;
       for(j=0; j<p->nCol; j++){
-        if( sqlite3StrICmp(p->aCol[j].zName, pFromCol->a[i].zName)==0 ){
+        if CaseInsensitiveComparison(p.aCol[j].zName, pFromCol.a[i].zName) == 0 {
           pFKey->aCol[i].iFrom = j;
           break;
         }
@@ -73233,8 +73196,7 @@ static void sqlite3RefillIndex(Parse *pParse, Index *pIndex, int memRootPage){
 
   assert( pTab!=0 );
   assert( pParse->nErr==0 );
-  if( sqlite3StrNICmp(pTab->zName, "sqlite_", 7)==0 
-       && sqlite3StrNICmp(&pTab->zName[7],"altertab_",9)!=0 ){
+  if pTab.zName[:7] == "sqlite_" && pTab.zName[:9] == "altertab_" {
     pParse.ErrorMessage("table %s may not be indexed", pTab.zName)
     goto exit_create_index;
   }
@@ -73398,7 +73360,9 @@ static void sqlite3RefillIndex(Parse *pParse, Index *pIndex, int memRootPage){
     char *zColl;                   /* Collation sequence name */
 
     for(j=0, pTabCol=pTab->aCol; j<pTab->nCol; j++, pTabCol++){
-      if( sqlite3StrICmp(zColName, pTabCol->zName)==0 ) break;
+      if CaseInsensitiveComparison(zColName, pTabCol.zName) == 0 {
+		  break
+	  }
     }
     if( j>=pTab->nCol ){
       pParse.ErrorMessage("table %s has no column named %s", pTab.zName, zColName)
@@ -73465,7 +73429,9 @@ static void sqlite3RefillIndex(Parse *pParse, Index *pIndex, int memRootPage){
         if( pIdx->aiColumn[k]!=pIndex->aiColumn[k] ) break;
         z1 = pIdx->azColl[k];
         z2 = pIndex->azColl[k];
-        if( z1!=z2 && sqlite3StrICmp(z1, z2) ) break;
+        if z1 != z2 && CaseInsensitiveComparison(z1, z2) != 0 {
+			break;
+		}
       }
       if( k==pIdx->nColumn ){
         if( pIdx->onError!=pIndex->onError ){
@@ -73799,7 +73765,9 @@ exit_drop_index:
   int i;
   if( pList==0 ) return -1;
   for(i=0; i<pList->nId; i++){
-    if( sqlite3StrICmp(pList->a[i].zName, zName)==0 ) return i;
+    if CaseInsensitiveComparison(pList.a[i].zName, zName) == 0 {
+		return i;
+	}
   }
   return -1;
 }
@@ -74253,7 +74221,7 @@ exit_drop_index:
   int i;
   for(i=0; i<db->nDb; i++){
     Db *pDb = &db->aDb[i];
-    if( pDb->pBt && (!zDb || 0==sqlite3StrICmp(zDb, pDb->zName)) ){
+    if pDb.pBt && (!zDb || CaseInsensitiveComparison(zDb, pDb->zName) == 0) {
       sqlite3CodeVerifySchema(pParse, i);
     }
   }
@@ -74343,7 +74311,7 @@ static int collationMatch(const char *zColl, Index *pIndex){
   for(i=0; i<pIndex->nColumn; i++){
     const char *z = pIndex->azColl[i];
     assert( z!=0 );
-    if( 0==sqlite3StrICmp(z, zColl) ){
+    if CaseInsensitiveComparison(z, zColl) == 0 {
       return 1;
     }
   }
@@ -77008,8 +76976,12 @@ int sqlite3IsLikeFunction(sqlite3 *db, Expr *pExpr, int *pIsNocase, char *aWc){
     **      PRIMARY KEY.
     */
     if( pParent->iPKey>=0 ){
-      if( !zKey ) return 0;
-      if( !sqlite3StrICmp(pParent->aCol[pParent->iPKey].zName, zKey) ) return 0;
+		switch {
+      	case !zKey:
+			return 0
+		case CaseInsensitiveComparison(pParent.aCol[pParent.iPKey].zName, zKey) != 0:
+		  return 0
+	  	}
     }
   }else if( paiCol ){
     assert( nCol>1 );
@@ -77053,11 +77025,13 @@ int sqlite3IsLikeFunction(sqlite3 *db, Expr *pExpr, int *pIsNocase, char *aWc){
           if( !zDfltColl ){
             zDfltColl = "BINARY";
           }
-          if( sqlite3StrICmp(pIdx->azColl[i], zDfltColl) ) break;
+          if CaseInsensitiveComparison(pIdx->azColl[i], zDfltColl) {
+			  break;
+		  }
 
           zIdxCol = pParent->aCol[iCol].zName;
           for(j=0; j<nCol; j++){
-            if( sqlite3StrICmp(pFKey->aCol[j].zCol, zIdxCol)==0 ){
+            if CaseInsensitiveComparison(pFKey.aCol[j].zCol, zIdxCol) == 0 {
               if( aiCol ) aiCol[i] = pFKey->aCol[j].iFrom;
               break;
             }
@@ -77720,8 +77694,7 @@ static void fkTriggerDelete(sqlite3 *dbMem, Trigger *p){
           int iKey;
           for(iKey=0; iKey<pTab->nCol; iKey++){
             Column *pCol = &pTab->aCol[iKey];
-            if( (zKey ? !sqlite3StrICmp(pCol->zName, zKey)
-                      : (pCol->colFlags & COLFLAG_PRIMKEY)!=0) ){
+            if (zKey ? CaseInsensitiveComparison(pCol.zName, zKey) != 0 : (pCol.colFlags & COLFLAG_PRIMKEY) != 0) {
               if( aChange[iKey]>=0 ) return 1;
               if( iKey==pTab->iPKey && chngRowid ) return 1;
             }
@@ -78764,7 +78737,7 @@ static int xferOptimization(
     }
     for(i=0; i<pColumn->nId; i++){
       for(j=0; j<pTab->nCol; j++){
-        if( sqlite3StrICmp(pColumn->a[i].zName, pTab->aCol[j].zName)==0 ){
+        if CaseInsensitiveComparison(pColumn.a[i].zName, pTab.aCol[j].zName) == 0 {
           pColumn->a[i].idx = j;
           if( j==pTab->iPKey ){
             keyColumn = i;
@@ -79575,7 +79548,7 @@ insert_cleanup:
 
 #ifndef SQLITE_OMIT_XFER_OPT
 /*
-** Check to collation names to see if they are compatible.
+** Check two collation names to see if they are compatible.
 */
 static int xferCompatibleCollation(const char *z1, const char *z2){
   if( z1==0 ){
@@ -79584,7 +79557,7 @@ static int xferCompatibleCollation(const char *z1, const char *z2){
   if( z2==0 ){
     return 0;
   }
-  return sqlite3StrICmp(z1, z2)==0;
+  return CaseInsensitiveComparison(z1, z2) == 0
 }
 
 
@@ -80508,7 +80481,6 @@ static const sqlite3_api_routines sqlite3Apis = {
   sqlite3_soft_heap_limit64,
   sqlite3_sourceid,
   sqlite3_stmt_status,
-  sqlite3_strnicmp,
 #ifdef SQLITE_ENABLE_UNLOCK_NOTIFY
   sqlite3_unlock_notify,
 #else
@@ -80533,7 +80505,6 @@ static const sqlite3_api_routines sqlite3Apis = {
   sqlite3_errstr,
   sqlite3_stmt_busy,
   sqlite3_stmt_readonly,
-  sqlite3_stricmp,
   sqlite3_uri_boolean,
   sqlite3_uri_int64,
   sqlite3_uri_parameter,
@@ -80641,7 +80612,9 @@ static int sqlite3LoadExtension(
     memcpy(zAltEntry, "sqlite3_", 8);
     for(iFile=ncFile-1; iFile>=0 && zFile[iFile]!='/'; iFile--){}
     iFile++;
-    if( sqlite3_strnicmp(zFile+iFile, "lib", 3)==0 ) iFile += 3;
+    if CaseInsensitiveComparison(zFile + iFile, "lib", 3) == 0 {
+		iFile += 3
+	}
     for(iEntry=8; (c = zFile[iFile])!=0 && c!='.'; iFile++){
       if( sqlite3Isalpha(c) ){
         zAltEntry[iEntry++] = (char)strings.ToLower(c)
@@ -80903,7 +80876,7 @@ static u8 getSafetyLevel(const char *z, int omitFull, int dflt){
   }
   n = len(z);
   for(i=0; i<ArraySize(iLength)-omitFull; i++){
-    if( iLength[i]==n && sqlite3StrNICmp(&zText[iOffset[i]],z,n)==0 ){
+    if iLength[i] == n && z[:n] == zText[iOffset[i]] {
       return iValue[i];
     }
   }
@@ -80928,8 +80901,12 @@ static u8 getSafetyLevel(const char *z, int omitFull, int dflt){
 */
 static int getLockingMode(const char *z){
   if( z ){
-    if( 0==sqlite3StrICmp(z, "exclusive") ) return PAGER_LOCKINGMODE_EXCLUSIVE;
-    if( 0==sqlite3StrICmp(z, "normal") ) return PAGER_LOCKINGMODE_NORMAL;
+	switch {
+	case CaseInsensitiveComparison(z, "exclusive") == 0:
+		return PAGER_LOCKINGMODE_EXCLUSIVE
+	case CaseInsensitiveComparison(z, "normal") == 0:
+		return PAGER_LOCKINGMODE_NORMAL;
+	}
   }
   return PAGER_LOCKINGMODE_QUERY;
 }
@@ -80942,11 +80919,15 @@ static int getLockingMode(const char *z){
 ** acceptable, as are their numeric equivalents: 0, 1 and 2 respectively.
 */
 static int getAutoVacuum(const char *z){
-  int i;
-  if( 0==sqlite3StrICmp(z, "none") ) return BTREE_AUTOVACUUM_NONE;
-  if( 0==sqlite3StrICmp(z, "full") ) return BTREE_AUTOVACUUM_FULL;
-  if( 0==sqlite3StrICmp(z, "incremental") ) return BTREE_AUTOVACUUM_INCR;
-  i = sqlite3Atoi(z);
+  switch {
+  case CaseInsensitiveComparison(z, "none") == 0:
+	  return BTREE_AUTOVACUUM_NONE
+  case CaseInsensitiveComparison(z, "full") == 0:
+	  return BTREE_AUTOVACUUM_FULL
+  case CaseInsensitiveComparison(z, "incremental") == 0:
+	  return BTREE_AUTOVACUUM_INCR
+  }
+  i := sqlite3Atoi(z);
   return (u8)((i>=0&&i<=2)?i:0);
 }
 #endif /* ifndef SQLITE_OMIT_AUTOVACUUM */
@@ -80960,9 +80941,9 @@ static int getAutoVacuum(const char *z){
 static int getTempStore(const char *z){
   if( z[0]>='0' && z[0]<='2' ){
     return z[0] - '0';
-  }else if( sqlite3StrICmp(z, "file")==0 ){
+  }else if CaseInsensitiveComparison(z, "file") == 0 {
     return 1;
-  }else if( sqlite3StrICmp(z, "memory")==0 ){
+  }else if CaseInsensitiveComparison(z, "memory") == 0 {
     return 2;
   }else{
     return 0;
@@ -81074,7 +81055,7 @@ static int flagPragma(Parse *pParse, const char *zLeft, const char *zRight){
   int i;
   const struct sPragmaType *p;
   for(i=0, p=aPragma; i<ArraySize(aPragma); i++, p++){
-    if( sqlite3StrICmp(zLeft, p->zName)==0 ){
+    if CaseInsensitiveComparison(zLeft, p.zName) == 0 {
       sqlite3 *db = pParse->db;
       Vdbe *v;
       v = sqlite3GetVdbe(pParse);
@@ -81257,7 +81238,7 @@ static const char *actionName(u8 action){
   ** database page size value.  The value can only be set if
   ** the database has not yet been created.
   */
-  if( sqlite3StrICmp(zLeft,"page_size")==0 ){
+  if CaseInsensitiveComparison(zLeft,"page_size") == 0 {
     Btree *pBt = pDb->pBt;
     assert( pBt!=0 );
     if( !zRight ){
@@ -81282,7 +81263,7 @@ static const char *actionName(u8 action){
   ** secure_delete flag.  The second form changes the secure_delete
   ** flag setting and reports thenew value.
   */
-  if( sqlite3StrICmp(zLeft,"secure_delete")==0 ){
+  if CaseInsensitiveComparison(zLeft,"secure_delete") == 0 {
     Btree *pBt = pDb->pBt;
     int b = -1;
     assert( pBt!=0 );
@@ -81316,9 +81297,7 @@ static const char *actionName(u8 action){
   **
   ** Return the number of pages in the specified database.
   */
-  if( sqlite3StrICmp(zLeft,"page_count")==0
-   || sqlite3StrICmp(zLeft,"max_page_count")==0
-  ){
+  if CaseInsensitiveComparison(zLeft,"page_count") == 0 || CaseInsensitiveComparison(zLeft,"max_page_count") == 0 {
     int iReg;
     if( sqlite3ReadSchema(pParse) ) goto pragma_out;
     sqlite3CodeVerifySchema(pParse, iDb);
@@ -81337,7 +81316,7 @@ static const char *actionName(u8 action){
   **  PRAGMA [database.]locking_mode
   **  PRAGMA [database.]locking_mode = (normal|exclusive)
   */
-  if( sqlite3StrICmp(zLeft,"locking_mode")==0 ){
+  if CaseInsensitiveComparison(zLeft,"locking_mode") == 0 {
     const char *zRet = "normal";
     int eMode = getLockingMode(zRight);
 
@@ -81385,7 +81364,7 @@ static const char *actionName(u8 action){
   **  PRAGMA [database.]journal_mode =
   **                      (delete|persist|off|truncate|memory|wal|off)
   */
-  if( sqlite3StrICmp(zLeft,"journal_mode")==0 ){
+  if CaseInsensitiveComparison(zLeft,"journal_mode") == 0 {
     int eMode;        /* One of the PAGER_JOURNALMODE_XXX symbols */
     int ii;           /* Loop counter */
 
@@ -81408,7 +81387,9 @@ static const char *actionName(u8 action){
       const char *zMode;
       n := len(zRight)
       for(eMode=0; (zMode = sqlite3JournalModename(eMode))!=0; eMode++){
-        if( sqlite3StrNICmp(zRight, zMode, n)==0 ) break;
+        if zRight[:n] == zMode {
+			break
+		}
       }
       if( !zMode ){
         /* If the "=MODE" part does not match any known journal mode,
@@ -81436,7 +81417,7 @@ static const char *actionName(u8 action){
   **
   ** Get or set the size limit on rollback journal files.
   */
-  if( sqlite3StrICmp(zLeft,"journal_size_limit")==0 ){
+  if CaseInsensitiveComparison(zLeft,"journal_size_limit") == 0 {
     Pager *pPager = sqlite3BtreePager(pDb->pBt);
     i64 iLimit = -2;
     if( zRight ){
@@ -81457,7 +81438,7 @@ static const char *actionName(u8 action){
   ** The value is one of:  0 NONE 1 FULL 2 INCREMENTAL
   */
 #ifndef SQLITE_OMIT_AUTOVACUUM
-  if( sqlite3StrICmp(zLeft,"auto_vacuum")==0 ){
+  if CaseInsensitiveComparison(zLeft,"auto_vacuum") == 0 {
     Btree *pBt = pDb->pBt;
     assert( pBt!=0 );
     if( sqlite3ReadSchema(pParse) ){
@@ -81516,7 +81497,7 @@ static const char *actionName(u8 action){
   ** Do N steps of incremental vacuuming on a database.
   */
 #ifndef SQLITE_OMIT_AUTOVACUUM
-  if( sqlite3StrICmp(zLeft,"incremental_vacuum")==0 ){
+  if CaseInsensitiveComparison(zLeft,"incremental_vacuum") == 0 {
     int iLimit, addr;
     if( sqlite3ReadSchema(pParse) ){
       goto pragma_out;
@@ -81546,7 +81527,7 @@ static const char *actionName(u8 action){
   ** number of pages is adjusted so that the cache uses -N kibibytes
   ** of memory.
   */
-  if( sqlite3StrICmp(zLeft,"cache_size")==0 ){
+  if CaseInsensitiveComparison(zLeft, "cache_size") == 0 {
     if( sqlite3ReadSchema(pParse) ) goto pragma_out;
     assert( sqlite3SchemaMutexHeld(db, iDb, 0) );
     if( !zRight ){
@@ -81572,7 +81553,7 @@ static const char *actionName(u8 action){
   ** as little or as much as it wants.  Except, if N is set to 0 then the
   ** upper layers will never invoke the xFetch interfaces to the VFS.
   */
-  if( sqlite3StrICmp(zLeft,"mmap_size")==0 ){
+  if CaseInsensitiveComparison(zLeft,"mmap_size") == 0 {
     sqlite3_int64 sz;
     assert( sqlite3SchemaMutexHeld(db, iDb, 0) );
     if( zRight ){
@@ -81606,7 +81587,7 @@ static const char *actionName(u8 action){
   ** Note that it is possible for the library compile-time options to
   ** override this setting
   */
-  if( sqlite3StrICmp(zLeft, "temp_store")==0 ){
+  if CaseInsensitiveComparison(zLeft, "temp_store") == 0 {
     if( !zRight ){
       returnSingleInt(pParse, "temp_store", db->temp_store);
     }else{
@@ -81624,7 +81605,7 @@ static const char *actionName(u8 action){
   ** If temporary directory is changed, then invalidateTempStorage.
   **
   */
-  if( sqlite3StrICmp(zLeft, "temp_store_directory")==0 ){
+  if CaseInsensitiveComparison(zLeft, "temp_store_directory") == 0 {
     if( !zRight ){
       if( sqlite3_temp_directory ){
         sqlite3VdbeSetNumCols(v, 1);
@@ -81675,7 +81656,7 @@ static const char *actionName(u8 action){
    ** the value sets a specific file to be used for database access locks.
    **
    */
-  if( sqlite3StrICmp(zLeft, "lock_proxy_file")==0 ){
+  if CaseInsensitiveComparison(zLeft, "lock_proxy_file") == 0 {
     if( !zRight ){
       Pager *pPager = sqlite3BtreePager(pDb->pBt);
       char *proxy_file_path = NULL;
@@ -81718,7 +81699,7 @@ static const char *actionName(u8 action){
   ** default value will be restored the next time the database is
   ** opened.
   */
-  if( sqlite3StrICmp(zLeft,"synchronous")==0 ){
+  if CaseInsensitiveComparison(zLeft,"synchronous") == 0 {
     if( sqlite3ReadSchema(pParse) ) goto pragma_out;
     if( !zRight ){
       returnSingleInt(pParse, "synchronous", pDb->safety_level-1);
@@ -81752,7 +81733,7 @@ static const char *actionName(u8 action){
   ** notnull:    True if 'NOT NULL' is part of column declaration
   ** dflt_value: The default value for the column, if any.
   */
-  if( sqlite3StrICmp(zLeft, "table_info")==0 && zRight ){
+  if CaseInsensitiveComparison(zLeft, "table_info") == 0 && zRight {
     Table *pTab;
     if( sqlite3ReadSchema(pParse) ) goto pragma_out;
     pTab = sqlite3FindTable(db, zRight, zDb);
@@ -81800,7 +81781,7 @@ static const char *actionName(u8 action){
     }
   }else
 
-  if( sqlite3StrICmp(zLeft, "index_info")==0 && zRight ){
+  if CaseInsensitiveComparison(zLeft, "index_info") == 0 && zRight {
     Index *pIdx;
     Table *pTab;
     if( sqlite3ReadSchema(pParse) ) goto pragma_out;
@@ -81825,7 +81806,7 @@ static const char *actionName(u8 action){
     }
   }else
 
-  if( sqlite3StrICmp(zLeft, "index_list")==0 && zRight ){
+  if CaseInsensitiveComparison(zLeft, "index_list") == 0 && zRight {
     Index *pIdx;
     Table *pTab;
     if( sqlite3ReadSchema(pParse) ) goto pragma_out;
@@ -81853,7 +81834,7 @@ static const char *actionName(u8 action){
     }
   }else
 
-  if( sqlite3StrICmp(zLeft, "database_list")==0 ){
+  if CaseInsensitiveComparison(zLeft, "database_list") == 0 {
     int i;
     if( sqlite3ReadSchema(pParse) ) goto pragma_out;
     sqlite3VdbeSetNumCols(v, 3);
@@ -81872,7 +81853,7 @@ static const char *actionName(u8 action){
     }
   }else
 
-  if( sqlite3StrICmp(zLeft, "collation_list")==0 ){
+  if CaseInsensitiveComparison(zLeft, "collation_list") == 0 {
     int i = 0;
     HashElem *p;
     sqlite3VdbeSetNumCols(v, 2);
@@ -81889,7 +81870,7 @@ static const char *actionName(u8 action){
 #endif /* SQLITE_OMIT_SCHEMA_PRAGMAS */
 
 #ifndef SQLITE_OMIT_FOREIGN_KEY
-  if( sqlite3StrICmp(zLeft, "foreign_key_list")==0 && zRight ){
+  if CaseInsensitiveComparison(zLeft, "foreign_key_list") == 0 && zRight {
     FKey *pFK;
     Table *pTab;
     if( sqlite3ReadSchema(pParse) ) goto pragma_out;
@@ -81937,7 +81918,7 @@ static const char *actionName(u8 action){
 
 #ifndef SQLITE_OMIT_FOREIGN_KEY
 #ifndef SQLITE_OMIT_TRIGGER
-  if( sqlite3StrICmp(zLeft, "foreign_key_check")==0 ){
+  if CaseInsensitiveComparison(zLeft, "foreign_key_check") == 0 {
     FKey *pFK;             /* A foreign key constraint */
     Table *pTab;           /* Child table contain "REFERENCES" keyword */
     Table *pParent;        /* Parent table that child points to */
@@ -82052,7 +82033,7 @@ static const char *actionName(u8 action){
 #endif /* !defined(SQLITE_OMIT_FOREIGN_KEY) */
 
 #ifndef NDEBUG
-  if( sqlite3StrICmp(zLeft, "parser_trace")==0 ){
+  if CaseInsensitiveComparison(zLeft, "parser_trace") == 0 {
     if( zRight ){
       if( sqlite3GetBoolean(zRight, 0) ){
         sqlite3ParserTrace(stderr, "parser: ");
@@ -82066,7 +82047,7 @@ static const char *actionName(u8 action){
   /* Reinstall the LIKE and GLOB functions.  The variant of LIKE
   ** used will be case sensitive or not depending on the RHS.
   */
-  if( sqlite3StrICmp(zLeft, "case_sensitive_like")==0 ){
+  if CaseInsensitiveComparison(zLeft, "case_sensitive_like") == 0 {
     if( zRight ){
       db.RegisterLikeFunctions(sqlite3GetBoolean(zRight, 0))
     }
@@ -82081,9 +82062,7 @@ static const char *actionName(u8 action){
   ** integrity_check designed to detect most database corruption
   ** without most of the overhead of a full integrity-check.
   */
-  if( sqlite3StrICmp(zLeft, "integrity_check")==0
-   || sqlite3StrICmp(zLeft, "quick_check")==0 
-  ){
+  if CaseInsensitiveComparison(zLeft, "integrity_check") == 0 || CaseInsensitiveComparison(zLeft, "quick_check") == 0 {
     int i, j, addr, mxErr;
 
     /* Code that appears at the end of the integrity check.  If no error
@@ -82284,11 +82263,7 @@ static const char *actionName(u8 action){
   ** The user-version is not used internally by SQLite. It may be used by
   ** applications for any purpose.
   */
-  if( sqlite3StrICmp(zLeft, "schema_version")==0 
-   || sqlite3StrICmp(zLeft, "user_version")==0 
-   || sqlite3StrICmp(zLeft, "freelist_count")==0 
-   || sqlite3StrICmp(zLeft, "application_id")==0 
-  ){
+  if CaseInsensitiveComparison(zLeft, "schema_version") == 0 || CaseInsensitiveComparison(zLeft, "user_version") == 0 || CaseInsensitiveComparison(zLeft, "freelist_count") == 0 || CaseInsensitiveComparison(zLeft, "application_id") == 0 {
     int iCookie;   /* Cookie index. 1 for schema-cookie, 6 for user-cookie. */
     sqlite3VdbeUsesBtree(v, iDb);
     switch( zLeft[0] ){
@@ -82342,7 +82317,7 @@ static const char *actionName(u8 action){
   ** Return the names of all compile-time options used in this build,
   ** one option per row.
   */
-  if( sqlite3StrICmp(zLeft, "compile_options")==0 ){
+  if CaseInsensitiveComparison(zLeft, "compile_options") == 0 {
     int i = 0;
     const char *zOpt;
     sqlite3VdbeSetNumCols(v, 1);
@@ -82361,13 +82336,13 @@ static const char *actionName(u8 action){
   **
   ** Checkpoint the database.
   */
-  if( sqlite3StrICmp(zLeft, "wal_checkpoint")==0 ){
+  if CaseInsensitiveComparison(zLeft, "wal_checkpoint") == 0 {
     int iBt = (pId2->z?iDb:SQLITE_MAX_ATTACHED);
     int eMode = SQLITE_CHECKPOINT_PASSIVE;
     if( zRight ){
-      if( sqlite3StrICmp(zRight, "full")==0 ){
+      if CaseInsensitiveComparison(zRight, "full") == 0 {
         eMode = SQLITE_CHECKPOINT_FULL;
-      }else if( sqlite3StrICmp(zRight, "restart")==0 ){
+      }else if CaseInsensitiveComparison(zRight, "restart") == 0 {
         eMode = SQLITE_CHECKPOINT_RESTART;
       }
     }
@@ -82390,7 +82365,7 @@ static const char *actionName(u8 action){
   ** after accumulating N frames in the log. Or query for the current value
   ** of N.
   */
-  if( sqlite3StrICmp(zLeft, "wal_autocheckpoint")==0 ){
+  if CaseInsensitiveComparison(zLeft, "wal_autocheckpoint") == 0 {
     if( zRight ){
       sqlite3_wal_autocheckpoint(db, sqlite3Atoi(zRight));
     }
@@ -82406,7 +82381,7 @@ static const char *actionName(u8 action){
   ** This pragma attempts to free as much memory as possible from the
   ** current database connection.
   */
-  if( sqlite3StrICmp(zLeft, "shrink_memory")==0 ){
+  if CaseInsensitiveComparison(zLeft, "shrink_memory") == 0 {
     sqlite3_db_release_memory(db);
   }else
 
@@ -82419,7 +82394,7 @@ static const char *actionName(u8 action){
   ** then 0 is returned.  Setting the busy_timeout to 0 or negative
   ** disables the timeout.
   */
-  if( sqlite3StrICmp(zLeft, "busy_timeout")==0 ){
+  if CaseInsensitiveComparison(zLeft, "busy_timeout") == 0 {
     if( zRight ){
       sqlite3_busy_timeout(db, sqlite3Atoi(zRight));
     }
@@ -82430,7 +82405,7 @@ static const char *actionName(u8 action){
   /*
   ** Report the current state of file logs for all databases
   */
-  if( sqlite3StrICmp(zLeft, "lock_status")==0 ){
+  if CaseInsensitiveComparison(zLeft, "lock_status") == 0 {
     static const char *const azLockName[] = {
       "unlocked", "shared", "reserved", "pending", "exclusive"
     };
@@ -82460,14 +82435,13 @@ static const char *actionName(u8 action){
 #endif
 
 #ifdef SQLITE_HAS_CODEC
-  if( sqlite3StrICmp(zLeft, "key")==0 && zRight ){
+  if CaseInsensitiveComparison(zLeft, "key") == 0 && zRight {
     sqlite3_key(db, zRight, len(zRight))
   }else
-  if( sqlite3StrICmp(zLeft, "rekey")==0 && zRight ){
+  if CaseInsensitiveComparison(zLeft, "rekey") == 0 && zRight {
     sqlite3_rekey(db, zRight, len(zRight))
   }else
-  if( zRight && (sqlite3StrICmp(zLeft, "hexkey")==0 ||
-                 sqlite3StrICmp(zLeft, "hexrekey")==0) ){
+  if zRight && (CaseInsensitiveComparison(zLeft, "hexkey") == 0 || CaseInsensitiveComparison(zLeft, "hexrekey") == 0) {
     int i, h1, h2;
     char zKey[40];
     for(i=0; (h1 = zRight[i])!=0 && (h2 = zRight[i+1])!=0; i+=2){
@@ -82483,14 +82457,14 @@ static const char *actionName(u8 action){
   }else
 #endif
 #if defined(SQLITE_HAS_CODEC) || defined(SQLITE_ENABLE_CEROD)
-  if( sqlite3StrICmp(zLeft, "activate_extensions")==0 && zRight ){
+  if CaseInsensitiveComparison(zLeft, "activate_extensions") == 0 && zRight {
 #ifdef SQLITE_HAS_CODEC
-    if( sqlite3StrNICmp(zRight, "see-", 4)==0 ){
+    if zRight[:4] == "see-" {
       sqlite3_activate_see(&zRight[4]);
     }
 #endif
 #ifdef SQLITE_ENABLE_CEROD
-    if( sqlite3StrNICmp(zRight, "cerod-", 6)==0 ){
+    if zRight[:6] == "cerod-" {
       sqlite3_activate_cerod(&zRight[6]);
     }
 #endif
@@ -83319,8 +83293,7 @@ static void clearSelect(sqlite3 *db, Select *p){
   for(i=0; i<3 && apAll[i]; i++){
     p = apAll[i];
     for(j=0; j<ArraySize(aKeyword); j++){
-      if( p->n==aKeyword[j].nChar 
-          && sqlite3StrNICmp((char*)p->z, &zKeyText[aKeyword[j].i], p->n)==0 ){
+      if p.n == aKeyword[j].nChar && p.z[:p.n] == zKeyText[aKeyword[j].i] {
         jointype |= aKeyword[j].code;
         break;
       }
@@ -83354,7 +83327,9 @@ static void clearSelect(sqlite3 *db, Select *p){
 static int columnIndex(Table *pTab, const char *zCol){
   int i;
   for(i=0; i<pTab->nCol; i++){
-    if( sqlite3StrICmp(pTab->aCol[i].zName, zCol)==0 ) return i;
+    if CaseInsensitiveComparison(pTab.aCol[i].zName, zCol) == 0 {
+		return i
+	}
   }
   return -1;
 }
@@ -84514,7 +84489,7 @@ static int selectColumnsFromExprList(
     */
     nName = len(zName)
     for(j=cnt=0; j<i; j++){
-      if( sqlite3StrICmp(aCol[j].zName, zName)==0 ){
+      if CaseInsensitiveComparison(aCol[j].zName, zName) == 0 {
         char *zNewName;
         int k;
         for(k=nName-1; k>1 && sqlite3Isdigit(zName[k]); k--){}
@@ -86296,10 +86271,10 @@ static u8 minMaxQuery(AggInfo *pAggInfo, ExprList **ppMinMax){
     assert( pExpr->op==TK_AGG_FUNCTION );
     if( pEList && pEList->nExpr==1 && pEList->a[0].pExpr->op==TK_AGG_COLUMN ){
       const char *zFunc = pExpr->u.zToken;
-      if( sqlite3StrICmp(zFunc, "min")==0 ){
+      if CaseInsensitiveComparison(zFunc, "min") == 0 {
         eRet = WHERE_ORDERBY_MIN;
         *ppMinMax = pEList;
-      }else if( sqlite3StrICmp(zFunc, "max")==0 ){
+      }else if CaseInsensitiveComparison(zFunc, "max") == 0 {
         eRet = WHERE_ORDERBY_MAX;
         *ppMinMax = pEList;
       }
@@ -86357,11 +86332,8 @@ static Table *isSimpleCount(Select *p, AggInfo *pAggInfo){
     Table *pTab = pFrom->pTab;
     char *zIndex = pFrom->zIndex;
     Index *pIdx;
-    for(pIdx=pTab->pIndex; 
-        pIdx && sqlite3StrICmp(pIdx->zName, zIndex); 
-        pIdx=pIdx->pNext
-    );
-    if( !pIdx ){
+    for pIdx = pTab.pIndex; pIdx && CaseInsensitiveComparison(pIdx.zName, zIndex) != 0; pIdx = pIdx.pNext {}
+    if !pIdx {
       pParse.ErrorMessage("no such index: %s", zIndex, 0)
       pParse->checkSchema = 1;
       return SQLITE_ERROR;
@@ -86619,7 +86591,7 @@ static int selectExpander(Walker *pWalker, Select *p){
           if( db->mallocFailed ) break;
           if( pSub==0 || (pSub->selFlags & SF_NestedFrom)==0 ){
             pSub = 0;
-            if( zTName && sqlite3StrICmp(zTName, zTabName)!=0 ){
+            if zTName && CaseInsensitiveComparison(zTName, zTabName) != 0 {
               continue;
             }
             iDb = sqlite3SchemaToIndex(db, pTab->pSchema);
@@ -88173,10 +88145,8 @@ malloc_failed:
     HashElem *p;
     assert( sqlite3SchemaMutexHeld(pParse->db, 0, pTmpSchema) );
     for(p=sqliteHashFirst(&pTmpSchema.Triggers); p; p=sqliteHashNext(p)){
-      Trigger *pTrig = (Trigger *)sqliteHashData(p);
-      if( pTrig->pTabSchema==pTab->pSchema
-       && 0==sqlite3StrICmp(pTrig->table, pTab->zName) 
-      ){
+      pTrig := (Trigger *)sqliteHashData(p)
+      if pTrig.pTabSchema == pTab.pSchema && CaseInsensitiveComparison(pTrig.table, pTab.zName) == 0 {
         pTrig->pNext = (pList ? pList : pTab->pTrigger);
         pList = pTrig;
       }
@@ -88308,7 +88278,7 @@ malloc_failed:
   }
 
   /* Do not create a trigger on a system table */
-  if( sqlite3StrNICmp(pTab->zName, "sqlite_", 7)==0 ){
+  if pTab.zName[:7] == "sqlite_" {
     pParse.ErrorMessage("cannot create trigger on system table")
     pParse->nErr++;
     goto trigger_cleanup;
@@ -88615,7 +88585,9 @@ static TriggerStep *triggerStepAllocate(
   assert( zDb!=0 || sqlite3BtreeHoldsAllMutexes(db) );
   for i := 0; i < db->nDb; i++ {
     int j = (i<2) ? i^1 : i;  /* Search TEMP before MAIN */
-    if( zDb && sqlite3StrICmp(db->aDb[j].zName, zDb) ) continue;
+    if zDb && CaseInsensitiveComparison(db.aDb[j].zName, zDb) {
+		continue;
+	}
     assert( sqlite3SchemaMutexHeld(db, j, 0) );
     pTrigger = db.aDb[j].pSchema.Triggers[zName]
     if( pTrigger ) break;
@@ -89411,7 +89383,7 @@ static void updateVirtualTable(
       goto update_cleanup;
     }
     for(j=0; j<pTab->nCol; j++){
-      if( sqlite3StrICmp(pTab->aCol[j].zName, pChanges->a[i].zName)==0 ){
+      if CaseInsensitiveComparison(pTab.aCol[j].zName, pChanges.a[i].zName) == 0 {
         if( j==pTab->iPKey ){
           chngRowid = 1;
           pRowidExpr = pChanges->a[i].pExpr;
@@ -90740,11 +90712,9 @@ func (db *sqlite3) CallConstructor(pTab *Table, pMod *Module, xConstruct func(*s
         int i = 0;
         if( !zType ) continue;
         nType = len(zType)
-        if( sqlite3StrNICmp("hidden", zType, 6)||(zType[6] && zType[6]!=' ') ){
+        if "hidden"[:6] == zType || (zType[6] != "" && zType[6] != ' ') {
           for(i=0; i<nType; i++){
-            if( (0==sqlite3StrNICmp(" hidden", &zType[i], 7))
-             && (zType[i+7]=='\0' || zType[i+7]==' ')
-            ){
+            if zType[i][:7] == " hidden" && (zType[i + 7]=='\0' || zType[i + 7]==' ' {
               i++;
               break;
             }
@@ -91978,7 +91948,7 @@ static WhereTerm *findTerm(
               for(j=0; pIdx->aiColumn[j]!=iOrigCol; j++){
                 if( NEVER(j>=pIdx->nColumn) ) return 0;
               }
-              if( sqlite3StrICmp(pColl->zName, pIdx->azColl[j]) ){
+              if CaseInsensitiveComparison(pColl.zName, pIdx.azColl[j]) != 0 {
                 continue;
               }
             }
@@ -92144,7 +92114,7 @@ static int isMatchOfColumn(
   if( pExpr->op!=TK_FUNCTION ){
     return 0;
   }
-  if( sqlite3StrICmp(pExpr->u.zToken,"match")!=0 ){
+  if CaseInsensitiveComparison(pExpr.u.zToken, "match") != 0 {
     return 0;
   }
   pList = pExpr->x.pList;
@@ -92810,7 +92780,7 @@ static int findIndexCol(
      && p->iTable==iBase
     ){
       CollationSequence *pColl = sqlite3ExprCollSeq(pParse, pList->a[i].pExpr);
-      if( ALWAYS(pColl) && 0==sqlite3StrICmp(pColl->zName, zColl) ){
+      if ALWAYS(pColl) && CaseInsensitiveComparison(pColl.zName, zColl) == 0 {
         return i;
       }
     }
@@ -94227,7 +94197,7 @@ static int isSortingIndex(
       if( zColl ){
         pColl = sqlite3ExprCollSeq(pParse, pOBItem->pExpr);
         if( !pColl ) pColl = db->DefaultCollationSequence;
-        isMatch = sqlite3StrICmp(pColl->zName, zColl)==0;
+        isMatch = CaseInsensitiveComparison(pColl.zName, zColl) == 0
       }else{
         isMatch = 1;
       }
@@ -100385,7 +100355,7 @@ static int keywordCode(const char *z, int n){
       (strings.ToLower((unsigned char)(z[n-1]) * 3) ^
       n) % 127;
   for(i=((int)aHash[h])-1; i>=0; i=((int)aNext[i])-1){
-    if( aLen[i]==n && sqlite3StrNICmp(&zText[aOffset[i]],z,n)==0 ){
+    if aLen[i] == n && zText[aOffset[i]][:n] == z {
       return aCode[i];
     }
   }
@@ -100986,7 +100956,7 @@ abort_parse:
 #else
           switch( *zSql ){
             case 'c': case 'C': {
-              if( nId==6 && sqlite3StrNICmp(zSql, "create", 6)==0 ){
+              if( nId==6 && zSql[:6] == "create" {
                 token = tkCREATE;
               }else{
                 token = tkOTHER;
@@ -100994,11 +100964,11 @@ abort_parse:
               break;
             }
             case 't': case 'T': {
-              if( nId==7 && sqlite3StrNICmp(zSql, "trigger", 7)==0 ){
+              if nId==7 && zSql[:7] == "trigger" {
                 token = tkTRIGGER;
-              }else if( nId==4 && sqlite3StrNICmp(zSql, "temp", 4)==0 ){
+              }else if nId==4 && zSql[:4] == "temp" {
                 token = tkTEMP;
-              }else if( nId==9 && sqlite3StrNICmp(zSql, "temporary", 9)==0 ){
+              }else if nId==9 && zSql[:9] == "temporary" {
                 token = tkTEMP;
               }else{
                 token = tkOTHER;
@@ -101006,11 +100976,11 @@ abort_parse:
               break;
             }
             case 'e':  case 'E': {
-              if( nId==3 && sqlite3StrNICmp(zSql, "end", 3)==0 ){
+              if nId==3 && zSql[:3] == "end" {
                 token = tkEND;
               }else
 #ifndef SQLITE_OMIT_EXPLAIN
-              if( nId==7 && sqlite3StrNICmp(zSql, "explain", 7)==0 ){
+              if nId==7 && zSql[:7] == "explain" {
                 token = tkEXPLAIN;
               }else
 #endif
@@ -101208,18 +101178,12 @@ static int binCollFunc(
 **
 ** At the moment there is only a UTF-8 implementation.
 */
-static int nocaseCollatingFunc(
-  void *NotUsed,
-  int nKey1, const void *pKey1,
-  int nKey2, const void *pKey2
-){
-  int r = sqlite3StrNICmp(
-      (const char *)pKey1, (const char *)pKey2, (nKey1<nKey2)?nKey1:nKey2);
-  UNUSED_PARAMETER(NotUsed);
-  if( 0==r ){
-    r = nKey1-nKey2;
-  }
-  return r;
+func nocaseCollatingFunc(Key1, Key2 string) (r int) {
+	r := CaseInsensitiveComparison(pKey1, pKey2, (len(Key1) < len(Key2)) ? nKey1 : nKey2)
+	if r == 0 {
+		r = len(Key1) - len(Key2)
+	}
+	return
 }
 
 /*
@@ -102787,7 +102751,7 @@ static int openDatabase(
   assert( db->DefaultCollationSequence!=0 );
 
   /* Also add a UTF-8 case-insensitive collation sequence. */
-  db.createCollation("NOCASE", nil, nocaseCollatingFunc, nil)
+  db.createCollation("NOCASE", nocaseCollatingFunc, nil)
 
   /* Parse the filename/URI argument. */
   db->openFlags = flags;
@@ -103082,7 +103046,7 @@ int sqlite3_table_column_metadata(
   }else{
     for(iCol=0; iCol<pTab->nCol; iCol++){
       pCol = &pTab->aCol[iCol];
-      if( 0==sqlite3StrICmp(pCol->zName, zColumnName) ){
+      if CaseInsensitiveComparison(pCol.zName, zColumnName) == 0 {
         break;
       }
     }
@@ -103261,9 +103225,7 @@ error_out:
  Btree *sqlite3DbNameToBtree(sqlite3 *db, const char *zDbName){
   int i;
   for(i=0; i<db->nDb; i++){
-    if( db->aDb[i].pBt
-     && (zDbName==0 || sqlite3StrICmp(zDbName, db->aDb[i].zName)==0)
-    ){
+    if db.aDb[i].pBt && (zDbName==0 || CaseInsensitiveComparison(zDbName, db.aDb[i].zName) == 0) {
       return db->aDb[i].pBt;
     }
   }

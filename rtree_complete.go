@@ -879,7 +879,7 @@ func rtreeFilter(pVtabCursor *sqlite3_vtab_cursor, idxNum int, idxStr string, ar
 				rc = SQLITE_NOMEM
 			} else {
 				memset(pCsr.aConstraint, 0, sizeof(RtreeConstraint) * argc)
-				assert( (idxStr == 0 && argc == 0) || (idxStr && (int)strlen(idxStr) == argc * 2) )
+				assert( (idxStr == 0 && argc == 0) || (idxStr && (int)lenidxStr) == argc * 2) )
 				for i := 0; i < argc; i++ {
 					p = &pCsr.aConstraint[i]
 					p.op = idxStr[i * 2]

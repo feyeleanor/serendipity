@@ -3865,7 +3865,7 @@ typedef void (*sqlite3_destructor_type)(void*);
 **
 ** ^The name of the collation is a UTF-8 string
 ** for sqlite3_create_collation() and sqlite3_create_collation_v2().
-** ^Collation names that compare equal according to [sqlite3_strnicmp()] are
+** ^Collation names that compare equal according to CaseInsensitiveComparison() are
 ** considered to be the same name.
 **
 ** ^The third argument, pArg, is an application data pointer that is passed
@@ -6206,17 +6206,6 @@ typedef struct sqlite3_backup sqlite3_backup;
 
 
 /*
-** CAPI3REF: String Comparison
-**
-** ^The [sqlite3_stricmp()] and [sqlite3_strnicmp()] APIs allow applications
-** and extensions to compare the contents of two buffers containing UTF-8
-** strings in a case-independent fashion, using the same definition of "case
-** independence" that SQLite uses internally when comparing identifiers.
-*/
- int sqlite3_stricmp(const char *, const char *);
- int sqlite3_strnicmp(const char *, const char *, int);
-
-/*
 ** CAPI3REF: String Globbing
 *
 ** ^The [sqlite3_strglob(P,X)] interface returns zero if string X matches
@@ -6227,7 +6216,7 @@ typedef struct sqlite3_backup sqlite3_backup;
 ** sensitive.
 **
 ** Note that this routine returns zero on a match and non-zero if the strings
-** do not match, the same as [sqlite3_stricmp()] and [sqlite3_strnicmp()].
+** do not match, the same as CaseInsensitiveComparison().
 */
  int sqlite3_strglob(const char *zGlob, const char *zStr);
 

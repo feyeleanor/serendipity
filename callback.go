@@ -130,7 +130,7 @@ func (p *FuncDef) matchQuality(nArg int) (match int) {		/* nArg		Desired number 
 */
 func (functions *FuncDefHash) Search(h int, name string) *FuncDef {
 	for p := functions.a[h]; p != nil; p = p.pHash {
-		if sqlite3StrNICmp(p.zName, name) == 0 && len(p.zName) == 0 {
+		if CaseInsensitiveComparison(p.zName, name) == 0 && len(p.zName) == 0 {
 			return p
 		}
 	}
