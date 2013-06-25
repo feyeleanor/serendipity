@@ -4011,7 +4011,7 @@ static int fts3FindFunctionMethod(
   UNUSED_PARAMETER(ppArg);
 
   for(i=0; i<SizeofArray(aOverload); i++){
-    if( strcmp(zName, aOverload[i].zName)==0 ){
+    if zName == aOverload[i].zName {
       *pxFunc = aOverload[i].xFunc;
       return 1;
     }
@@ -15718,12 +15718,12 @@ static int fts3GetMatchinfo(
   /* If there is cached matchinfo() data, but the format string for the 
   ** cache does not match the format string for this request, discard 
   ** the cached data. */
-  if( pCsr->zMatchinfo && strcmp(pCsr->zMatchinfo, zArg) ){
-    assert( pCsr->aMatchinfo );
-    sqlite3_free(pCsr->aMatchinfo);
-    pCsr->zMatchinfo = 0;
-    pCsr->aMatchinfo = 0;
-  }
+	if pCsr.zMatchinfo && pCsr.zMatchinfo != zArg {
+		assert( pCsr.aMatchinfo != nil )
+		sqlite3_free(pCsr.aMatchinfo)
+		pCsr.zMatchinfo = ""
+		pCsr.aMatchinfo = nil
+	}
 
   /* If Fts3Cursor.aMatchinfo[] is NULL, then this is the first time the
   ** matchinfo function has been called for this query. In this case 
