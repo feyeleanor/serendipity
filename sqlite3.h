@@ -188,7 +188,7 @@
 ** pointer as an object.  The [sqlite3_open()] and
 ** [sqlite3_open_v2()] interfaces are its constructors, and [sqlite3_close()]
 ** and [sqlite3_close_v2()] are its destructors.  There are many other
-** interfaces (such as [sqlite3.Prepare_v2()], [sqlite3_create_function()], and
+** interfaces (such as [sqlite3.Prepare_v2()], [sqlite3.CreateFunction()], and
 ** [sqlite3_busy_timeout()] to name but three) that are methods on an
 ** sqlite3 object.
 */
@@ -903,7 +903,7 @@ typedef struct sqlite3_mutex sqlite3_mutex;
 **
 ** The pNext field is the only field in the sqlite3_vfs
 ** structure that SQLite will ever modify.  SQLite will only access
-** or modify this field while holding a particular static mutex.
+** or modify this field while holding a particular mutex.
 ** The application should never modify anything within the sqlite3_vfs
 ** object once the object has been registered.
 **
@@ -1191,7 +1191,7 @@ struct sqlite3_vfs {
 ** initialization of the SQLite library.  The sqlite3_os_end()
 ** routine undoes the effect of sqlite3_os_init().  Typical tasks
 ** performed by these routines include allocation or deallocation
-** of static resources, initialization of global variables,
+** of resources, initialization of global variables,
 ** setting up a default [sqlite3_vfs] module, or setting up
 ** a default configuration using [sqlite3_config()].
 **
@@ -1427,7 +1427,7 @@ struct sqlite3_mem_methods {
 ** </dd>
 **
 ** [[SQLITE_CONFIG_SCRATCH]] <dt>SQLITE_CONFIG_SCRATCH</dt>
-** <dd> ^This option specifies a static memory buffer that SQLite can use for
+** <dd> ^This option specifies a memory buffer that SQLite can use for
 ** scratch memory.  There are three arguments:  A pointer an 8-byte
 ** aligned memory buffer from which the scratch allocations will be
 ** drawn, the size of each scratch allocation (sz),
@@ -1443,7 +1443,7 @@ struct sqlite3_mem_methods {
 ** [sqlite3_malloc()] will be used to obtain the memory needed.</dd>
 **
 ** [[SQLITE_CONFIG_PAGECACHE]] <dt>SQLITE_CONFIG_PAGECACHE</dt>
-** <dd> ^This option specifies a static memory buffer that SQLite can use for
+** <dd> ^This option specifies a memory buffer that SQLite can use for
 ** the database page cache with the default page cache implementation.  
 ** This configuration should not be used if an application-define page
 ** cache implementation is loaded using the SQLITE_CONFIG_PCACHE2 option.
@@ -1464,7 +1464,7 @@ struct sqlite3_mem_methods {
 ** will be undefined.</dd>
 **
 ** [[SQLITE_CONFIG_HEAP]] <dt>SQLITE_CONFIG_HEAP</dt>
-** <dd> ^This option specifies a static memory buffer that SQLite will use
+** <dd> ^This option specifies a memory buffer that SQLite will use
 ** for all of its dynamic memory allocation needs beyond those provided
 ** for by [SQLITE_CONFIG_SCRATCH] and [SQLITE_CONFIG_PAGECACHE].
 ** There are three arguments: An 8-byte aligned pointer to the memory,
@@ -2325,7 +2325,7 @@ struct sqlite3_mem_methods {
  int sqlite3_set_authorizer(
   sqlite3*,
   int (*xAuth)(void*,int,const char*,const char*,const char*,const char*),
-  void *pUserData
+  void *UserData
 );
 
 /*
@@ -3588,97 +3588,6 @@ typedef struct sqlite3_context sqlite3_context;
 
 
 /*
-** CAPI3REF: Create Or Redefine SQL Functions
-** KEYWORDS: {function creation routines}
-** KEYWORDS: {application-defined SQL function}
-** KEYWORDS: {application-defined SQL functions}
-**
-** ^These functions (collectively known as "function creation routines")
-** are used to add SQL functions or aggregates or to redefine the behavior
-** of existing SQL functions or aggregates.  The only differences between
-** these routines are the text encoding expected for
-** the second parameter (the name of the function being created)
-** and the presence or absence of a destructor callback for
-** the application data pointer.
-**
-** ^The first parameter is the [database connection] to which the SQL
-** function is to be added.  ^If an application uses more than one database
-** connection then application-defined SQL functions must be added
-** to each database connection separately.
-**
-** ^The second parameter is the name of the SQL function to be created or
-** redefined.  ^The length of the name is limited to 255 bytes in a UTF-8
-** representation, exclusive of the zero-terminator.  ^Note that the name
-** length limit is in UTF-8 bytes, not characters.
-** ^Any attempt to create a function with a longer name
-** will result in [SQLITE_MISUSE] being returned.
-**
-** ^The third parameter (nArg)
-** is the number of arguments that the SQL function or
-** aggregate takes. ^If this parameter is -1, then the SQL function or
-** aggregate may take any number of arguments between 0 and the limit
-** set by [sqlite3_limit]([SQLITE_LIMIT_FUNCTION_ARG]).  If the third
-** parameter is less than -1 or greater than 127 then the behavior is
-** undefined.
-**
-** ^(The fourth parameter is an arbitrary pointer.  The implementation of the
-** function can gain access to this pointer using [sqlite3_user_data()].)^
-**
-** ^The fifth, sixth and seventh parameters, xFunc, xStep and xFinal, are
-** pointers to C-language functions that implement the SQL function or
-** aggregate. ^A scalar SQL function requires an implementation of the xFunc
-** callback only; NULL pointers must be passed as the xStep and xFinal
-** parameters. ^An aggregate SQL function requires an implementation of xStep
-** and xFinal and NULL pointer must be passed for xFunc. ^To delete an existing
-** SQL function or aggregate, pass NULL pointers for all three function
-** callbacks.
-**
-** ^(If the eighth parameter to sqlite3_create_function_v2() is not NULL,
-** then it is destructor for the application data pointer. 
-** The destructor is invoked when the function is deleted, either by being
-** overloaded or when the database connection closes.)^
-** ^The destructor is also invoked if the call to
-** sqlite3_create_function_v2() fails.
-** ^When the destructor callback of the tenth parameter is invoked, it
-** is passed a single argument which is a copy of the application data 
-** pointer which was the fifth parameter to sqlite3_create_function_v2().
-**
-** ^It is permitted to register multiple implementations of the same
-** functions with the same name but with either differing numbers of
-** arguments.  ^SQLite will use
-** the implementation that most closely matches the way in which the
-** SQL function is used.  ^A function implementation with a non-negative
-** nArg parameter is a better match than a function implementation with
-** a negative nArg.
-**
-** ^Built-in functions may be overloaded by new application-defined functions.
-**
-** ^An application-defined function is permitted to call other
-** SQLite interfaces.  However, such calls must not
-** close the database connection nor finalize or reset the prepared
-** statement in which the function is running.
-*/
- int sqlite3_create_function(
-  sqlite3 *db,
-  const char *zFunctionName,
-  int nArg,
-  void *pApp,
-  void (*xFunc)(sqlite3_context*,int,sqlite3_value**),
-  void (*xStep)(sqlite3_context*,int,sqlite3_value**),
-  void (*xFinal)(sqlite3_context*)
-);
- int sqlite3_create_function_v2(
-  sqlite3 *db,
-  const char *zFunctionName,
-  int nArg,
-  void *pApp,
-  void (*xFunc)(sqlite3_context*,int,sqlite3_value**),
-  void (*xStep)(sqlite3_context*,int,sqlite3_value**),
-  void (*xFinal)(sqlite3_context*),
-  void(*xDestroy)(void*)
-);
-
-/*
 ** CAPI3REF: Obtaining SQL Function Parameter Values
 **
 ** The C-language implementation of SQL functions and aggregates uses
@@ -3686,7 +3595,7 @@ typedef struct sqlite3_context sqlite3_context;
 ** the function or aggregate.
 **
 ** The xFunc (for scalar functions) or xStep (for aggregates) parameters
-** to [sqlite3_create_function()] define callbacks that implement the SQL functions and aggregates.
+** to [sqlite3.CreateFunction()] define callbacks that implement the SQL functions and aggregates.
 ** The 3rd parameter to these callbacks is an array of pointers to
 ** [protected sqlite3_value] objects.  There is one [sqlite3_value] object for
 ** each parameter to the SQL function.  These routines are used to
@@ -3771,8 +3680,8 @@ typedef struct sqlite3_context sqlite3_context;
 ** CAPI3REF: User Data For Functions
 **
 ** ^The sqlite3_user_data() interface returns a copy of
-** the pointer that was the pUserData parameter (the 5th parameter)
-** of the [sqlite3_create_function()] routine that originally
+** the pointer that was the UserData parameter (the 5th parameter)
+** of the [sqlite3.CreateFunction()] routine that originally
 ** registered the application defined function.
 **
 ** This routine must be called from the same thread in which
@@ -3785,7 +3694,7 @@ typedef struct sqlite3_context sqlite3_context;
 **
 ** ^The sqlite3_context_db_handle() interface returns a copy of
 ** the pointer to the [database connection] (the 1st parameter)
-** of the [sqlite3_create_function()] routine that originally
+** of the [sqlite3.CreateFunction()] routine that originally
 ** registered the application defined function.
 */
  sqlite3 *sqlite3_context_db_handle(sqlite3_context*);
@@ -5094,9 +5003,9 @@ typedef struct sqlite3_blob sqlite3_blob;
 **
 ** ^The other allowed parameters to sqlite3_mutex_alloc() (anything other
 ** than SQLITE_MUTEX_FAST and SQLITE_MUTEX_RECURSIVE) each return
-** a pointer to a static preexisting mutex.  ^Six static mutexes are
+** a pointer to a preexisting mutex.  ^Six mutexes are
 ** used by the current version of SQLite.  Future versions of SQLite
-** may add additional static mutexes.  Static mutexes are for internal
+** may add additional mutexes.  Static mutexes are for internal
 ** use by SQLite only.  Applications that use SQLite mutexes should
 ** use only the dynamic mutexes returned by SQLITE_MUTEX_FAST or
 ** SQLITE_MUTEX_RECURSIVE.
@@ -5112,7 +5021,7 @@ typedef struct sqlite3_blob sqlite3_blob;
 ** dynamic mutex that it allocates.  The dynamic mutexes must not be in
 ** use when they are deallocated.  Attempting to deallocate a static
 ** mutex results in undefined behavior.  ^SQLite never deallocates
-** a static mutex.
+** a mutex.
 **
 ** ^The sqlite3_mutex_enter() and sqlite3_mutex_try() routines attempt
 ** to enter a mutex.  ^If another thread is already within the mutex,
@@ -5207,7 +5116,7 @@ typedef struct sqlite3_blob sqlite3_blob;
 **
 ** ^xMutexInit() must not use SQLite memory allocation ([sqlite3_malloc()]
 ** and its associates).  ^Similarly, xMutexAlloc() must not use SQLite memory
-** allocation for a static mutex.  ^However xMutexAlloc() may use SQLite
+** allocation for a mutex.  ^However xMutexAlloc() may use SQLite
 ** memory allocation for a fast or recursive mutex.
 **
 ** ^SQLite will invoke the xMutexEnd() method when [sqlite3_shutdown()] is
@@ -5268,9 +5177,9 @@ struct sqlite3_mutex_methods {
 ** The [sqlite3_mutex_alloc()] interface takes a single argument
 ** which is one of these integer constants.
 **
-** The set of static mutexes may change from one SQLite release to the
+** The set of mutexes may change from one SQLite release to the
 ** next.  Applications that override the built-in mutex logic must be
-** prepared to accommodate additional static mutexes.
+** prepared to accommodate additional mutexes.
 */
 #define SQLITE_MUTEX_FAST             0
 #define SQLITE_MUTEX_RECURSIVE        1

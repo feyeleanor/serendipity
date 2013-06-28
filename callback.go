@@ -73,57 +73,6 @@ func (db *sqlite3) FindCollationSequence(name string, create bool) (sequence *Co
 	return
 }
 
-/* During the search for the best function definition, this procedure
-** is called to test how well the function passed as the first argument
-** matches the request for a function with nArg arguments. The value returned indicates how well the
-** request is matched. A higher value indicates a better match.
-**
-** If nArg is -1 that means to only return a match (non-zero) if p->nArg
-** is also -1.  In other words, we are searching for a function that
-** takes a variable number of arguments.
-**
-** If nArg is -2 that means that we are searching for any function 
-** regardless of the number of arguments it uses, so return a positive
-** match score for any
-**
-** The returned value is always between 0 and 6, as follows:
-**
-** 0: Not a match.
-** 1: function takes any number of arguments
-** 2: argument count match exactly.
-**
-** If nArg==(-2) then any function with a non-null xStep or xFunc is
-** a perfect match and any function with both xStep and xFunc NULL is
-** a non-match.
-*/
-const (
-	FUNC_NO_MATCH		= 0
-	FUNC_PERFECT_MATCH  = 2
-)
-func (p *FuncDef) matchQuality(nArg int) (match int) {		/* nArg		Desired number of arguments.  -1 == any */
-	/* nArg of -2 is a special case */
-	if nArg == -2 {
-		if p.xFunc == nil && p.xStep == nil {
-			return FUNC_NO_MATCH
-		} else {
-			return FUNC_PERFECT_MATCH
-		}
-	}
-
-	if p.nArg != nArg && p.nArg >= 0 {
-		return FUNC_NO_MATCH
-	}
-
-	/* Give a better score to a function with a specific number of arguments
-	** than to function that accepts any number of arguments. */
-	if p.nArg == nArg {
-		match = 2
-	} else {
-		match = 1
-	}
-	return
-}
-
 /*
 ** Search a FuncDefHash for a function with the given name.  Return
 ** a pointer to the matching FuncDef if found, or 0 if there is no match.
@@ -189,7 +138,7 @@ func (db *sqlite3) FindFunction(name string, args int, createFlag bool) (best_ma
 
 	//	First search for a match amongst the application-defined functions.
 	for p := db.aFunc.Search(db.aFunc, h, name); p != nil; p = p.pNext {
-		if score := p.matchQuality(args); score > bestScore {
+		if score := p.MatchQuality(args); score > bestScore {
 			best_match = p
 			bestScore = score
 		}
@@ -208,10 +157,10 @@ func (db *sqlite3) FindFunction(name string, args int, createFlag bool) (best_ma
 	** So we must not search for built-ins when creating a new function.
 	*/ 
 	if !createFlag && (pBest == nil || (db.flags & SQLITE_PreferBuiltin) != 0) {
-		FuncDefHash *pHash = &GLOBAL(FuncDefHash, sqlite3GlobalFunctions)
+		pHash := sqlite3GlobalFunctions
 		bestScore = 0
 		for p := pHash.Search(pHash, h, name); p != nil; p=p.pNext {
-			if score := p.matchQuality(args); score > bestScore {
+			if score := p.MatchQuality(args); score > bestScore {
 				best_match = p
 				bestScore = score
 			}

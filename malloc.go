@@ -60,12 +60,12 @@ func sqlite3Malloc(int n) (p []byte) {
 		//	255 bytes of overhead.  SQLite itself will never use anything near
 		//	this amount.  The only way to reach the limit is with sqlite3_malloc()
 		p = nil
-	} else if sqlite3GlobalConfig.bMemstat {
+	} else if sqlite3Config.bMemstat {
 		sqlite3_mutex_enter(mem0.mutex)
 		mallocWithAlarm(n, &p)
 		sqlite3_mutex_leave(mem0.mutex)
 	} else {
-		p = sqlite3GlobalConfig.m.xMalloc(n)
+		p = sqlite3Config.m.xMalloc(n)
 	}
 	assert( EIGHT_BYTE_ALIGNMENT(p) )		//	IMP: R-04675-44850
 	return
@@ -108,7 +108,7 @@ func sqlite3MallocAlarm(int nByte) {
 func mallocWithAlarm(int n, void **pp) (nFull int) {
 	void *p;
 	assert( sqlite3_mutex_held(mem0.mutex) );
-	nFull = sqlite3GlobalConfig.m.xRoundup(n);
+	nFull = sqlite3Config.m.xRoundup(n);
 	sqlite3StatusSet(SQLITE_STATUS_MALLOC_SIZE, n);
 	if mem0.alarmCallback != 0 {
 		int nUsed = sqlite3StatusValue(SQLITE_STATUS_MEMORY_USED);
@@ -119,11 +119,11 @@ func mallocWithAlarm(int n, void **pp) (nFull int) {
 			mem0.nearlyFull = 0;
 		}
 	}
-	p = sqlite3GlobalConfig.m.xMalloc(nFull);
+	p = sqlite3Config.m.xMalloc(nFull);
 #ifdef SQLITE_ENABLE_MEMORY_MANAGEMENT
 	if( p==0 && mem0.alarmCallback ){
 		sqlite3MallocAlarm(nFull);
-		p = sqlite3GlobalConfig.m.xMalloc(nFull);
+		p = sqlite3Config.m.xMalloc(nFull);
 	}
 #endif
 	if p != nil {
@@ -139,7 +139,7 @@ func mallocWithAlarm(int n, void **pp) (nFull int) {
 //	Each thread may only have a single outstanding allocation from xScratchMalloc().  We verify this constraint in the single-threaded
 //	case by setting scratchAllocOut to 1 when an allocation is outstanding clearing it when the allocation is freed.
 #if SQLITE_THREADSAFE==0 && !defined(NDEBUG)
-static int scratchAllocOut = 0;
+int scratchAllocOut = 0;
 #endif
 
 
@@ -151,7 +151,7 @@ func sqlite3ScratchMalloc(int n) (p []byte) {
 	assert( n>0 );
 
 	sqlite3_mutex_enter(mem0.mutex);
-	if mem0.nScratchFree && sqlite3GlobalConfig.szScratch>=n {
+	if mem0.nScratchFree && sqlite3Config.szScratch>=n {
 		p = mem0.pScratchFree;
 		mem0.pScratchFree = mem0.pScratchFree->pNext;
 		mem0.nScratchFree--;
@@ -159,14 +159,14 @@ func sqlite3ScratchMalloc(int n) (p []byte) {
 		sqlite3StatusSet(SQLITE_STATUS_SCRATCH_SIZE, n);
 		sqlite3_mutex_leave(mem0.mutex);
 	} else {
-		if( sqlite3GlobalConfig.bMemstat ){
+		if( sqlite3Config.bMemstat ){
 			sqlite3StatusSet(SQLITE_STATUS_SCRATCH_SIZE, n);
 			n = mallocWithAlarm(n, &p);
 			if( p ) sqlite3StatusAdd(SQLITE_STATUS_SCRATCH_OVERFLOW, n);
 			sqlite3_mutex_leave(mem0.mutex);
 		} else {
 			sqlite3_mutex_leave(mem0.mutex);
-			p = sqlite3GlobalConfig.m.xMalloc(n);
+			p = sqlite3Config.m.xMalloc(n);
 		}
 		sqlite3MemdebugSetType(p, MEMTYPE_SCRATCH);
 	}
@@ -191,7 +191,7 @@ func sqlite3ScratchFree(void *p) {
 		scratchAllocOut--;
 #endif
 
-		if p >= sqlite3GlobalConfig.pScratch && p < mem0.pScratchEnd {
+		if p >= sqlite3Config.pScratch && p < mem0.pScratchEnd {
 			//	Release memory from the SQLITE_CONFIG_SCRATCH allocation
 			ScratchFreeslot *pSlot;
 			pSlot = (ScratchFreeslot*)p;
@@ -199,7 +199,7 @@ func sqlite3ScratchFree(void *p) {
 			pSlot->pNext = mem0.pScratchFree;
 			mem0.pScratchFree = pSlot;
 			mem0.nScratchFree++;
-			assert( mem0.nScratchFree <= (u32)sqlite3GlobalConfig.nScratch );
+			assert( mem0.nScratchFree <= (u32)sqlite3Config.nScratch );
 			sqlite3StatusAdd(SQLITE_STATUS_SCRATCH_USED, -1);
 			sqlite3_mutex_leave(mem0.mutex);
 		} else {
@@ -207,16 +207,16 @@ func sqlite3ScratchFree(void *p) {
 			assert( sqlite3MemdebugHasType(p, MEMTYPE_SCRATCH) );
 			assert( sqlite3MemdebugNoType(p, ~MEMTYPE_SCRATCH) );
 			sqlite3MemdebugSetType(p, MEMTYPE_HEAP);
-			if sqlite3GlobalConfig.bMemstat {
+			if sqlite3Config.bMemstat {
 				int iSize = sqlite3MallocSize(p);
 				sqlite3_mutex_enter(mem0.mutex);
 				sqlite3StatusAdd(SQLITE_STATUS_SCRATCH_OVERFLOW, -iSize);
 				sqlite3StatusAdd(SQLITE_STATUS_MEMORY_USED, -iSize);
 				sqlite3StatusAdd(SQLITE_STATUS_MALLOC_COUNT, -1);
-				sqlite3GlobalConfig.m.xFree(p);
+				sqlite3Config.m.xFree(p);
 				sqlite3_mutex_leave(mem0.mutex);
 			} else {
-				sqlite3GlobalConfig.m.xFree(p);
+				sqlite3Config.m.xFree(p);
 			}
 		}
 	}

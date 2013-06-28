@@ -22,17 +22,11 @@ package serendipity
 //		*	Recursive calls to this routine from thread X return immediately without blocking.
 
 func sqlite3_initialize() (rc int) {
-	MUTEX_LOGIC( sqlite3_mutex *pMaster; )       /* The main static mutex */
-
-#ifdef SQLITE_OMIT_WSD
-	if rc = sqlite3_wsd_init(4096, 24); rc != SQLITE_OK {
-		return rc
-	}
-#endif
+	MUTEX_LOGIC( sqlite3_mutex *pMaster; )       /* The main mutex */
 
 	//	If SQLite is already completely initialized, then this call to sqlite3_initialize() should be a no-op.  But the initialization
 	//	must be complete.  So isInit must not be set until the very end of this routine.
-	if sqlite3GlobalConfig.isInit {
+	if sqlite3Config.isInit {
 		return SQLITE_OK
 	}
 
@@ -50,25 +44,25 @@ func sqlite3_initialize() (rc int) {
 	}
 
 	//	Initialize the malloc() system and the recursive pInitMutex mutex.
-	//	This operation is protected by the STATIC_MASTER mutex.  Note that MutexAlloc() is called for a static mutex prior to initializing the
-	//	malloc subsystem - this implies that the allocation of a static mutex must not require support from the malloc subsystem.
+	//	This operation is protected by the STATIC_MASTER mutex.  Note that MutexAlloc() is called for a mutex prior to initializing the
+	//	malloc subsystem - this implies that the allocation of a mutex must not require support from the malloc subsystem.
 	MUTEX_LOGIC( pMaster = sqlite3MutexAlloc(SQLITE_MUTEX_STATIC_MASTER); )
 	sqlite3_mutex_enter(pMaster)
-	sqlite3GlobalConfig.isMutexInit = 1
-	if !sqlite3GlobalConfig.isMallocInit {
+	sqlite3Config.isMutexInit = 1
+	if !sqlite3Config.isMallocInit {
 		rc = sqlite3MallocInit()
 	}
 	if rc == SQLITE_OK {
-		sqlite3GlobalConfig.isMallocInit = 1
-		if !sqlite3GlobalConfig.pInitMutex {
-			sqlite3GlobalConfig.pInitMutex = sqlite3MutexAlloc(SQLITE_MUTEX_RECURSIVE)
-			if sqlite3GlobalConfig.bCoreMutex && !sqlite3GlobalConfig.pInitMutex {
+		sqlite3Config.isMallocInit = 1
+		if !sqlite3Config.pInitMutex {
+			sqlite3Config.pInitMutex = sqlite3MutexAlloc(SQLITE_MUTEX_RECURSIVE)
+			if sqlite3Config.bCoreMutex && !sqlite3Config.pInitMutex {
 				rc = SQLITE_NOMEM
 			}
 		}
 	}
 	if rc == SQLITE_OK {
-		sqlite3GlobalConfig.nRefInitMutex++
+		sqlite3Config.nRefInitMutex++
 	}
 	sqlite3_mutex_leave(pMaster)
 
@@ -87,34 +81,34 @@ func sqlite3_initialize() (rc int) {
 	//	The following mutex is what serializes access to the appdef pcache xInit methods.  The sqlite3_pcache_methods.xInit() all is embedded in the
 	//	call to sqlite3PcacheInitialize().
 
-	sqlite3_mutex_enter(sqlite3GlobalConfig.pInitMutex)
-	if sqlite3GlobalConfig.isInit == 0 && sqlite3GlobalConfig.inProgress == 0 {
-		FuncDefHash *pHash = &GLOBAL(FuncDefHash, sqlite3GlobalFunctions)
-		sqlite3GlobalConfig.inProgress = 1
+	sqlite3_mutex_enter(sqlite3Config.pInitMutex)
+	if sqlite3Config.isInit == 0 && sqlite3Config.inProgress == 0 {
+		pHash := sqlite3GlobalFunctions
+		sqlite3Config.inProgress = 1
 		memset(pHash, 0, sizeof(sqlite3GlobalFunctions))
 		sqlite3RegisterGlobalFunctions();
-		if sqlite3GlobalConfig.isPCacheInit == 0 {
+		if sqlite3Config.isPCacheInit == 0 {
 			rc = sqlite3PcacheInitialize()
 		}
 		if rc == SQLITE_OK {
-			sqlite3GlobalConfig.isPCacheInit = 1
+			sqlite3Config.isPCacheInit = 1
 			rc = sqlite3OsInit()
 		}
 		if rc == SQLITE_OK {
-			sqlite3PCacheBufferSetup(sqlite3GlobalConfig.pPage, sqlite3GlobalConfig.szPage, sqlite3GlobalConfig.nPage)
-			sqlite3GlobalConfig.isInit = 1
+			sqlite3PCacheBufferSetup(sqlite3Config.pPage, sqlite3Config.szPage, sqlite3Config.nPage)
+			sqlite3Config.isInit = 1
 		}
-		sqlite3GlobalConfig.inProgress = 0
+		sqlite3Config.inProgress = 0
 	}
-	sqlite3_mutex_leave(sqlite3GlobalConfig.pInitMutex)
+	sqlite3_mutex_leave(sqlite3Config.pInitMutex)
 
-	//	Go back under the static mutex and clean up the recursive mutex to prevent a resource leak.
+	//	Go back under the mutex and clean up the recursive mutex to prevent a resource leak.
 	sqlite3_mutex_enter(pMaster)
-	sqlite3GlobalConfig.nRefInitMutex--
-	if sqlite3GlobalConfig.nRefInitMutex <= 0 {
-		assert( sqlite3GlobalConfig.nRefInitMutex == 0 )
-		sqlite3_mutex_free(sqlite3GlobalConfig.pInitMutex)
-		sqlite3GlobalConfig.pInitMutex = 0
+	sqlite3Config.nRefInitMutex--
+	if sqlite3Config.nRefInitMutex <= 0 {
+		assert( sqlite3Config.nRefInitMutex == 0 )
+		sqlite3_mutex_free(sqlite3Config.pInitMutex)
+		sqlite3Config.pInitMutex = 0
 	}
 	sqlite3_mutex_leave(pMaster)
 
@@ -134,7 +128,7 @@ func sqlite3_initialize() (rc int) {
 
 	//	Do extra initialization steps requested by the SQLITE_EXTRA_INIT compile-time option.
 #ifdef SQLITE_EXTRA_INIT
-	if rc == SQLITE_OK && sqlite3GlobalConfig.isInit {
+	if rc == SQLITE_OK && sqlite3Config.isInit {
 		int SQLITE_EXTRA_INIT(const char*)
 		rc = SQLITE_EXTRA_INIT(0)
 	}
@@ -148,22 +142,22 @@ func sqlite3_initialize() (rc int) {
 //	on when SQLite is already shut down.  If SQLite is already shut down when this routine is invoked, then this routine is a harmless no-op.
 
 func sqlite3_shutdown() int {
-	if sqlite3GlobalConfig.isInit {
+	if sqlite3Config.isInit {
 #ifdef SQLITE_EXTRA_SHUTDOWN
 		void SQLITE_EXTRA_SHUTDOWN(void)
 		SQLITE_EXTRA_SHUTDOWN()
 #endif
 		sqlite3_os_end()
 		sqlite3_reset_auto_extension()
-		sqlite3GlobalConfig.isInit = 0
+		sqlite3Config.isInit = 0
 	}
-	if sqlite3GlobalConfig.isPCacheInit {
+	if sqlite3Config.isPCacheInit {
 		sqlite3PcacheShutdown()
-		sqlite3GlobalConfig.isPCacheInit = 0
+		sqlite3Config.isPCacheInit = 0
 	}
-	if sqlite3GlobalConfig.isMallocInit {
+	if sqlite3Config.isMallocInit {
 		sqlite3MallocEnd()
-		sqlite3GlobalConfig.isMallocInit = 0
+		sqlite3Config.isMallocInit = 0
 
 #ifndef SQLITE_OMIT_SHUTDOWN_DIRECTORIES
 		//	The heap subsystem has now been shutdown and these values are supposed to be NULL or point to memory that was obtained from sqlite3_malloc(),
@@ -173,9 +167,9 @@ func sqlite3_shutdown() int {
 		sqlite3_temp_directory = 0
 #endif
 	}
-	if sqlite3GlobalConfig.isMutexInit {
+	if sqlite3Config.isMutexInit {
 		sqlite3MutexEnd()
-		sqlite3GlobalConfig.isMutexInit = 0
+		sqlite3Config.isMutexInit = 0
 	}
 	return SQLITE_OK
 }
@@ -189,7 +183,7 @@ func sqlite3_config(op int, ap ...interface{}) (rc int) {
 	rc = SQLITE_OK
 
 	//	sqlite3_config() shall return SQLITE_MISUSE if it is invoked while the SQLite library is in use.
-	if sqlite3GlobalConfig.isInit {
+	if sqlite3Config.isInit {
 		return SQLITE_MISUSE_BKPT
 	}
 
@@ -199,45 +193,45 @@ func sqlite3_config(op int, ap ...interface{}) (rc int) {
 #if defined(SQLITE_THREADSAFE) && SQLITE_THREADSAFE > 0
 	case SQLITE_CONFIG_SINGLETHREAD:
 		//	Disable all mutexing
-		sqlite3GlobalConfig.bCoreMutex = 0
-		sqlite3GlobalConfig.bFullMutex = 0
+		sqlite3Config.bCoreMutex = 0
+		sqlite3Config.bFullMutex = 0
 	case SQLITE_CONFIG_MULTITHREAD:
 		//	Disable mutexing of database connections, enable mutexing of core data structures
-		sqlite3GlobalConfig.bCoreMutex = 1
-		sqlite3GlobalConfig.bFullMutex = 0
+		sqlite3Config.bCoreMutex = 1
+		sqlite3Config.bFullMutex = 0
 	case SQLITE_CONFIG_SERIALIZED:
 		//	Enable all mutexing
-		sqlite3GlobalConfig.bCoreMutex = 1
-		sqlite3GlobalConfig.bFullMutex = 1
+		sqlite3Config.bCoreMutex = 1
+		sqlite3Config.bFullMutex = 1
 	case SQLITE_CONFIG_MUTEX:
 		//	Specify an alternative mutex implementation
-		sqlite3GlobalConfig.mutex = *va_arg(ap, sqlite3_mutex_methods*)
+		sqlite3Config.mutex = *va_arg(ap, sqlite3_mutex_methods*)
 	case SQLITE_CONFIG_GETMUTEX:
 		//	Retrieve the current mutex implementation
-		*va_arg(ap, sqlite3_mutex_methods*) = sqlite3GlobalConfig.mutex
+		*va_arg(ap, sqlite3_mutex_methods*) = sqlite3Config.mutex
 #endif
 	case SQLITE_CONFIG_MALLOC:
 		//	Specify an alternative malloc implementation
-		sqlite3GlobalConfig.m = *va_arg(ap, sqlite3_mem_methods*)
+		sqlite3Config.m = *va_arg(ap, sqlite3_mem_methods*)
 	case SQLITE_CONFIG_GETMALLOC:
 		//	Retrieve the current malloc() implementation
-		if sqlite3GlobalConfig.m.xMalloc == 0 {
+		if sqlite3Config.m.xMalloc == 0 {
 			sqlite3MemSetDefault()
 		}
-		*va_arg(ap, sqlite3_mem_methods*) = sqlite3GlobalConfig.m
+		*va_arg(ap, sqlite3_mem_methods*) = sqlite3Config.m
 	case SQLITE_CONFIG_MEMSTATUS:
 		//	Enable or disable the malloc status collection
-		sqlite3GlobalConfig.bMemstat = va_arg(ap, int)
+		sqlite3Config.bMemstat = va_arg(ap, int)
 	case SQLITE_CONFIG_SCRATCH:
 		//	Designate a buffer for scratch memory space
-		sqlite3GlobalConfig.pScratch = va_arg(ap, void*)
-		sqlite3GlobalConfig.szScratch = va_arg(ap, int)
-		sqlite3GlobalConfig.nScratch = va_arg(ap, int)
+		sqlite3Config.pScratch = va_arg(ap, void*)
+		sqlite3Config.szScratch = va_arg(ap, int)
+		sqlite3Config.nScratch = va_arg(ap, int)
 	case SQLITE_CONFIG_PAGECACHE:
 		//	Designate a buffer for page cache memory space
-		sqlite3GlobalConfig.pPage = va_arg(ap, void*)
-		sqlite3GlobalConfig.szPage = va_arg(ap, int)
-		sqlite3GlobalConfig.nPage = va_arg(ap, int)
+		sqlite3Config.pPage = va_arg(ap, void*)
+		sqlite3Config.szPage = va_arg(ap, int)
+		sqlite3Config.nPage = va_arg(ap, int)
 	case SQLITE_CONFIG_PCACHE:
 		//	no-op
 	case SQLITE_CONFIG_GETPCACHE:
@@ -245,36 +239,36 @@ func sqlite3_config(op int, ap ...interface{}) (rc int) {
 		rc = SQLITE_ERROR
 	case SQLITE_CONFIG_PCACHE2:
 		//	Specify an alternative page cache implementation
-		sqlite3GlobalConfig.pcache2 = *va_arg(ap, sqlite3_pcache_methods2*)
+		sqlite3Config.pcache2 = *va_arg(ap, sqlite3_pcache_methods2*)
 	case SQLITE_CONFIG_GETPCACHE2:
-		if sqlite3GlobalConfig.pcache2.xInit == 0 {
+		if sqlite3Config.pcache2.xInit == 0 {
 			sqlite3PCacheSetDefault()
 		}
-		*va_arg(ap, sqlite3_pcache_methods2*) = sqlite3GlobalConfig.pcache2
+		*va_arg(ap, sqlite3_pcache_methods2*) = sqlite3Config.pcache2
 #if defined(SQLITE_ENABLE_MEMSYS3) || defined(SQLITE_ENABLE_MEMSYS5)
 	case SQLITE_CONFIG_HEAP:
 		//	Designate a buffer for heap memory space
-		sqlite3GlobalConfig.pHeap = va_arg(ap, void*)
-		sqlite3GlobalConfig.nHeap = va_arg(ap, int)
-		sqlite3GlobalConfig.mnReq = va_arg(ap, int)
-		if sqlite3GlobalConfig.mnReq < 1 {
-			sqlite3GlobalConfig.mnReq = 1
-		} else if sqlite3GlobalConfig.mnReq > (1 << 12) {
+		sqlite3Config.pHeap = va_arg(ap, void*)
+		sqlite3Config.nHeap = va_arg(ap, int)
+		sqlite3Config.mnReq = va_arg(ap, int)
+		if sqlite3Config.mnReq < 1 {
+			sqlite3Config.mnReq = 1
+		} else if sqlite3Config.mnReq > (1 << 12) {
 			//	cap min request size at 2^12
-			sqlite3GlobalConfig.mnReq = 1 << 12
+			sqlite3Config.mnReq = 1 << 12
 		}
-		if sqlite3GlobalConfig.pHeap == 0 {
+		if sqlite3Config.pHeap == 0 {
 			//	If the heap pointer is NULL, then restore the malloc implementation back to NULL pointers too.  This will cause the malloc to go
 			//	back to its default implementation when sqlite3_initialize() is run.
-			memset(&sqlite3GlobalConfig.m, 0, sizeof(sqlite3GlobalConfig.m))
+			memset(&sqlite3Config.m, 0, sizeof(sqlite3Config.m))
 		} else {
 			//	The heap pointer is not NULL, then install one of the mem5.c/mem3.c methods. If neither ENABLE_MEMSYS3 nor
 			//	ENABLE_MEMSYS5 is defined, return an error.
 #ifdef SQLITE_ENABLE_MEMSYS3
-			sqlite3GlobalConfig.m = *sqlite3MemGetMemsys3()
+			sqlite3Config.m = *sqlite3MemGetMemsys3()
 #endif
 #ifdef SQLITE_ENABLE_MEMSYS5
-			sqlite3GlobalConfig.m = *sqlite3MemGetMemsys5()
+			sqlite3Config.m = *sqlite3MemGetMemsys5()
 #endif
 		}
 #endif
@@ -282,19 +276,19 @@ func sqlite3_config(op int, ap ...interface{}) (rc int) {
 	case SQLITE_CONFIG_LOG:
 		//	MSVC is picky about pulling func ptrs from va lists.
 		//	http://support.microsoft.com/kb/47961
-		//	sqlite3GlobalConfig.xLog = va_arg(ap, void(*)(void*,int,const char*))
+		//	sqlite3Config.xLog = va_arg(ap, void(*)(void*,int,const char*))
 		typedef void(*LOGFUNC_t)(void*,int,const char*)
-		sqlite3GlobalConfig.xLog = va_arg(ap, LOGFUNC_t)
-		sqlite3GlobalConfig.pLogArg = va_arg(ap, void*)
+		sqlite3Config.xLog = va_arg(ap, LOGFUNC_t)
+		sqlite3Config.pLogArg = va_arg(ap, void*)
 	case SQLITE_CONFIG_URI:
-		sqlite3GlobalConfig.bOpenUri = va_arg(ap, int)
+		sqlite3Config.bOpenUri = va_arg(ap, int)
 	case SQLITE_CONFIG_COVERING_INDEX_SCAN:
-		sqlite3GlobalConfig.bUseCis = va_arg(ap, int)
+		sqlite3Config.bUseCis = va_arg(ap, int)
 #ifdef SQLITE_ENABLE_SQLLOG
 	case SQLITE_CONFIG_SQLLOG:
 		typedef void(*SQLLOGFUNC_t)(void*, sqlite3*, const char*, int)
-		sqlite3GlobalConfig.xSqllog = va_arg(ap, SQLLOGFUNC_t)
-		sqlite3GlobalConfig.pSqllogArg = va_arg(ap, void *)
+		sqlite3Config.xSqllog = va_arg(ap, SQLLOGFUNC_t)
+		sqlite3Config.pSqllogArg = va_arg(ap, void *)
 #endif
 	case SQLITE_CONFIG_MMAP_SIZE:
 		sqlite3_int64 szMmap = va_arg(ap, sqlite3_int64)
@@ -302,14 +296,14 @@ func sqlite3_config(op int, ap ...interface{}) (rc int) {
 		if mxMmap < 0 || mxMmap > SQLITE_MAX_MMAP_SIZE {
 			mxMmap = SQLITE_MAX_MMAP_SIZE
 		}
-		sqlite3GlobalConfig.mxMmap = mxMmap
+		sqlite3Config.mxMmap = mxMmap
 		if szMmap < 0 {
 			szMmap = SQLITE_DEFAULT_MMAP_SIZE
 		}
 		if szMmap > mxMmap {
 			szMmap = mxMmap
 		}
-		sqlite3GlobalConfig.szMmap = szMmap
+		sqlite3Config.szMmap = szMmap
     default:
 		rc = SQLITE_ERROR
 	}

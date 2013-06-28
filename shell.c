@@ -22,7 +22,7 @@
 
 
 /* True if the timer is enabled */
-static int enableTimer = 0;
+int enableTimer = 0;
 
 /* ctype macros that work with signed characters */
 #define IsSpace(X)  isspace((unsigned char)X)
@@ -31,19 +31,19 @@ static int enableTimer = 0;
 #if !defined(_WRS_KERNEL) && !defined(__minux)
 
 /* Saved resource information for the beginning of an operation */
-static struct rusage sBegin;
+struct rusage sBegin;
 
 /*
 ** Begin timing an operation
 */
-static void beginTimer(void){
+void beginTimer(void){
   if( enableTimer ){
     getrusage(RUSAGE_SELF, &sBegin);
   }
 }
 
 /* Return the difference of two time_structs in seconds */
-static float64 timeDiff(struct timeval *pStart, struct timeval *pEnd){
+float64 timeDiff(struct timeval *pStart, struct timeval *pEnd){
   return (pEnd->tv_usec - pStart->tv_usec)*0.000001 + 
          (float64)(pEnd->tv_sec - pStart->tv_sec);
 }
@@ -51,7 +51,7 @@ static float64 timeDiff(struct timeval *pStart, struct timeval *pEnd){
 /*
 ** Print the timing results.
 */
-static void endTimer(void){
+void endTimer(void){
   if( enableTimer ){
     struct rusage sEnd;
     getrusage(RUSAGE_SELF, &sEnd);
@@ -80,43 +80,43 @@ static void endTimer(void){
 ** If the following flag is set, then command execution stops
 ** at an error if we are not interactive.
 */
-static int bail_on_error = 0;
+int bail_on_error = 0;
 
 /*
 ** Threat stdin as an interactive input if the following variable
 ** is true.  Otherwise, assume stdin is connected to a file or pipe.
 */
-static int stdin_is_interactive = 1;
+int stdin_is_interactive = 1;
 
 /*
 ** The following is the open SQLite database.  We make a pointer
-** to this database a static variable so that it can be accessed
+** to this database a variable so that it can be accessed
 ** by the SIGINT handler to interrupt database processing.
 */
-static sqlite3 *db = 0;
+sqlite3 *db = 0;
 
 /*
 ** True if an interrupt (Control-C) has been received.
 */
-static volatile int seenInterrupt = 0;
+volatile int seenInterrupt = 0;
 
 /*
 ** This is the name of our program. It is set in main(), used
 ** in a number of other places, mostly for error messages.
 */
-static char *Argv0;
+char *Argv0;
 
 /*
 ** Prompt strings. Initialized in main. Settable with
 **   .prompt main continue
 */
-static char mainPrompt[20];     /* First line prompt. default: "sqlite> "*/
-static char continuePrompt[20]; /* Continuation prompt. default: "   ...> " */
+char mainPrompt[20];     /* First line prompt. default: "sqlite> "*/
+char continuePrompt[20]; /* Continuation prompt. default: "   ...> " */
 
 /*
 ** Determines if a string is a number of not.
 */
-static int isNumber(const char *z, int *realnum){
+int isNumber(const char *z, int *realnum){
   if( *z=='-' || *z=='+' ) z++;
   if( !IsDigit(*z) ){
     return 0;
@@ -148,8 +148,8 @@ static int isNumber(const char *z, int *realnum){
 ** since the shell is built around the callback paradigm it would be a lot
 ** of work. Instead just use this hack, which is quite harmless.
 */
-static const char *zShellStatic = 0;
-static void shellstaticFunc(
+const char *zShellStatic = 0;
+void shellstaticFunc(
   sqlite3_context *context,
   int argc,
   sqlite3_value **argv
@@ -171,7 +171,7 @@ static void shellstaticFunc(
 ** The interface is like "readline" but no command-line editing
 ** is done.
 */
-static char *local_getline(char *zPrompt, FILE *in, int csvFlag){
+char *local_getline(char *zPrompt, FILE *in, int csvFlag){
   char *zLine;
   int nLine;
   int n;
@@ -220,7 +220,7 @@ static char *local_getline(char *zPrompt, FILE *in, int csvFlag){
 ** zPrior is a string of prior text retrieved.  If not the empty
 ** string, then issue a continuation prompt.
 */
-static char *one_input_line(const char *zPrior, FILE *in){
+char *one_input_line(const char *zPrior, FILE *in){
   char *zPrompt;
   char *zResult;
   if( in!=0 ){
@@ -290,7 +290,7 @@ struct callback_data {
 #define MODE_Csv      7  /* Quote strings, numbers are plain */
 #define MODE_Explain  8  /* Like MODE_Column, but do not truncate data */
 
-static const char *modeDescr[] = {
+const char *modeDescr[] = {
   "line",
   "column",
   "list",
@@ -311,7 +311,7 @@ static const char *modeDescr[] = {
 ** Compute a string length that is limited to what can be stored in
 ** lower 30 bits of a 32-bit signed integer.
 */
-static int strlen30(const char *z){
+int strlen30(const char *z){
   const char *z2 = z;
   while( *z2 ){ z2++; }
   return 0x3fffffff & (int)(z2 - z);
@@ -320,7 +320,7 @@ static int strlen30(const char *z){
 /*
 ** A callback for the sqlite3_log() interface.
 */
-static void shellLog(void *pArg, int iErrCode, const char *zMsg){
+void shellLog(void *pArg, int iErrCode, const char *zMsg){
   struct callback_data *p = (struct callback_data*)pArg;
   if( p->pLog==0 ) return;
   fprintf(p->pLog, "(%d) %s\n", iErrCode, zMsg);
@@ -330,7 +330,7 @@ static void shellLog(void *pArg, int iErrCode, const char *zMsg){
 /*
 ** Output the given string as a hex-encoded blob (eg. X'1234' )
 */
-static void output_hex_blob(FILE *out, const void *pBlob, int nBlob){
+void output_hex_blob(FILE *out, const void *pBlob, int nBlob){
   int i;
   char *zBlob = (char *)pBlob;
   fprintf(out,"X'");
@@ -341,7 +341,7 @@ static void output_hex_blob(FILE *out, const void *pBlob, int nBlob){
 /*
 ** Output the given string as a quoted string using SQL quoting conventions.
 */
-static void output_quoted_string(FILE *out, const char *z){
+void output_quoted_string(FILE *out, const char *z){
   int i;
   int nSingle = 0;
   for(i=0; z[i]; i++){
@@ -371,7 +371,7 @@ static void output_quoted_string(FILE *out, const char *z){
 /*
 ** Output the given string as a quoted according to C or TCL quoting rules.
 */
-static void output_c_string(FILE *out, const char *z){
+void output_c_string(FILE *out, const char *z){
   unsigned int c;
   fputc('"', out);
   while( (c = *(z++))!=0 ){
@@ -403,7 +403,7 @@ static void output_c_string(FILE *out, const char *z){
 ** Output the given string with characters that are special to
 ** HTML escaped.
 */
-static void output_html_string(FILE *out, const char *z){
+void output_html_string(FILE *out, const char *z){
   int i;
   while( *z ){
     for(i=0;   z[i] 
@@ -437,7 +437,7 @@ static void output_html_string(FILE *out, const char *z){
 ** If a field contains any character identified by a 1 in the following
 ** array, then the string must be quoted for CSV.
 */
-static const char needCsvQuote[] = {
+const char needCsvQuote[] = {
   1, 1, 1, 1, 1, 1, 1, 1,   1, 1, 1, 1, 1, 1, 1, 1,   
   1, 1, 1, 1, 1, 1, 1, 1,   1, 1, 1, 1, 1, 1, 1, 1,   
   1, 0, 1, 0, 0, 0, 0, 1,   0, 0, 0, 0, 0, 0, 0, 0, 
@@ -461,7 +461,7 @@ static const char needCsvQuote[] = {
 ** the separator, which may or may not be a comma.  p->nullvalue is
 ** the null value.  Strings are quoted if necessary.
 */
-static void output_csv(struct callback_data *p, const char *z, int bSep){
+void output_csv(struct callback_data *p, const char *z, int bSep){
   FILE *out = p->out;
   if( z==0 ){
     fprintf(out,"%s",p->nullvalue);
@@ -496,7 +496,7 @@ static void output_csv(struct callback_data *p, const char *z, int bSep){
 /*
 ** This routine runs when the user presses Ctrl-C
 */
-static void interrupt_handler(int NotUsed){
+void interrupt_handler(int NotUsed){
   UNUSED_PARAMETER(NotUsed);
   seenInterrupt = 1;
   if( db ) sqlite3_interrupt(db);
@@ -507,7 +507,7 @@ static void interrupt_handler(int NotUsed){
 ** This is the callback routine that the shell
 ** invokes for each row of a query result.
 */
-static int shell_callback(void *pArg, int nArg, char **azArg, char **azCol, int *aiType){
+int shell_callback(void *pArg, int nArg, char **azArg, char **azCol, int *aiType){
   int i;
   struct callback_data *p = (struct callback_data*)pArg;
 
@@ -698,7 +698,7 @@ static int shell_callback(void *pArg, int nArg, char **azArg, char **azCol, int 
 ** This is the callback routine that the SQLite library
 ** invokes for each row of a query result.
 */
-static int callback(void *pArg, int nArg, char **azArg, char **azCol){
+int callback(void *pArg, int nArg, char **azArg, char **azCol){
   /* since we don't have type info, call the shell_callback with a NULL value */
   return shell_callback(pArg, nArg, azArg, azCol, NULL);
 }
@@ -708,7 +708,7 @@ static int callback(void *pArg, int nArg, char **azArg, char **azCol){
 ** the name of the table given.  Escape any quote characters in the
 ** table name.
 */
-static void set_table_name(struct callback_data *p, const char *zName){
+void set_table_name(struct callback_data *p, const char *zName){
   int i, n;
   int needQuote;
   char *z;
@@ -749,7 +749,7 @@ static void set_table_name(struct callback_data *p, const char *zName){
 ** If the third argument, quote, is not '\0', then it is used as a 
 ** quote character for zAppend.
 */
-static char *appendText(char *zIn, char const *zAppend, char quote){
+char *appendText(char *zIn, char const *zAppend, char quote){
   int len;
   int i;
   int nAppend = strlen30(zAppend);
@@ -797,7 +797,7 @@ static char *appendText(char *zIn, char const *zAppend, char quote){
 ** "--" comment occurs at the end of the statement, the comment
 ** won't consume the semicolon terminator.
 */
-static int run_table_dump_query(
+int run_table_dump_query(
   struct callback_data *p, /* Query context */
   const char *zSelect,     /* SELECT statement to extract content */
   const char *zFirstRow    /* Print before first row, if not NULL */
@@ -850,7 +850,7 @@ func save_err_msg(db *sqlite3) string {
 /*
 ** Display memory stats.
 */
-static int display_stats(
+int display_stats(
   sqlite3 *db,                /* Database to query */
   struct callback_data *pArg, /* Pointer to struct callback_data */
   int bReset                  /* True to reset the stats */
@@ -938,7 +938,7 @@ static int display_stats(
 ** function except it takes a slightly different callback 
 ** and callback data argument.
 */
-static int shell_exec(
+int shell_exec(
   sqlite3 *db,                                /* An open database */
   const char *zSql,                           /* SQL to be evaluated */
   int (*xCallback)(void*,int,char**,char**,int*),   /* Callback function */
@@ -1077,7 +1077,7 @@ static int shell_exec(
 ** the table type ("index" or "table") and SQL to create the table.
 ** This routine should print text sufficient to recreate the table.
 */
-static int dump_callback(void *pArg, int nArg, char **azArg, char **azCol){
+int dump_callback(void *pArg, int nArg, char **azArg, char **azCol){
 	int rc;
 	const char *zTable;
 	const char *zType;
@@ -1162,7 +1162,7 @@ static int dump_callback(void *pArg, int nArg, char **azArg, char **azCol){
 ** If we get a SQLITE_CORRUPT error, rerun the query after appending
 ** "ORDER BY rowid DESC" to the end.
 */
-static int run_schema_dump_query(
+int run_schema_dump_query(
   struct callback_data *p, 
   const char *zQuery
 ){
@@ -1196,7 +1196,7 @@ static int run_schema_dump_query(
 /*
 ** Text of a help message
 */
-static char zHelp[] =
+char zHelp[] =
   ".backup ?DB? FILE      Backup DB (default \"main\") to FILE\n"
   ".bail ON|OFF           Stop after hitting an error.  Default OFF\n"
   ".databases             List names and files of attached databases\n"
@@ -1249,34 +1249,33 @@ static char zHelp[] =
   ".width NUM1 NUM2 ...   Set column widths for \"column\" mode\n"
 ;
 
-static char zTimerHelp[] =
+char zTimerHelp[] =
   ".timer ON|OFF          Turn the CPU timer measurement on or off\n"
 ;
 
 /* Forward reference */
-static int process_input(struct callback_data *p, FILE *in);
+int process_input(struct callback_data *p, FILE *in);
 
 /*
 ** Make sure the database is open.  If it is not, then open it.  If
 ** the database fails to open, print an error message and exit.
 */
-static void open_db(struct callback_data *p){
-  if( p->db==0 ){
-    sqlite3_initialize();
-    sqlite3_open(p->zDbFilename, &p->db);
-    db = p->db;
-    if( db && sqlite3_errcode(db)==SQLITE_OK ){
-      sqlite3_create_function(db, "shellstatic", 0, 0, shellstaticFunc, 0, 0)
-    }
-    if( db==0 || SQLITE_OK!=sqlite3_errcode(db) ){
-      fprintf(stderr,"Error: unable to open database \"%s\": %s\n", 
-          p->zDbFilename, sqlite3_errmsg(db));
-      exit(1);
-    }
+void open_db(struct callback_data *p){
+	if p.db == nil {
+		sqlite3_initialize();
+		sqlite3_open(p.zDbFilename, &p.db)
+		db = p.db
+		if db != nil && sqlite3_errcode(db) == SQLITE_OK {
+			db.CreateFunction("shellstatic", 0, 0, shellstaticFunc, nil, nil, nil)
+		}
+		if db == nil || sqlite3_errcode(db) != SQLITE_OK {
+			fprintf(stderr,"Error: unable to open database \"%s\": %s\n", p.zDbFilename, sqlite3_errmsg(db))
+			exit(1)
+		}
 #ifndef SQLITE_OMIT_LOAD_EXTENSION
-    sqlite3_enable_load_extension(p->db, 1);
+		sqlite3_enable_load_extension(p.db, 1)
 #endif
-  }
+	}
 }
 
 /*
@@ -1288,7 +1287,7 @@ static void open_db(struct callback_data *p){
 **    \NNN  -> ascii character NNN in octal
 **    \\    -> backslash
 */
-static void resolve_backslashes(char *z){
+void resolve_backslashes(char *z){
   int i, j;
   char c;
   for(i=j=0; (c = z[i])!=0; i++, j++){
@@ -1320,7 +1319,7 @@ static void resolve_backslashes(char *z){
 /*
 ** Interpret zArg as a boolean value.  Return either 0 or 1.
 */
-static int booleanValue(char *zArg){
+int booleanValue(char *zArg){
   int i;
   for(i=0; zArg[i]>='0' && zArg[i]<='9'; i++){}
   if( i>0 && zArg[i]==0 ) return atoi(zArg);
@@ -1338,9 +1337,9 @@ static int booleanValue(char *zArg){
 /*
 ** Interpret zArg as an integer value, possibly with suffixes.
 */
-static sqlite3_int64 integerValue(const char *zArg){
+sqlite3_int64 integerValue(const char *zArg){
   sqlite3_int64 v = 0;
-  static const struct { char *zSuffix; int iMult; } aMult[] = {
+  const struct { char *zSuffix; int iMult; } aMult[] = {
     { "KiB", 1024 },
     { "MiB", 1024*1024 },
     { "GiB", 1024*1024*1024 },
@@ -1375,7 +1374,7 @@ static sqlite3_int64 integerValue(const char *zArg){
 /*
 ** Close an output file, assuming it is not stderr or stdout
 */
-static void output_file_close(FILE *f){
+void output_file_close(FILE *f){
   if( f && f!=stdout && f!=stderr ) fclose(f);
 }
 
@@ -1413,8 +1412,8 @@ func sql_trace_callback(pArg interface{}, z string) {
 ** A no-op routine that runs with the ".breakpoint" doc-command.  This is
 ** a useful spot to set a debugger breakpoint.
 */
-static void test_breakpoint(void){
-  static int nCall = 0;
+void test_breakpoint(void){
+  int nCall = 0;
   nCall++;
 }
 
@@ -1424,7 +1423,7 @@ static void test_breakpoint(void){
 **
 ** Return 1 on error, 2 to exit, and 0 otherwise.
 */
-static int do_meta_command(char *zLine, struct callback_data *p){
+int do_meta_command(char *zLine, struct callback_data *p){
   int i = 1;
   int nArg = 0;
   int n, c;
@@ -2156,7 +2155,7 @@ static int do_meta_command(char *zLine, struct callback_data *p){
     for(ii=0; ii<nRow; ii++) sqlite3_free(azResult[ii]);
     sqlite3_free(azResult);
   } else if c == 't' && n >= 8 && azArg[0][:n] == "testctrl" && nArg >= 2 {
-    static const struct {
+    const struct {
        const char *zCtrlName;   /* Name of a test-control option */
        int ctrlCode;            /* Integer code for that option */
     } aCtrl[] = {
@@ -2340,7 +2339,7 @@ static int do_meta_command(char *zLine, struct callback_data *p){
 ** Return TRUE if a semicolon occurs anywhere in the first N characters
 ** of string z[].
 */
-static int _contains_semicolon(const char *z, int N){
+int _contains_semicolon(const char *z, int N){
   int i;
   for(i=0; i<N; i++){  if( z[i]==';' ) return 1; }
   return 0;
@@ -2349,7 +2348,7 @@ static int _contains_semicolon(const char *z, int N){
 /*
 ** Test to see if a line consists entirely of whitespace.
 */
-static int _all_whitespace(const char *z){
+int _all_whitespace(const char *z){
   for(; *z; z++){
     if( IsSpace(z[0]) ) continue;
     if( *z=='/' && z[1]=='*' ){
@@ -2375,7 +2374,7 @@ static int _all_whitespace(const char *z){
 ** than a semi-colon.  The SQL Server style "go" command is understood
 ** as is the Oracle "/".
 */
-static int _is_command_terminator(const char *zLine){
+int _is_command_terminator(const char *zLine){
   while( IsSpace(zLine[0]) ){ zLine++; };
   if( zLine[0]=='/' && _all_whitespace(&zLine[1]) ){
     return 1;  /* Oracle */
@@ -2390,7 +2389,7 @@ static int _is_command_terminator(const char *zLine){
 ** Return true if zSql is a complete SQL statement.  Return false if it
 ** ends in the middle of a string literal or C-style comment.
 */
-static int _is_complete(char *zSql, int nSql){
+int _is_complete(char *zSql, int nSql){
   int rc;
   if( zSql==0 ) return 1;
   zSql[nSql] = ';';
@@ -2409,7 +2408,7 @@ static int _is_complete(char *zSql, int nSql){
 **
 ** Return the number of errors.
 */
-static int process_input(struct callback_data *p, FILE *in){
+int process_input(struct callback_data *p, FILE *in){
   char *zLine = 0;
   char *zSql = 0;
   int nSql = 0;
@@ -2520,8 +2519,8 @@ static int process_input(struct callback_data *p, FILE *in){
 ** Return a pathname which is the user's home directory.  A
 ** 0 return indicates an error of some kind.
 */
-static char *find_home_dir(void){
-  static char *home_dir = NULL;
+char *find_home_dir(void){
+  char *home_dir = NULL;
   if( home_dir ) return home_dir;
 
 #if && !defined(__RTP__) && !defined(_WRS_KERNEL)
@@ -2554,7 +2553,7 @@ static char *find_home_dir(void){
 **
 ** Returns the number of errors.
 */
-static int process_sqliterc(
+int process_sqliterc(
   struct callback_data *p,        /* Configuration data */
   const char *sqliterc_override   /* Name of config file. NULL to use default */
 ){
@@ -2591,7 +2590,7 @@ static int process_sqliterc(
 /*
 ** Show available command line options
 */
-static const char zOptions[] = 
+const char zOptions[] = 
   "   -bail                stop after hitting an error\n"
   "   -batch               force batch I/O\n"
   "   -column              set output mode to 'column'\n"
@@ -2621,7 +2620,7 @@ static const char zOptions[] =
   "   -vfstrace            enable tracing of all VFS calls\n"
 #endif
 ;
-static void usage(int showDetail){
+void usage(int showDetail){
   fprintf(stderr,
       "Usage: %s [OPTIONS] FILENAME [SQL]\n"  
       "FILENAME is the name of an SQLite database. A new database is created\n"
@@ -2637,7 +2636,7 @@ static void usage(int showDetail){
 /*
 ** Initialize the state information in data
 */
-static void main_init(struct callback_data *data) {
+void main_init(struct callback_data *data) {
   memset(data, 0, sizeof(*data));
   data->mode = MODE_List;
   memcpy(data->separator,"|", 2);
@@ -2653,7 +2652,7 @@ static void main_init(struct callback_data *data) {
 ** Get the argument to an --option.  Throw an error and die if no argument
 ** is available.
 */
-static char *cmdline_option_value(int argc, char **argv, int i){
+char *cmdline_option_value(int argc, char **argv, int i){
 	if i == argc {
 		fprintf(stderr, "%s: Error: missing argument to %s\n", argv[0], argv[argc - 1])
 		exit(1)

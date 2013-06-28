@@ -203,7 +203,7 @@ type RtreeMatchArg struct {
 
 //	When a geometry callback is created (see sqlite3_rtree_geometry_callback), a single instance of the following structure is allocated. It is used
 //	as the context for the user-function created by by s_r_g_c(). The object is eventually deleted by the destructor mechanism provided by
-//	sqlite3_create_function_v2() (which is called by s_r_g_c() to create the geometry callback function).
+//	sqlite3.CreateFunction() (which is called by s_r_g_c() to create the geometry callback function).
 type RtreeGeomCallback struct {
 	xGeom		func(sqlite3_rtree_geometry*, []float64) (bool, int)
 	pContext	interface{}			//	void *
@@ -217,7 +217,7 @@ type RtreeGeomCallback struct {
 #endif
 
 //	Functions to deserialize a 16 bit integer, 32 bit real number and 64 bit integer. The deserialized value is returned.
-static int readInt16(u8 *p) {
+int readInt16(u8 *p) {
   return (p[0]<<8) + p[1];
 }
 
@@ -225,7 +225,7 @@ func readCoord(p []byte) (coord RtreeCoord) {
 	return u32(p[0]) << 24 + u32(p[1]) << 16 + u32(p[2]) <<  8 + u32(p[3]) <<  0
 }
 
-static i64 readInt64(u8 *p) {
+i64 readInt64(u8 *p) {
   return (
     (((i64)p[0]) << 56) + 
     (((i64)p[1]) << 48) + 
@@ -257,7 +257,7 @@ func writeCoord(u8 *p, RtreeCoord *pCoord) int {
 	return 4
 }
 
-static int writeInt64(u8 *p, i64 i) {
+int writeInt64(u8 *p, i64 i) {
   p[0] = (i >> 56) & 0xFF
   p[1] = (i >> 48) & 0xFF
   p[2] = (i >> 40) & 0xFF
@@ -1963,7 +1963,7 @@ func rtreeRename(pVtab *sqlite3_vtab, new_name string) (rc int) {
 	return sqlite3_exec(tree.db, zSql, 0, 0, 0)
 }
 
-static sqlite3_module rtreeModule = {
+sqlite3_module rtreeModule = {
   0,                          /* iVersion */
   rtreeCreate,                /* xCreate - create a table */
   rtreeConnect,               /* xConnect - connect to an existing table */
@@ -2189,8 +2189,8 @@ func rtreedepth(context *sqlite3_context, args []*sqlite3_value) {
 
 //	Register the r-tree module with database handle db. This creates the virtual table module "rtree" and the debugging/analysis scalar function "rtreenode".
 func sqlite3RtreeInit(db *sqlite3) (rc int) {
-	if rc = sqlite3_create_function(db, "rtreenode", 2, 0, rtreenode, 0, 0); rc == SQLITE_OK {
-		if rc = sqlite3_create_function(db, "rtreedepth", 1, 0,rtreedepth, 0, 0); rc == SQLITE_OK {
+	if rc = db.CreateFunction("rtreenode", 2, nil, rtreenode, nil, nil, nil); rc == SQLITE_OK {
+		if rc = db.CreateFunction("rtreedepth", 1, nil, rtreedepth, nil, nil, nil); rc == SQLITE_OK {
 			void *c = (void *)RTREE_COORD_REAL32
 			if rc = sqlite3_create_module_v2(db, "rtree", &rtreeModule, c, 0); rc == SQLITE_OK {
 				void *c = (void *)RTREE_COORD_INT32
@@ -2234,7 +2234,7 @@ func sqlite3_rtree_geometry_callback(db *sqlite3, Geometry string, xGeom func (*
 	pGeomCtx := &RtreeGeomCallback{ xGeom: xGeom, pContext: Context }
 
 	//	Create the new user-function. Register a destructor function to delete the context object when it is no longer required.
-	return sqlite3_create_function_v2(db, Geometry, -1, pGeomCtx, geomCallback, 0, 0, doSqlite3Free)
+	return db.CreateFunction(Geometry, -1, pGeomCtx, geomCallback, nil, nil, doSqlite3Free)
 }
 
 func (tree *Rtree) Reinsert(node *RtreeNode, cell *RtreeCell, height int) (rc int) {
