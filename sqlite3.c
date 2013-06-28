@@ -10005,35 +10005,6 @@ func (db *sqlite3) VtabInSync() bool {
   #define sqlite3ExprCheckHeight(x,y)
 #endif
 
-/*
-** These routines are available for the mem2.c debugging memory allocator
-** only.  They are used to verify that different "types" of memory
-** allocations are properly tracked by the system.
-**
-** sqlite3MemdebugSetType() sets the "type" of an allocation to one of
-** the MEMTYPE_* macros defined below.  The type must be a bitmask with
-** a single bit set.
-**
-** sqlite3MemdebugHasType() returns true if any of the bits in its second
-** argument match the type set by the previous sqlite3MemdebugSetType().
-** sqlite3MemdebugHasType() is intended for use inside assert() statements.
-**
-** sqlite3MemdebugNoType() returns true if none of the bits in its second
-** argument match the type set by the previous sqlite3MemdebugSetType().
-**
-** All of this is no-op for a production build.  It only comes into
-** play when the SQLITE_MEMDEBUG compile-time option is used.
-*/
-#ifndef SQLITE_MEMDEBUG
-# define sqlite3MemdebugSetType(X,Y)  /* no-op */
-# define sqlite3MemdebugHasType(X,Y)  1
-# define sqlite3MemdebugNoType(X,Y)   1
-#endif
-#define MEMTYPE_HEAP       0x01  /* General heap allocations */
-#define MEMTYPE_SCRATCH    0x04  /* Scratch allocations */
-#define MEMTYPE_PCACHE     0x08  /* Page cache allocations */
-#define MEMTYPE_DB         0x10  /* Uses sqlite3DbMalloc, not sqlite_malloc */
-
 #endif /* _SQLITEINT_H_ */
 
 /************** End of sqliteInt.h *******************************************/
@@ -10321,9 +10292,6 @@ const char * const azCompileOpt[] = {
 #endif
 #ifdef SQLITE_MAX_SCHEMA_RETRY
   "MAX_SCHEMA_RETRY=" CTIMEOPT_VAL(SQLITE_MAX_SCHEMA_RETRY),
-#endif
-#ifdef SQLITE_MEMDEBUG
-  "MEMDEBUG",
 #endif
 #ifdef SQLITE_NO_SYNC
   "NO_SYNC",
@@ -12519,8 +12487,7 @@ void sqlite3MemShutdown(void *NotUsed){ return; }
 ** This file contains implementations of the low-level memory allocation
 ** routines specified in the sqlite3_mem_methods object.  The content of
 ** this file is only used if SQLITE_SYSTEM_MALLOC is defined.  The
-** SQLITE_SYSTEM_MALLOC macro is defined automatically if the
-** SQLITE_MEMDEBUG macros is not defined.  The
+** SQLITE_SYSTEM_MALLOC macro is defined automatically.  The
 ** default configuration is to use memory allocation routines in this
 ** file.
 **
@@ -12698,521 +12665,6 @@ void sqlite3MemShutdown(void *NotUsed){
 #endif /* SQLITE_SYSTEM_MALLOC */
 
 /************** End of mem1.c ************************************************/
-/************** Begin file mem2.c ********************************************/
-/*
-** This file contains low-level memory allocation drivers for when
-** SQLite will use the standard C-library malloc/realloc/free interface
-** to obtain the memory it needs while adding lots of additional debugging
-** information to each allocation in order to help detect and fix memory
-** leaks and memory usage errors.
-**
-** This file contains implementations of the low-level memory allocation
-** routines specified in the sqlite3_mem_methods object.
-*/
-
-/*
-** This version of the memory allocator is used only if the
-** SQLITE_MEMDEBUG macro is defined
-*/
-#ifdef SQLITE_MEMDEBUG
-
-/*
-** The backtrace functionality is only available with GLIBC
-*/
-#ifndef __GLIBC__
-# define backtrace(A,B) 1
-# define backtrace_symbols_fd(A,B,C)
-#endif
-
-/*
-** Each memory allocation looks like this:
-**
-**  ------------------------------------------------------------------------
-**  | Title |  backtrace pointers |  MemBlockHdr |  allocation |  EndGuard |
-**  ------------------------------------------------------------------------
-**
-** The application code sees only a pointer to the allocation.  We have
-** to back up from the allocation pointer to find the MemBlockHdr.  The
-** MemBlockHdr tells us the size of the allocation and the number of
-** backtrace pointers.  There is also a guard word at the end of the
-** MemBlockHdr.
-*/
-struct MemBlockHdr {
-  i64 iSize;                          /* Size of this allocation */
-  struct MemBlockHdr *pNext, *pPrev;  /* Linked list of all unfreed memory */
-  char nBacktrace;                    /* Number of backtraces on this alloc */
-  char nBacktraceSlots;               /* Available backtrace slots */
-  u8 nTitle;                          /* Bytes of title; includes '\0' */
-  u8 eType;                           /* Allocation type code */
-  int iForeGuard;                     /* Guard word for sanity */
-};
-
-/*
-** Guard words
-*/
-#define FOREGUARD 0x80F5E153
-#define REARGUARD 0xE4676B53
-
-/*
-** Number of malloc size increments to track.
-*/
-#define NCSIZE  1000
-
-/*
-** All of the variables used by this module are collected
-** into a single structure named "mem".  This is to keep the
-** variables organized and to reduce namespace pollution
-** when this module is combined with other in the amalgamation.
-*/
-struct {
-  
-  /*
-  ** Mutex to control access to the memory allocation subsystem.
-  */
-  sqlite3_mutex *mutex;
-
-  /*
-  ** Head and tail of a linked list of all outstanding allocations
-  */
-  struct MemBlockHdr *pFirst;
-  struct MemBlockHdr *pLast;
-  
-  /*
-  ** The number of levels of backtrace to save in new allocations.
-  */
-  int nBacktrace;
-  void (*xBacktrace)(int, int, void **);
-
-  /*
-  ** Title text to insert in front of each block
-  */
-  int nTitle;        /* Bytes of zTitle to save.  Includes '\0' and padding */
-  char zTitle[100];  /* The title text */
-
-  /* 
-  ** sqlite3MallocDisallow() increments the following counter.
-  ** sqlite3MallocAllow() decrements it.
-  */
-  int disallow; /* Do not allow memory allocation */
-
-  /*
-  ** Gather statistics on the sizes of memory allocations.
-  ** nAlloc[i] is the number of allocation attempts of i*8
-  ** bytes.  i==NCSIZE is the number of allocation attempts for
-  ** sizes more than NCSIZE*8 bytes.
-  */
-  int nAlloc[NCSIZE];      /* Total number of allocations */
-  int nCurrent[NCSIZE];    /* Current number of allocations */
-  int mxCurrent[NCSIZE];   /* Highwater mark for nCurrent */
-
-} mem;
-
-
-/*
-** Adjust memory usage statistics
-*/
-void adjustStats(int iSize, int increment){
-  int i = ROUND8(iSize)/8;
-  if( i>NCSIZE-1 ){
-    i = NCSIZE - 1;
-  }
-  if( increment>0 ){
-    mem.nAlloc[i]++;
-    mem.nCurrent[i]++;
-    if( mem.nCurrent[i]>mem.mxCurrent[i] ){
-      mem.mxCurrent[i] = mem.nCurrent[i];
-    }
-  }else{
-    mem.nCurrent[i]--;
-    assert( mem.nCurrent[i]>=0 );
-  }
-}
-
-/*
-** Given an allocation, find the MemBlockHdr for that allocation.
-**
-** This routine checks the guards at either end of the allocation and
-** if they are incorrect it asserts.
-*/
-struct MemBlockHdr *sqlite3MemsysGetHeader(void *pAllocation){
-  struct MemBlockHdr *p;
-  int *pInt;
-  u8 *pU8;
-  int nReserve;
-
-  p = (struct MemBlockHdr*)pAllocation;
-  p--;
-  assert( p->iForeGuard==(int)FOREGUARD );
-  nReserve = ROUND8(p->iSize);
-  pInt = (int*)pAllocation;
-  pU8 = (u8*)pAllocation;
-  assert( pInt[nReserve/sizeof(int)]==(int)REARGUARD );
-  /* This checks any of the "extra" bytes allocated due
-  ** to rounding up to an 8 byte boundary to ensure 
-  ** they haven't been overwritten.
-  */
-  while( nReserve-- > p->iSize ) assert( pU8[nReserve]==0x65 );
-  return p;
-}
-
-/*
-** Return the number of bytes currently allocated at address p.
-*/
-int sqlite3MemSize(void *p){
-  struct MemBlockHdr *pHdr;
-  if( !p ){
-    return 0;
-  }
-  pHdr = sqlite3MemsysGetHeader(p);
-  return pHdr->iSize;
-}
-
-/*
-** Initialize the memory allocation subsystem.
-*/
-int sqlite3MemInit(void *NotUsed){
-  UNUSED_PARAMETER(NotUsed);
-  assert( (sizeof(struct MemBlockHdr)&7) == 0 );
-  if( !sqlite3Config.bMemstat ){
-    /* If memory status is enabled, then the malloc.c wrapper will already
-    ** hold the STATIC_MEM mutex when the routines here are invoked. */
-    mem.mutex = sqlite3MutexAlloc(SQLITE_MUTEX_STATIC_MEM);
-  }
-  return SQLITE_OK;
-}
-
-/*
-** Deinitialize the memory allocation subsystem.
-*/
-void sqlite3MemShutdown(void *NotUsed){
-  UNUSED_PARAMETER(NotUsed);
-  mem.mutex = 0;
-}
-
-/*
-** Round up a request size to the next valid allocation size.
-*/
-int sqlite3MemRoundup(int n){
-  return ROUND8(n);
-}
-
-/*
-** Fill a buffer with pseudo-random bytes.  This is used to preset
-** the content of a new memory allocation to unpredictable values and
-** to clear the content of a freed allocation to unpredictable values.
-*/
-void randomFill(char *pBuf, int nByte){
-  unsigned int x, y, r;
-  x = SQLITE_PTR_TO_INT(pBuf);
-  y = nByte | 1;
-  while( nByte >= 4 ){
-    x = (x>>1) ^ (-(x&1) & 0xd0000001);
-    y = y*1103515245 + 12345;
-    r = x ^ y;
-    *(int*)pBuf = r;
-    pBuf += 4;
-    nByte -= 4;
-  }
-  while( nByte-- > 0 ){
-    x = (x>>1) ^ (-(x&1) & 0xd0000001);
-    y = y*1103515245 + 12345;
-    r = x ^ y;
-    *(pBuf++) = r & 0xff;
-  }
-}
-
-/*
-** Allocate nByte bytes of memory.
-*/
-void *sqlite3MemMalloc(int nByte){
-  struct MemBlockHdr *pHdr;
-  void **pBt;
-  char *z;
-  int *pInt;
-  void *p = 0;
-  int totalSize;
-  int nReserve;
-  sqlite3_mutex_enter(mem.mutex);
-  assert( mem.disallow==0 );
-  nReserve = ROUND8(nByte);
-  totalSize = nReserve + sizeof(*pHdr) + sizeof(int) +
-               mem.nBacktrace*sizeof(void*) + mem.nTitle;
-  p = malloc(totalSize);
-  if( p ){
-    z = p;
-    pBt = (void**)&z[mem.nTitle];
-    pHdr = (struct MemBlockHdr*)&pBt[mem.nBacktrace];
-    pHdr->pNext = 0;
-    pHdr->pPrev = mem.pLast;
-    if( mem.pLast ){
-      mem.pLast->pNext = pHdr;
-    }else{
-      mem.pFirst = pHdr;
-    }
-    mem.pLast = pHdr;
-    pHdr->iForeGuard = FOREGUARD;
-    pHdr->eType = MEMTYPE_HEAP;
-    pHdr->nBacktraceSlots = mem.nBacktrace;
-    pHdr->nTitle = mem.nTitle;
-    if( mem.nBacktrace ){
-      void *aAddr[40];
-      pHdr->nBacktrace = backtrace(aAddr, mem.nBacktrace+1)-1;
-      memcpy(pBt, &aAddr[1], pHdr->nBacktrace*sizeof(void*));
-      assert(pBt[0]);
-      if( mem.xBacktrace ){
-        mem.xBacktrace(nByte, pHdr->nBacktrace-1, &aAddr[1]);
-      }
-    }else{
-      pHdr->nBacktrace = 0;
-    }
-    if( mem.nTitle ){
-      memcpy(z, mem.zTitle, mem.nTitle);
-    }
-    pHdr->iSize = nByte;
-    adjustStats(nByte, +1);
-    pInt = (int*)&pHdr[1];
-    pInt[nReserve/sizeof(int)] = REARGUARD;
-    randomFill((char*)pInt, nByte);
-    memset(((char*)pInt)+nByte, 0x65, nReserve-nByte);
-    p = (void*)pInt;
-  }
-  sqlite3_mutex_leave(mem.mutex);
-  return p; 
-}
-
-/*
-** Free memory.
-*/
-void sqlite3MemFree(void *pPrior){
-  struct MemBlockHdr *pHdr;
-  void **pBt;
-  char *z;
-  assert( sqlite3Config.bMemstat || sqlite3Config.bCoreMutex==0 
-       || mem.mutex!=0 );
-  pHdr = sqlite3MemsysGetHeader(pPrior);
-  pBt = (void**)pHdr;
-  pBt -= pHdr->nBacktraceSlots;
-  sqlite3_mutex_enter(mem.mutex);
-  if( pHdr->pPrev ){
-    assert( pHdr->pPrev->pNext==pHdr );
-    pHdr->pPrev->pNext = pHdr->pNext;
-  }else{
-    assert( mem.pFirst==pHdr );
-    mem.pFirst = pHdr->pNext;
-  }
-  if( pHdr->pNext ){
-    assert( pHdr->pNext->pPrev==pHdr );
-    pHdr->pNext->pPrev = pHdr->pPrev;
-  }else{
-    assert( mem.pLast==pHdr );
-    mem.pLast = pHdr->pPrev;
-  }
-  z = (char*)pBt;
-  z -= pHdr->nTitle;
-  adjustStats(pHdr->iSize, -1);
-  randomFill(z, sizeof(void*)*pHdr->nBacktraceSlots + sizeof(*pHdr) +
-                pHdr->iSize + sizeof(int) + pHdr->nTitle);
-  free(z);
-  sqlite3_mutex_leave(mem.mutex);  
-}
-
-/*
-** Change the size of an existing memory allocation.
-**
-** For this debugging implementation, we *always* make a copy of the
-** allocation into a new place in memory.  In this way, if the 
-** higher level code is using pointer to the old allocation, it is 
-** much more likely to break and we are much more liking to find
-** the error.
-*/
-void *sqlite3MemRealloc(void *pPrior, int nByte){
-  struct MemBlockHdr *pOldHdr;
-  void *pNew;
-  assert( mem.disallow==0 );
-  assert( (nByte & 7)==0 );     /* EV: R-46199-30249 */
-  pOldHdr = sqlite3MemsysGetHeader(pPrior);
-  pNew = sqlite3MemMalloc(nByte);
-  if( pNew ){
-    memcpy(pNew, pPrior, nByte<pOldHdr->iSize ? nByte : pOldHdr->iSize);
-    if( nByte>pOldHdr->iSize ){
-      randomFill(&((char*)pNew)[pOldHdr->iSize], nByte - pOldHdr->iSize);
-    }
-    sqlite3MemFree(pPrior);
-  }
-  return pNew;
-}
-
-/*
-** Populate the low-level memory allocation function pointers in
-** sqlite3Config.m with pointers to the routines in this file.
-*/
- void sqlite3MemSetDefault(void){
-  const sqlite3_mem_methods defaultMethods = {
-     sqlite3MemMalloc,
-     sqlite3MemFree,
-     sqlite3MemRealloc,
-     sqlite3MemSize,
-     sqlite3MemRoundup,
-     sqlite3MemInit,
-     sqlite3MemShutdown,
-     0
-  };
-  sqlite3_config(SQLITE_CONFIG_MALLOC, &defaultMethods);
-}
-
-/*
-** Set the "type" of an allocation.
-*/
- void sqlite3MemdebugSetType(void *p, u8 eType){
-  if( p && sqlite3Config.m.xMalloc==sqlite3MemMalloc ){
-    struct MemBlockHdr *pHdr;
-    pHdr = sqlite3MemsysGetHeader(p);
-    assert( pHdr->iForeGuard==FOREGUARD );
-    pHdr->eType = eType;
-  }
-}
-
-/*
-** Return TRUE if the mask of type in eType matches the type of the
-** allocation p.  Also return true if p==NULL.
-**
-** This routine is designed for use within an assert() statement, to
-** verify the type of an allocation.  For example:
-**
-**     assert( sqlite3MemdebugHasType(p, MEMTYPE_DB) );
-*/
- int sqlite3MemdebugHasType(void *p, u8 eType){
-  int rc = 1;
-  if( p && sqlite3Config.m.xMalloc==sqlite3MemMalloc ){
-    struct MemBlockHdr *pHdr;
-    pHdr = sqlite3MemsysGetHeader(p);
-    assert( pHdr->iForeGuard==FOREGUARD );         /* Allocation is valid */
-    if( (pHdr->eType&eType)==0 ){
-      rc = 0;
-    }
-  }
-  return rc;
-}
-
-/*
-** Return TRUE if the mask of type in eType matches no bits of the type of the
-** allocation p.  Also return true if p==NULL.
-**
-** This routine is designed for use within an assert() statement, to
-** verify the type of an allocation.  For example:
-**
-**     assert( sqlite3MemdebugNoType(p, MEMTYPE_DB) );
-*/
- int sqlite3MemdebugNoType(void *p, u8 eType){
-  int rc = 1;
-  if( p && sqlite3Config.m.xMalloc==sqlite3MemMalloc ){
-    struct MemBlockHdr *pHdr;
-    pHdr = sqlite3MemsysGetHeader(p);
-    assert( pHdr->iForeGuard==FOREGUARD );         /* Allocation is valid */
-    if( (pHdr->eType&eType)!=0 ){
-      rc = 0;
-    }
-  }
-  return rc;
-}
-
-/*
-** Set the number of backtrace levels kept for each allocation.
-** A value of zero turns off backtracing.  The number is always rounded
-** up to a multiple of 2.
-*/
- void sqlite3MemdebugBacktrace(int depth){
-  if( depth<0 ){ depth = 0; }
-  if( depth>20 ){ depth = 20; }
-  depth = (depth+1)&0xfe;
-  mem.nBacktrace = depth;
-}
-
- void sqlite3MemdebugBacktraceCallback(void (*xBacktrace)(int, int, void **)){
-  mem.xBacktrace = xBacktrace;
-}
-
-/*
-** Set the title string for subsequent allocations.
-*/
- void sqlite3MemdebugSettitle(const char *zTitle){
-  n := len(zTitle) + 1;
-  sqlite3_mutex_enter(mem.mutex);
-  if( n>=sizeof(mem.zTitle) ) n = sizeof(mem.zTitle)-1;
-  memcpy(mem.zTitle, zTitle, n);
-  mem.zTitle[n] = 0;
-  mem.nTitle = ROUND8(n);
-  sqlite3_mutex_leave(mem.mutex);
-}
-
- void sqlite3MemdebugSync(){
-  struct MemBlockHdr *pHdr;
-  for(pHdr=mem.pFirst; pHdr; pHdr=pHdr->pNext){
-    void **pBt = (void**)pHdr;
-    pBt -= pHdr->nBacktraceSlots;
-    mem.xBacktrace(pHdr->iSize, pHdr->nBacktrace-1, &pBt[1]);
-  }
-}
-
-/*
-** Open the file indicated and write a log of all unfreed memory 
-** allocations into that log.
-*/
- void sqlite3MemdebugDump(const char *zFilename){
-  FILE *out;
-  struct MemBlockHdr *pHdr;
-  void **pBt;
-  int i;
-  out = fopen(zFilename, "w");
-  if( out==0 ){
-    fprintf(stderr, "** Unable to output memory debug output log: %s **\n",
-                    zFilename);
-    return;
-  }
-  for(pHdr=mem.pFirst; pHdr; pHdr=pHdr->pNext){
-    char *z = (char*)pHdr;
-    z -= pHdr->nBacktraceSlots*sizeof(void*) + pHdr->nTitle;
-    fprintf(out, "**** %lld bytes at %p from %s ****\n", 
-            pHdr->iSize, &pHdr[1], pHdr->nTitle ? z : "???");
-    if( pHdr->nBacktrace ){
-      fflush(out);
-      pBt = (void**)pHdr;
-      pBt -= pHdr->nBacktraceSlots;
-      backtrace_symbols_fd(pBt, pHdr->nBacktrace, fileno(out));
-      fprintf(out, "\n");
-    }
-  }
-  fprintf(out, "COUNTS:\n");
-  for(i=0; i<NCSIZE-1; i++){
-    if( mem.nAlloc[i] ){
-      fprintf(out, "   %5d: %10d %10d %10d\n", 
-            i*8, mem.nAlloc[i], mem.nCurrent[i], mem.mxCurrent[i]);
-    }
-  }
-  if( mem.nAlloc[NCSIZE-1] ){
-    fprintf(out, "   %5d: %10d %10d %10d\n",
-             NCSIZE*8-8, mem.nAlloc[NCSIZE-1],
-             mem.nCurrent[NCSIZE-1], mem.mxCurrent[NCSIZE-1]);
-  }
-  fclose(out);
-}
-
-/*
-** Return the number of times sqlite3MemMalloc() has been called.
-*/
- int sqlite3MemdebugMallocCount(){
-  int i;
-  int nTotal = 0;
-  for(i=0; i<NCSIZE; i++){
-    nTotal += mem.nAlloc[i];
-  }
-  return nTotal;
-}
-
-
-#endif /* SQLITE_MEMDEBUG */
-
-/************** End of mem2.c ************************************************/
 /************** Begin file mem3.c ********************************************/
 /*
 ** This file contains the C functions that implement a memory
@@ -15309,14 +14761,10 @@ int sqlite3MemoryAlarm(
 ** sqlite3Malloc() or sqlite3_malloc().
 */
  int sqlite3MallocSize(void *p){
-  assert( sqlite3MemdebugHasType(p, MEMTYPE_HEAP) );
-  assert( sqlite3MemdebugNoType(p, MEMTYPE_DB) );
   return sqlite3Config.m.xSize(p);
 }
  int sqlite3DbMallocSize(sqlite3 *db, void *p){
   assert( db==0 || sqlite3_mutex_held(db->mutex) );
-  assert( sqlite3MemdebugHasType(p, MEMTYPE_DB) );
-  assert( sqlite3MemdebugHasType(p, MEMTYPE_HEAP) );
   assert( db != nil );
   return sqlite3Config.m.xSize(p);
 }
@@ -15326,8 +14774,6 @@ int sqlite3MemoryAlarm(
 */
  void sqlite3_free(void *p){
   if( p==0 ) return;  /* IMP: R-49053-54554 */
-  assert( sqlite3MemdebugNoType(p, MEMTYPE_DB) );
-  assert( sqlite3MemdebugHasType(p, MEMTYPE_HEAP) );
   if( sqlite3Config.bMemstat ){
     sqlite3_mutex_enter(mem0.mutex);
     sqlite3StatusAdd(SQLITE_STATUS_MEMORY_USED, -sqlite3MallocSize(p));
@@ -15351,10 +14797,7 @@ int sqlite3MemoryAlarm(
       return;
     }
   }
-  assert( sqlite3MemdebugHasType(p, MEMTYPE_DB) );
-  assert( sqlite3MemdebugHasType(p, MEMTYPE_HEAP) );
   assert( db != nil );
-  sqlite3MemdebugSetType(p, MEMTYPE_HEAP);
   sqlite3_free(p);
 }
 
@@ -15390,8 +14833,6 @@ int sqlite3MemoryAlarm(
           mem0.alarmThreshold-nDiff ){
       sqlite3MallocAlarm(nDiff);
     }
-    assert( sqlite3MemdebugHasType(pOld, MEMTYPE_HEAP) );
-    assert( sqlite3MemdebugNoType(pOld, ~MEMTYPE_HEAP) );
     pNew = sqlite3Config.m.xRealloc(pOld, nNew);
     if( pNew==0 && mem0.alarmCallback ){
       sqlite3MallocAlarm(nBytes);
@@ -24209,7 +23650,6 @@ void *pcache1Alloc(int nByte){
       sqlite3_mutex_leave(pcache1_g.mutex);
     }
 #endif
-    sqlite3MemdebugSetType(p, MEMTYPE_PCACHE);
   }
   return p;
 }
@@ -24232,8 +23672,6 @@ int pcache1Free(void *p){
     assert( pcache1_g.nFreeSlot<=pcache1_g.nSlot );
     sqlite3_mutex_leave(pcache1_g.mutex);
   }else{
-    assert( sqlite3MemdebugHasType(p, MEMTYPE_PCACHE) );
-    sqlite3MemdebugSetType(p, MEMTYPE_HEAP);
     nFreed = sqlite3MallocSize(p);
 #ifndef SQLITE_DISABLE_PAGECACHE_OVERFLOW_STATS
     sqlite3_mutex_enter(pcache1_g.mutex);
@@ -24253,12 +23691,7 @@ int pcache1MemSize(void *p){
   if( p>=pcache1_g.pStart && p<pcache1_g.pEnd ){
     return pcache1_g.szSlot;
   }else{
-    int iSize;
-    assert( sqlite3MemdebugHasType(p, MEMTYPE_PCACHE) );
-    sqlite3MemdebugSetType(p, MEMTYPE_HEAP);
-    iSize = sqlite3MallocSize(p);
-    sqlite3MemdebugSetType(p, MEMTYPE_PCACHE);
-    return iSize;
+    return sqlite3MallocSize(p)
   }
 }
 #endif /* SQLITE_ENABLE_MEMORY_MANAGEMENT */

@@ -23,7 +23,6 @@ func DbMallocRaw(sqlite3 *db, int n) ([]byte) {
 	if p == nil && db {
 		db.mallocFailed = 1
 	}
-	sqlite3MemdebugSetType(p, MEMTYPE_DB | MEMTYPE_HEAP)
 	return p
 }
 
@@ -36,15 +35,10 @@ void *sqlite3DbRealloc(sqlite3 *db, void *p, int n) (pNew []byte){
 		if p == nil {
 			return sqlite3DbMallocRaw(db, n)
 		}
-		assert( sqlite3MemdebugHasType(p, MEMTYPE_DB) )
-		assert( sqlite3MemdebugHasType(p, MEMTYPE_HEAP) )
-		sqlite3MemdebugSetType(p, MEMTYPE_HEAP)
 		pNew = sqlite3_realloc(p, n)
 		if pNew == nil {
-			sqlite3MemdebugSetType(p, MEMTYPE_DB | MEMTYPE_HEAP)
 			db.mallocFailed = 1
 		}
-		sqlite3MemdebugSetType(pNew, MEMTYPE_DB | MEMTYPE_HEAP)
 	}
 	return
 }
@@ -168,7 +162,6 @@ func sqlite3ScratchMalloc(int n) (p []byte) {
 			sqlite3_mutex_leave(mem0.mutex);
 			p = sqlite3Config.m.xMalloc(n);
 		}
-		sqlite3MemdebugSetType(p, MEMTYPE_SCRATCH);
 	}
 	assert( sqlite3_mutex_notheld(mem0.mutex) );
 
@@ -204,9 +197,6 @@ func sqlite3ScratchFree(void *p) {
 			sqlite3_mutex_leave(mem0.mutex);
 		} else {
 			//	Release memory back to the heap
-			assert( sqlite3MemdebugHasType(p, MEMTYPE_SCRATCH) );
-			assert( sqlite3MemdebugNoType(p, ~MEMTYPE_SCRATCH) );
-			sqlite3MemdebugSetType(p, MEMTYPE_HEAP);
 			if sqlite3Config.bMemstat {
 				int iSize = sqlite3MallocSize(p);
 				sqlite3_mutex_enter(mem0.mutex);
