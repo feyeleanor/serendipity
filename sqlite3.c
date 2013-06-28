@@ -321,7 +321,6 @@
 **
 **     SQLITE_SYSTEM_MALLOC          // Use normal system malloc()
 **     SQLITE_ZERO_MALLOC            // Use a stub allocator that always fails
-**     SQLITE_MEMDEBUG               // Debugging version of system malloc()
 **
 ** (Historical note:  There used to be several other options, but we've
 ** pared it down to just these three.)
@@ -329,14 +328,10 @@
 ** If none of the above are defined, then set SQLITE_SYSTEM_MALLOC as
 ** the default.
 */
-#if defined(SQLITE_SYSTEM_MALLOC) \
-  + defined(SQLITE_ZERO_MALLOC) \
-  + defined(SQLITE_MEMDEBUG)>1
-# error "Two or more of the following compile-time configuration options are defined but at most one is allowed: SQLITE_SYSTEM_MALLOC, SQLITE_MEMDEBUG, SQLITE_ZERO_MALLOC"
+#if defined(SQLITE_SYSTEM_MALLOC) + defined(SQLITE_ZERO_MALLOC)>1
+# error "Two or more of the following compile-time configuration options are defined but at most one is allowed: SQLITE_SYSTEM_MALLOC, SQLITE_ZERO_MALLOC"
 #endif
-#if defined(SQLITE_SYSTEM_MALLOC) \
-  + defined(SQLITE_ZERO_MALLOC) \
-  + defined(SQLITE_MEMDEBUG)==0
+#if defined(SQLITE_SYSTEM_MALLOC) + defined(SQLITE_ZERO_MALLOC)==0
 # define SQLITE_SYSTEM_MALLOC 1
 #endif
 
