@@ -10557,11 +10557,6 @@ const char * const azCompileOpt[] = {
 */
 typedef struct VdbeOp Op;
 
-/*
-** Boolean values
-*/
-typedef unsigned char Bool;
-
 /* Opaque type used by code in vdbesort.c */
 typedef struct VdbeSorter VdbeSorter;
 
@@ -10585,17 +10580,17 @@ struct VdbeCursor {
   int iDb;              /* Index of cursor database in db->aDb[] (or -1) */
   int pseudoTableReg;   /* Register holding pseudotable content. */
   int nField;           /* Number of fields in the header */
-  Bool zeroed;          /* True if zeroed out and ready for reuse */
-  Bool rowidIsValid;    /* True if lastRowid is valid */
-  Bool atFirst;         /* True if pointing to first entry */
-  Bool useRandomRowid;  /* Generate new record numbers semi-randomly */
-  Bool nullRow;         /* True if pointing to a row with no data */
-  Bool deferredMoveto;  /* A call to sqlite3BtreeMoveto() is needed */
-  Bool isTable;         /* True if a table requiring integer keys */
-  Bool isIndex;         /* True if an index containing keys only - no data */
-  Bool isOrdered;       /* True if the underlying table is BTREE_UNORDERED */
-  Bool isSorter;        /* True if a new-style sorter */
-  Bool multiPseudo;     /* Multi-register pseudo-cursor */
+  bool zeroed;          /* True if zeroed out and ready for reuse */
+  bool rowidIsValid;    /* True if lastRowid is valid */
+  bool atFirst;         /* True if pointing to first entry */
+  bool useRandomRowid;  /* Generate new record numbers semi-randomly */
+  bool nullRow;         /* True if pointing to a row with no data */
+  bool deferredMoveto;  /* A call to sqlite3BtreeMoveto() is needed */
+  bool isTable;         /* True if a table requiring integer keys */
+  bool isIndex;         /* True if an index containing keys only - no data */
+  bool isOrdered;       /* True if the underlying table is BTREE_UNORDERED */
+  bool isSorter;        /* True if a new-style sorter */
+  bool multiPseudo;     /* Multi-register pseudo-cursor */
   sqlite3_vtab_cursor *pVtabCursor;  /* The cursor for a virtual table */
   const sqlite3_module *pModule;     /* Module for cursor pVtabCursor */
   i64 seqCount;         /* Sequence counter */
