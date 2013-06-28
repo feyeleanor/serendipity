@@ -8237,9 +8237,7 @@ typedef struct VdbeOpList VdbeOpList;
  int sqlite3VdbeRecordCompare(int,const void*,UnpackedRecord*);
  UnpackedRecord *sqlite3VdbeAllocUnpackedRecord(KeyInfo *, char *, int, char **);
 
-#ifndef SQLITE_OMIT_TRIGGER
  void sqlite3VdbeLinkSubProgram(Vdbe *, SubProgram *);
-#endif
 
 
 #ifndef NDEBUG
@@ -10861,7 +10859,7 @@ struct Walker {
  int sqlite3SafetyCheckSickOrOk(sqlite3*);
  void sqlite3ChangeCookie(Parse*, int);
 
-#if !defined(SQLITE_OMIT_VIEW) && !defined(SQLITE_OMIT_TRIGGER)
+#if !defined(SQLITE_OMIT_VIEW)
  void sqlite3MaterializeView(Parse*, Table*, Expr*, int);
 #endif
 
@@ -11082,7 +11080,7 @@ struct Walker {
 ** this case foreign keys are parsed, but no other functionality is 
 ** provided (enforcement of FK constraints requires the triggers sub-system).
 */
-#if !defined(SQLITE_OMIT_FOREIGN_KEY) && !defined(SQLITE_OMIT_TRIGGER)
+#if !defined(SQLITE_OMIT_FOREIGN_KEY)
    void sqlite3FkCheck(Parse*, Table*, int, int);
    void sqlite3FkDropTable(Parse*, SrcList *, Table*);
    void sqlite3FkActions(Parse*, Table*, ExprList*, int);
@@ -11595,9 +11593,6 @@ const char * const azCompileOpt[] = {
 #endif
 #ifdef SQLITE_OMIT_TCL_VARIABLE
   "OMIT_TCL_VARIABLE",
-#endif
-#ifdef SQLITE_OMIT_TRIGGER
-  "OMIT_TRIGGER",
 #endif
 #ifdef SQLITE_OMIT_TRUNCATE_OPTIMIZATION
   "OMIT_TRUNCATE_OPTIMIZATION",
@@ -57336,8 +57331,6 @@ case OP_RowSetTest: {                     /* jump, in1, in3 */
 }
 
 
-#ifndef SQLITE_OMIT_TRIGGER
-
 /* Opcode: Program P1 P2 P3 P4 *
 **
 ** Execute the trigger program passed as P4 (type P4_SUBPROGRAM). 
@@ -57466,8 +57459,6 @@ case OP_Param: {           /* out2-prerelease */
   sqlite3VdbeMemShallowCopy(pOut, u.ce.pIn, MEM_Ephem);
   break;
 }
-
-#endif /* #ifndef SQLITE_OMIT_TRIGGER */
 
 #ifndef SQLITE_OMIT_FOREIGN_KEY
 /* Opcode: FkCounter P1 P2 * * *
@@ -60797,7 +60788,6 @@ int lookupName(
       }
     } /* if( pSrcList ) */
 
-#ifndef SQLITE_OMIT_TRIGGER
     /* If we have not already resolved the name, then maybe 
     ** it is a new.* or old.* trigger argument reference
     */
@@ -60845,7 +60835,6 @@ int lookupName(
         }
       }
     }
-#endif /* !defined(SQLITE_OMIT_TRIGGER) */
 
     /*
     ** Perhaps the name is a reference to the ROWID
@@ -62718,8 +62707,7 @@ Expr *exprDup(sqlite3 *db, Expr *p, int flags, u8 **pzBuffer){
 ** sqlite3SelectDup(), can be called. sqlite3SelectDup() is sometimes
 ** called with a NULL argument.
 */
-#if !defined(SQLITE_OMIT_VIEW) || !defined(SQLITE_OMIT_TRIGGER) \
- || !defined(SQLITE_OMIT_SUBQUERY)
+#if !defined(SQLITE_OMIT_VIEW) || !defined(SQLITE_OMIT_SUBQUERY)
  SrcList *sqlite3SrcListDup(sqlite3 *db, SrcList *p, int flags){
   SrcList *pNew;
   int i;
@@ -64616,7 +64604,6 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
       sqlite3VdbeResolveLabel(v, endLabel);
       break;
     }
-#ifndef SQLITE_OMIT_TRIGGER
     case TK_RAISE: {
       assert( pExpr->affinity==OE_Rollback 
            || pExpr->affinity==OE_Abort
@@ -64641,7 +64628,6 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
 
       break;
     }
-#endif
   }
   sqlite3ReleaseTempReg(pParse, regFree1);
   sqlite3ReleaseTempReg(pParse, regFree2);
@@ -64934,7 +64920,6 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
       sqlite3ExplainExprList(pOut, pExpr->x.pList);
       break;
     }
-#ifndef SQLITE_OMIT_TRIGGER
     case TK_RAISE: {
       const char *zType = "unk";
       switch( pExpr->affinity ){
@@ -64946,7 +64931,6 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
       sqlite3ExplainPrintf(pOut, "RAISE-%s(%s)", zType, pExpr->u.zToken);
       break;
     }
-#endif
   }
   if( zBinOp ){
     sqlite3ExplainPrintf(pOut,"%s(", zBinOp);
@@ -65966,7 +65950,6 @@ void renameParentFunc(
 }
 #endif
 
-#ifndef SQLITE_OMIT_TRIGGER
 /* This function is used by SQL generated to implement the
 ** ALTER TABLE command. The first argument is the text of a CREATE TRIGGER 
 ** statement. The second is a table name. The table name in the CREATE 
@@ -66036,12 +66019,10 @@ void renameTriggerFunc(
     /* Variable tname now contains the token that is the old table-name
     ** in the CREATE TRIGGER statement.
     */
-    zRet = sqlite3MPrintf(db, "%.*s\"%w\"%s", ((u8*)tname.z) - zSql, zSql, 
-       zTableName, tname.z+tname.n);
+    zRet = sqlite3MPrintf(db, "%.*s\"%w\"%s", ((u8*)tname.z) - zSql, zSql, zTableName, tname.z+tname.n);
     sqlite3_result_text(context, zRet, -1, SQLITE_DYNAMIC);
   }
 }
-#endif   /* !SQLITE_OMIT_TRIGGER */
 
 /*
 ** Register built-in functions used to help implement ALTER TABLE
@@ -66049,9 +66030,7 @@ void renameTriggerFunc(
 void sqlite3AlterFunctions(void) {
 	aAlterTableFuncs := []Function{
 		FUNCTION(sqlite_rename_table,   2, 0, 0, renameTableFunc),
-#ifndef SQLITE_OMIT_TRIGGER
 		FUNCTION(sqlite_rename_trigger, 2, 0, 0, renameTriggerFunc),
-#endif
 #ifndef SQLITE_OMIT_FOREIGN_KEY
 		FUNCTION(sqlite_rename_parent,  3, 0, 0, renameParentFunc),
 #endif
@@ -66088,7 +66067,7 @@ char *whereOrName(sqlite3 *db, char *zWhere, char *zConstant){
   return zNew;
 }
 
-#if !defined(SQLITE_OMIT_FOREIGN_KEY) && !defined(SQLITE_OMIT_TRIGGER)
+#if !defined(SQLITE_OMIT_FOREIGN_KEY)
 /*
 ** Generate the text of a WHERE expression which can be used to select all
 ** tables that have foreign key constraints that refer to table pTab (i.e.
@@ -66149,9 +66128,7 @@ void reloadTableSchema(Parse *pParse, Table *pTab, const char *zName){
   Vdbe *v;
   char *zWhere;
   int iDb;                   /* Index of database containing pTab */
-#ifndef SQLITE_OMIT_TRIGGER
   Trigger *pTrig;
-#endif
 
   v = sqlite3GetVdbe(pParse);
   if( NEVER(v==0) ) return;
@@ -66159,14 +66136,12 @@ void reloadTableSchema(Parse *pParse, Table *pTab, const char *zName){
   iDb = sqlite3SchemaToIndex(pParse->db, pTab->pSchema);
   assert( iDb>=0 );
 
-#ifndef SQLITE_OMIT_TRIGGER
   /* Drop any table triggers from the internal schema. */
   for(pTrig=sqlite3TriggerList(pParse, pTab); pTrig; pTrig=pTrig->pNext){
     int iTrigDb = sqlite3SchemaToIndex(pParse->db, pTrig->pSchema);
     assert( iTrigDb==iDb || iTrigDb==1 );
     sqlite3VdbeAddOp4(v, OP_DropTrigger, iTrigDb, 0, 0, pTrig->zName, 0);
   }
-#endif
 
   /* Drop the table and index from the internal schema.  */
   sqlite3VdbeAddOp4(v, OP_DropTable, iDb, 0, 0, pTab->zName, 0);
@@ -66176,14 +66151,12 @@ void reloadTableSchema(Parse *pParse, Table *pTab, const char *zName){
   if( !zWhere ) return;
   sqlite3VdbeAddParseSchemaOp(v, iDb, zWhere);
 
-#ifndef SQLITE_OMIT_TRIGGER
   /* Now, if the table is not stored in the temp database, reload any temp 
   ** triggers. Don't use IN(...) in case SQLITE_OMIT_SUBQUERY is defined. 
   */
   if( (zWhere=whereTempTriggers(pParse, pTab))!=0 ){
     sqlite3VdbeAddParseSchemaOp(v, 1, zWhere);
   }
-#endif
 }
 
 /*
@@ -66219,9 +66192,7 @@ int isSystemTable(Parse *pParse, const char *zName){
   int nTabName;             /* Number of UTF-8 characters in zTabName */
   const char *zTabName;     /* Original name of the table */
   Vdbe *v;
-#ifndef SQLITE_OMIT_TRIGGER
   char *zWhere = 0;         /* Where clause to locate temp triggers */
-#endif
   VTable *pVTab = 0;        /* Non-zero if this is a v-tab with an xRename() */
   int savedDbFlags;         /* Saved value of db->flags */
 
@@ -66314,7 +66285,7 @@ int isSystemTable(Parse *pParse, const char *zName){
   zTabName = pTab.zName
   nTabName = len(zTabName)
 
-#if !defined(SQLITE_OMIT_FOREIGN_KEY) && !defined(SQLITE_OMIT_TRIGGER)
+#if !defined(SQLITE_OMIT_FOREIGN_KEY)
   if( db->flags&SQLITE_ForeignKeys ){
     /* If foreign-key support is enabled, rewrite the CREATE TABLE 
     ** statements corresponding to all child tables of foreign key constraints
@@ -66332,13 +66303,9 @@ int isSystemTable(Parse *pParse, const char *zName){
   /* Modify the sqlite_master table to use the new table name. */
   sqlite3NestedParse(pParse,
       "UPDATE %Q.%s SET "
-#ifdef SQLITE_OMIT_TRIGGER
-          "sql = sqlite_rename_table(sql, %Q), "
-#else
           "sql = CASE "
             "WHEN type = 'trigger' THEN sqlite_rename_trigger(sql, %Q)"
             "ELSE sqlite_rename_table(sql, %Q) END, "
-#endif
           "tbl_name = %Q, "
           "name = CASE "
             "WHEN type='table' THEN %Q "
@@ -66347,11 +66314,7 @@ int isSystemTable(Parse *pParse, const char *zName){
             "ELSE name END "
       "WHERE tbl_name=%Q COLLATE nocase AND "
           "(type='table' OR type='index' OR type='trigger');", 
-      zDb, SCHEMA_TABLE(iDb), zName, zName, zName, 
-#ifndef SQLITE_OMIT_TRIGGER
-      zName,
-#endif
-      zName, nTabName, zTabName
+      zDb, SCHEMA_TABLE(iDb), zName, zName, zName, zName, zName, nTabName, zTabName
   );
 
 #ifndef SQLITE_OMIT_AUTOINCREMENT
@@ -66365,7 +66328,6 @@ int isSystemTable(Parse *pParse, const char *zName){
   }
 #endif
 
-#ifndef SQLITE_OMIT_TRIGGER
   /* If there are TEMP triggers on this table, modify the sqlite_temp_master
   ** table. Don't do this if the table being ALTERed is itself located in
   ** the temp database.
@@ -66378,9 +66340,8 @@ int isSystemTable(Parse *pParse, const char *zName){
             "WHERE %s;", zName, zName, zWhere);
     sqlite3DbFree(db, zWhere);
   }
-#endif
 
-#if !defined(SQLITE_OMIT_FOREIGN_KEY) && !defined(SQLITE_OMIT_TRIGGER)
+#if !defined(SQLITE_OMIT_FOREIGN_KEY)
   if( db->flags&SQLITE_ForeignKeys ){
     FKey *p;
     for(p=pTab.FkReferences(); p; p=p->pNextTo){
@@ -68153,14 +68114,14 @@ void sqlite3Attach(Parse *pParse, Expr *p, Expr *pDbname, Expr *pKey){
     sqlite3DbFree(pFix->pParse->db, pItem->zDatabase);
     pItem->zDatabase = 0;
     pItem->pSchema = pFix->pSchema;
-#if !defined(SQLITE_OMIT_VIEW) || !defined(SQLITE_OMIT_TRIGGER)
+#if !defined(SQLITE_OMIT_VIEW)
     if( sqlite3FixSelect(pFix, pItem->pSelect) ) return 1;
     if( sqlite3FixExpr(pFix, pItem->pOn) ) return 1;
 #endif
   }
   return 0;
 }
-#if !defined(SQLITE_OMIT_VIEW) || !defined(SQLITE_OMIT_TRIGGER)
+#if !defined(SQLITE_OMIT_VIEW)
  int sqlite3FixSelect(
   DbFixer *pFix,       /* Context of the fixation */
   Select *pSelect      /* The SELECT statement to be fixed to one database */
@@ -68216,8 +68177,7 @@ void sqlite3Attach(Parse *pParse, Expr *p, Expr *pDbname, Expr *pKey){
 }
 #endif
 
-#ifndef SQLITE_OMIT_TRIGGER
- int sqlite3FixTriggerStep(
+int sqlite3FixTriggerStep(
   DbFixer *pFix,     /* Context of the fixation */
   TriggerStep *pStep /* The trigger step be fixed to one database */
 ){
@@ -68235,7 +68195,6 @@ void sqlite3Attach(Parse *pParse, Expr *p, Expr *pDbname, Expr *pKey){
   }
   return 0;
 }
-#endif
 
 /************** End of attach.c **********************************************/
 /************** Begin file auth.c ********************************************/
@@ -71945,7 +71904,6 @@ exit_drop_index:
  void sqlite3CodeVerifySchema(Parse *pParse, int iDb){
   Parse *pToplevel = sqlite3ParseToplevel(pParse);
 
-#ifndef SQLITE_OMIT_TRIGGER
   if( pToplevel!=pParse ){
     /* This branch is taken if a trigger is currently being coded. In this
     ** case, set cookieGoto to a non-zero value to show that this function
@@ -71953,7 +71911,6 @@ exit_drop_index:
     ** function. */
     pParse->cookieGoto = -1;
   }
-#endif
   if( pToplevel->cookieGoto==0 ){
     Vdbe *v = sqlite3GetVdbe(pToplevel);
     if( v==0 ) return;  /* This only happens if there was a prior error */
@@ -72305,7 +72262,7 @@ void reindexDatabases(Parse *pParse, char const *zColl){
 }
 
 
-#if !defined(SQLITE_OMIT_VIEW) && !defined(SQLITE_OMIT_TRIGGER)
+#if !defined(SQLITE_OMIT_VIEW)
 /*
 ** Evaluate a view and store its result in an ephemeral table.  The
 ** pWhere argument is an optional WHERE clause that restricts the
@@ -72341,7 +72298,7 @@ void reindexDatabases(Parse *pParse, char const *zColl){
   sqlite3Select(pParse, pSel, &dest);
   sqlite3SelectDelete(db, pSel);
 }
-#endif /* !defined(SQLITE_OMIT_VIEW) && !defined(SQLITE_OMIT_TRIGGER) */
+#endif /* !defined(SQLITE_OMIT_VIEW) */
 
 #if defined(SQLITE_ENABLE_UPDATE_DELETE_LIMIT) && !defined(SQLITE_OMIT_SUBQUERY)
 /*
@@ -72463,10 +72420,8 @@ limit_where_cleanup_2:
   int memCnt = -1;       /* Memory cell used for change counting */
   int rcauth;            /* Value returned by authorization callback */
 
-#ifndef SQLITE_OMIT_TRIGGER
   int isView;                  /* True if attempting to delete from a view */
   Trigger *pTrigger;           /* List of table triggers, if required */
-#endif
 
   memset(&sContext, 0, sizeof(sContext));
   db = pParse->db;
@@ -72486,13 +72441,8 @@ limit_where_cleanup_2:
   /* Figure out if we have any triggers and if the table being
   ** deleted from is a view
   */
-#ifndef SQLITE_OMIT_TRIGGER
   pTrigger = sqlite3TriggersExist(pParse, pTab, TK_DELETE, 0, 0);
   isView = pTab->pSelect!=0;
-#else
-# define pTrigger 0
-# define isView 0
-#endif
 #ifdef SQLITE_OMIT_VIEW
 # undef isView
 # define isView 0
@@ -72543,7 +72493,7 @@ limit_where_cleanup_2:
   /* If we are trying to delete from a view, realize that view into
   ** a ephemeral table.
   */
-#if !defined(SQLITE_OMIT_VIEW) && !defined(SQLITE_OMIT_TRIGGER)
+#if !defined(SQLITE_OMIT_VIEW)
   if( isView ){
     sqlite3MaterializeView(pParse, pTab, pWhere, iCur);
   }
@@ -72886,7 +72836,6 @@ delete_from_cleanup:
 */
 
 #ifndef SQLITE_OMIT_FOREIGN_KEY
-#ifndef SQLITE_OMIT_TRIGGER
 
 /*
 ** Deferred and Immediate FKs
@@ -74044,8 +73993,6 @@ Trigger *fkActionTrigger(
   }
 }
 
-#endif /* ifndef SQLITE_OMIT_TRIGGER */
-
 /*
 ** Free all memory associated with foreign key definitions attached to
 ** table pTab. Remove the deleted foreign keys from the Schema.ForeignKeys
@@ -74078,10 +74025,8 @@ Trigger *fkActionTrigger(
     assert( pFKey->isDeferred==0 || pFKey->isDeferred==1 );
 
     /* Delete any triggers created to implement actions for this FK. */
-#ifndef SQLITE_OMIT_TRIGGER
     fkTriggerDelete(db, pFKey->apTrigger[0]);
     fkTriggerDelete(db, pFKey->apTrigger[1]);
-#endif
 
     pNext = pFKey->pNextFrom;
     sqlite3DbFree(db, pFKey);
@@ -74644,11 +74589,9 @@ int xferOptimization(
   int regEof = 0;       /* Register recording end of SELECT data */
   int *aRegIdx = 0;     /* One register allocated to each index */
 
-#ifndef SQLITE_OMIT_TRIGGER
   int isView;                 /* True if attempting to insert into a view */
   Trigger *pTrigger;          /* List of triggers on pTab, if required */
   int tmask;                  /* Mask of trigger times */
-#endif
 
   db = pParse->db;
   memset(&dest, 0, sizeof(dest));
@@ -74676,14 +74619,8 @@ int xferOptimization(
   /* Figure out if we have any triggers and if the table being
   ** inserted into is a view
   */
-#ifndef SQLITE_OMIT_TRIGGER
   pTrigger = sqlite3TriggersExist(pParse, pTab, TK_INSERT, 0, &tmask);
   isView = pTab->pSelect!=0;
-#else
-# define pTrigger 0
-# define tmask 0
-# define isView 0
-#endif
 #ifdef SQLITE_OMIT_VIEW
 # undef isView
 # define isView 0
@@ -77133,7 +77070,7 @@ int flagPragma(Parse *pParse, const char *zLeft, const char *zRight){
 
     /* This flag may only be set if both foreign-key and trigger support
     ** are present in the build.  */
-#if !defined(SQLITE_OMIT_FOREIGN_KEY) && !defined(SQLITE_OMIT_TRIGGER)
+#if !defined(SQLITE_OMIT_FOREIGN_KEY)
     { "foreign_keys",             SQLITE_ForeignKeys },
 #endif
   };
@@ -77996,7 +77933,6 @@ const char *actionName(u8 action){
 #endif /* !defined(SQLITE_OMIT_FOREIGN_KEY) */
 
 #ifndef SQLITE_OMIT_FOREIGN_KEY
-#ifndef SQLITE_OMIT_TRIGGER
   if CaseInsensitiveComparison(zLeft, "foreign_key_check") == 0 {
     FKey *pFK;             /* A foreign key constraint */
     Table *pTab;           /* Child table contain "REFERENCES" keyword */
@@ -78108,7 +78044,6 @@ const char *actionName(u8 action){
       sqlite3VdbeJumpHere(v, addrTop);
     }
   }else
-#endif /* !defined(SQLITE_OMIT_TRIGGER) */
 #endif /* !defined(SQLITE_OMIT_FOREIGN_KEY) */
 
 #ifndef NDEBUG
@@ -79991,7 +79926,6 @@ void selectInnerLoop(
       break;
     }
 
-#if !defined(SQLITE_OMIT_TRIGGER)
     /* Discard the results.  This is used for SELECT statements inside
     ** the body of a TRIGGER.  The purpose of such selects is to call
     ** user-defined functions that have side effects.  We do not care
@@ -80001,7 +79935,6 @@ void selectInnerLoop(
       assert( eDest==SRT_Discard );
       break;
     }
-#endif
   }
 
   /* Jump to the end of the loop if the LIMIT is reached.  Except, if
@@ -84177,11 +84110,6 @@ malloc_failed:
 /************** End of table.c ***********************************************/
 /************** Begin file trigger.c *****************************************/
 /*
-** This file contains the implementation for TRIGGERs
-*/
-
-#ifndef SQLITE_OMIT_TRIGGER
-/*
 ** Delete a linked list of TriggerStep structures.
 */
  void sqlite3DeleteTriggerStep(sqlite3 *db, TriggerStep *pTriggerStep){
@@ -85274,8 +85202,6 @@ TriggerPrg *getRowTrigger(
   return mask;
 }
 
-#endif /* !defined(SQLITE_OMIT_TRIGGER) */
-
 /************** End of trigger.c *********************************************/
 /************** Begin file update.c ******************************************/
 /*
@@ -85380,11 +85306,9 @@ void updateVirtualTable(
   int okOnePass;         /* True for one-pass algorithm without the FIFO */
   int hasFK;             /* True if foreign key processing is required */
 
-#ifndef SQLITE_OMIT_TRIGGER
   int isView;            /* True when updating a view (INSTEAD OF trigger) */
   Trigger *pTrigger;     /* List of triggers on pTab, if required */
   int tmask;             /* Mask of TRIGGER_BEFORE|TRIGGER_AFTER */
-#endif
   int newmask;           /* Mask of NEW.* columns accessed by BEFORE triggers */
 
   /* Register Allocations */
@@ -85411,15 +85335,9 @@ void updateVirtualTable(
   /* Figure out if we have any triggers and if the table being
   ** updated is a view.
   */
-#ifndef SQLITE_OMIT_TRIGGER
   pTrigger = sqlite3TriggersExist(pParse, pTab, TK_UPDATE, pChanges, &tmask);
   isView = pTab->pSelect!=0;
   assert( pTrigger || tmask==0 );
-#else
-# define pTrigger 0
-# define isView 0
-# define tmask 0
-#endif
 #ifdef SQLITE_OMIT_VIEW
 # undef isView
 # define isView 0
@@ -85563,7 +85481,7 @@ void updateVirtualTable(
   /* If we are trying to update a view, realize that view into
   ** a ephemeral table.
   */
-#if !defined(SQLITE_OMIT_VIEW) && !defined(SQLITE_OMIT_TRIGGER)
+#if !defined(SQLITE_OMIT_VIEW)
   if( isView ){
     sqlite3MaterializeView(pParse, pTab, pWhere, iCur);
   }
@@ -96861,13 +96779,11 @@ abort_parse:
 #define tkSEMI    0
 #define tkWS      1
 #define tkOTHER   2
-#ifndef SQLITE_OMIT_TRIGGER
 #define tkEXPLAIN 3
 #define tkCREATE  4
 #define tkTEMP    5
 #define tkTRIGGER 6
 #define tkEND     7
-#endif
 
 /*
 ** Return TRUE if the given SQL string ends in a semicolon.
@@ -96917,16 +96833,11 @@ abort_parse:
 **
 ** Whitespace never causes a state transition and is always ignored.
 ** This means that a SQL string of all whitespace is invalid.
-**
-** If we compile with SQLITE_OMIT_TRIGGER, all of the computation needed
-** to recognize the end of a trigger can be omitted.  All we have to do
-** is look for a semicolon that is not part of an string or comment.
 */
  int sqlite3_complete(const char *zSql){
   u8 state = 0;   /* Current state, using numbers defined in header comment */
   u8 token;       /* Value of the next token */
 
-#ifndef SQLITE_OMIT_TRIGGER
   /* A complex statement machine used to detect the end of a CREATE TRIGGER
   ** statement.  This is the normal case.
   */
@@ -96942,18 +96853,6 @@ abort_parse:
      /* 6    SEMI: */ {    6,  6,     5,       5,      5,    5,       5,   7, },
      /* 7     END: */ {    1,  7,     5,       5,      5,    5,       5,   5, },
   };
-#else
-  /* If triggers are not supported by this compile then the statement machine
-  ** used to detect the end of a statement is much simplier
-  */
-  const u8 trans[3][3] = {
-                     /* Token:           */
-     /* State:       **  SEMI  WS  OTHER */
-     /* 0 INVALID: */ {    1,  0,     2, },
-     /* 1   START: */ {    1,  1,     2, },
-     /* 2  NORMAL: */ {    1,  2,     2, },
-  };
-#endif /* SQLITE_OMIT_TRIGGER */
 
   while( *zSql ){
     switch( *zSql ){
@@ -97013,9 +96912,6 @@ abort_parse:
           /* Keywords and unquoted identifiers */
           int nId;
           for(nId=1; IdChar(zSql[nId]); nId++){}
-#ifdef SQLITE_OMIT_TRIGGER
-          token = tkOTHER;
-#else
           switch( *zSql ){
             case 'c': case 'C': {
               if( nId==6 && zSql[:6] == "create" {
@@ -97056,7 +96952,6 @@ abort_parse:
               break;
             }
           }
-#endif /* SQLITE_OMIT_TRIGGER */
           zSql += nId-1;
         }else{
           /* Operators and special symbols */
