@@ -9006,13 +9006,11 @@ struct sqlite3 {
   void *pProgressArg;           /* Argument to the progress callback */
   int nProgressOps;             /* Number of opcodes for progress callback */
 #endif
-#ifndef SQLITE_OMIT_VIRTUALTABLE
   int nVTrans;                  /* Allocated size of aVTrans */
   Modules		map[string]*Module	//	populated by sqlite3_create_module()
   VtabCtx *pVtabCtx;            /* Context for active vtab connect/create */
   VTable **aVTrans;             /* Virtual tables with open transactions */
   VTable *pDisconnect;    /* Disconnect these in next sqlite3_prepare() */
-#endif
   FuncDefHash aFunc;            /* Hash table of connection functions */
   CollationSequences	map[string]*CollationSequence			//	All collating sequences
   BusyHandler busyHandler;      /* Busy callback */
@@ -9321,11 +9319,9 @@ struct Table {
 #ifndef SQLITE_OMIT_ALTERTABLE
   int addColOffset;    /* Offset in CREATE TABLE stmt to add a new column */
 #endif
-#ifndef SQLITE_OMIT_VIRTUALTABLE
   int nModuleArg;      /* Number of arguments to the module */
   char **azModuleArg;  /* Text of all module args. [0] is module name */
   VTable *pVTable;     /* List of VTable objects. */
-#endif
   Trigger *pTrigger;   /* List of triggers stored in pSchema */
   Schema *pSchema;     /* Schema that contains this table */
   Table *pNextZombie;  /* Next on the Parse.pZombieTab list */
@@ -9346,13 +9342,8 @@ struct Table {
 ** done as a macro so that it will be optimized out when virtual
 ** table support is omitted from the build.
 */
-#ifndef SQLITE_OMIT_VIRTUALTABLE
 #  define IsVirtual(X)      (((X)->tabFlags & TF_Virtual)!=0)
 #  define IsHiddenColumn(X) (((X)->colFlags & COLFLAG_HIDDEN)!=0)
-#else
-#  define IsVirtual(X)      0
-#  define IsHiddenColumn(X) 0
-#endif
 
 /*
 ** Each foreign key constraint is an instance of the following structure.
@@ -10299,10 +10290,8 @@ struct Parse {
   int nVar;                 /* Number of '?' variables seen in the SQL so far */
   int nzVar;                /* Number of available slots in azVar[] */
   u8 explain;               /* True if the EXPLAIN flag is found on the query */
-#ifndef SQLITE_OMIT_VIRTUALTABLE
   u8 declareVtab;           /* True if inside sqlite3_declare_vtab() */
   int nVtabLock;            /* Number of virtual tables to lock */
-#endif
   int nAlias;               /* Number of aliased result set columns */
   int nHeight;              /* Expression tree height of current sub-select */
 #ifndef SQLITE_OMIT_EXPLAIN
@@ -10318,10 +10307,8 @@ struct Parse {
   const char *zAuthContext; /* The 6th parameter to db->xAuth callbacks */
   Token sNameToken;         /* Token with unqualified schema object name */
   Token sLastToken;         /* The last token parsed */
-#ifndef SQLITE_OMIT_VIRTUALTABLE
   Token sArg;               /* Complete text of a module argument */
   Table **apVtabLock;       /* Pointer to virtual tables needing locking */
-#endif
   Table *pZombieTab;        /* List of Table objects to delete after code gen */
   TriggerPrg *pTriggerPrg;  /* Linked list of coded triggers */
 };
@@ -10329,11 +10316,7 @@ struct Parse {
 /*
 ** Return true if currently inside an sqlite3_declare_vtab() call.
 */
-#ifdef SQLITE_OMIT_VIRTUALTABLE
-  #define IN_DECLARE_VTAB 0
-#else
   #define IN_DECLARE_VTAB (pParse->declareVtab)
-#endif
 
 /*
 ** An instance of the following structure can be declared on a stack and used
@@ -10736,11 +10719,7 @@ struct Walker {
 
  void sqlite3CreateView(Parse*,Token*,Token*,Token*,Select*,int,int);
 
-#if !defined(SQLITE_OMIT_VIRTUALTABLE)
    int sqlite3ViewGetColumnNames(Parse*,Table*);
-#else
-# define sqlite3ViewGetColumnNames(A,B) 0
-#endif
 
  void sqlite3DropTable(Parse*, SrcList*, int, int);
  void sqlite3CodeDropTable(Parse*, Table*, int, int);
@@ -11028,18 +11007,6 @@ struct Walker {
   #define sqlite3TableLock(v,w,x,y,z)
 #endif
 
-#ifdef SQLITE_OMIT_VIRTUALTABLE
-#  define sqlite3VtabClear(Y)
-#  define sqlite3VtabSync(X,Y) SQLITE_OK
-#  define sqlite3VtabRollback(X)
-#  define sqlite3VtabCommit(X)
-#  define sqlite3VtabInSync(db) 0
-#  define sqlite3VtabLock(X) 
-#  define sqlite3VtabUnlock(X)
-#  define sqlite3VtabUnlockList(X)
-#  define sqlite3VtabSavepoint(X, Y, Z) SQLITE_OK
-#  define sqlite3GetVTable(X,Y)  ((VTable*)0)
-#else
     void sqlite3VtabClear(sqlite3 *db, Table*);
     void sqlite3VtabDisconnect(sqlite3 *db, Table *p);
     int sqlite3VtabSync(sqlite3 *db, char **);
@@ -11050,8 +11017,11 @@ struct Walker {
     void sqlite3VtabUnlockList(sqlite3*);
     int sqlite3VtabSavepoint(sqlite3 *, int, int);
     VTable *sqlite3GetVTable(sqlite3*, Table*);
-#  define sqlite3VtabInSync(db) ((db)->nVTrans>0 && (db)->aVTrans==0)
-#endif
+
+func (db *sqlite3) VtabInSync() bool {
+	return db.nVTrans > 0 && db.aVTrans == 0
+}
+
  void sqlite3VtabMakeWritable(Parse*,Table*);
  void sqlite3VtabBeginParse(Parse*, Token*, Token*, Token*, int);
  void sqlite3VtabFinishParse(Parse*, Token*);
@@ -11597,9 +11567,6 @@ const char * const azCompileOpt[] = {
 #endif
 #ifdef SQLITE_OMIT_VACUUM
   "OMIT_VACUUM",
-#endif
-#ifdef SQLITE_OMIT_VIRTUALTABLE
-  "OMIT_VIRTUALTABLE",
 #endif
 #ifdef SQLITE_OMIT_WAL
   "OMIT_WAL",
@@ -48207,7 +48174,6 @@ void resolveP2Values(Vdbe *p, int *pMaxFuncArgs){
       if( pOp->p5>nMaxArgs ) nMaxArgs = pOp->p5;
     }else if( (opcode==OP_Transaction && pOp->p2!=0) || opcode==OP_Vacuum ){
       p->readOnly = 0;
-#ifndef SQLITE_OMIT_VIRTUALTABLE
     }else if( opcode==OP_VUpdate ){
       if( pOp->p2>nMaxArgs ) nMaxArgs = pOp->p2;
     }else if( opcode==OP_VFilter ){
@@ -48216,7 +48182,6 @@ void resolveP2Values(Vdbe *p, int *pMaxFuncArgs){
       assert( pOp[-1].opcode==OP_Integer );
       n = pOp[-1].p1;
       if( n>nMaxArgs ) nMaxArgs = n;
-#endif
     }else if( opcode==OP_Next || opcode==OP_SorterNext ){
       pOp->p4.xAdvance = sqlite3BtreeNext;
       pOp->p4type = P4_ADVANCE;
@@ -48697,13 +48662,11 @@ char *displayP4(Op *pOp, char *zTemp, int nTemp){
       }
       break;
     }
-#ifndef SQLITE_OMIT_VIRTUALTABLE
     case P4_VTAB: {
       sqlite3_vtab *pVtab = pOp->p4.pVtab->pVtab;
       sqlite3_snprintf(nTemp, zTemp, "vtab:%p:%p", pVtab, pVtab->pModule);
       break;
     }
-#endif
     case P4_INTARRAY: {
       sqlite3_snprintf(nTemp, zTemp, "intarray");
       break;
@@ -49316,7 +49279,6 @@ void *allocSpace(
   }else if( pCx->pCursor ){
     sqlite3BtreeCloseCursor(pCx->pCursor);
   }
-#ifndef SQLITE_OMIT_VIRTUALTABLE
   if( pCx->pVtabCursor ){
     sqlite3_vtab_cursor *pVtabCursor = pCx->pVtabCursor;
     const sqlite3_module *pModule = pCx->pModule;
@@ -49324,7 +49286,6 @@ void *allocSpace(
     pModule->xClose(pVtabCursor);
     p->inVtabMethod = 0;
   }
-#endif
 }
 
 /*
@@ -49476,13 +49437,6 @@ int vdbeCommit(sqlite3 *db, Vdbe *p){
   int nTrans = 0;  /* Number of databases with an active write-transaction */
   int rc = SQLITE_OK;
   int needXcommit = 0;
-
-#ifdef SQLITE_OMIT_VIRTUALTABLE
-  /* With this option, sqlite3VtabSync() is defined to be simply 
-  ** SQLITE_OK so p is not used. 
-  */
-  UNUSED_PARAMETER(p);
-#endif
 
   /* Before doing anything else, call the xSync() callback for any
   ** virtual module tables written in this transaction. This has to
@@ -49914,7 +49868,7 @@ void checkActiveVdbeCnt(sqlite3 *db){
     ** Note: This block also runs if one of the special errors handled 
     ** above has occurred. 
     */
-    if( !sqlite3VtabInSync(db) 
+    if( !db.VtabInSync() 
      && db->autoCommit 
      && db->writeVdbeCnt==(p->readOnly==0) 
     ){
@@ -54654,9 +54608,7 @@ case OP_Column: {
   */
   u.ao.pC = p->apCsr[u.ao.p1];
   assert( u.ao.pC!=0 );
-#ifndef SQLITE_OMIT_VIRTUALTABLE
   assert( u.ao.pC->pVtabCursor==0 );
-#endif
   u.ao.pCrsr = u.ao.pC->pCursor;
   if( u.ao.pCrsr!=0 ){
     /* The record is stored in a B-Tree */
@@ -55098,7 +55050,6 @@ case OP_Savepoint: {
     }else{
       u.as.nName = len(u.as.zName);
 
-#ifndef SQLITE_OMIT_VIRTUALTABLE
       /* This call is Ok even if this savepoint is actually a transaction
       ** savepoint (and therefore should not prompt xSavepoint()) callbacks.
       ** If this is a transaction savepoint being opened, it is guaranteed
@@ -55107,7 +55058,6 @@ case OP_Savepoint: {
       rc = sqlite3VtabSavepoint(db, SAVEPOINT_BEGIN,
                                 db->nStatement+db->nSavepoint);
       if( rc!=SQLITE_OK ) goto abort_due_to_error;
-#endif
 
       /* Create a new savepoint structure. */
       u.as.pNew = sqlite3DbMallocRaw(db, sizeof(Savepoint)+u.as.nName+1);
@@ -56599,14 +56549,12 @@ case OP_Rowid: {                 /* out2-prerelease */
     break;
   }else if( u.bn.pC->deferredMoveto ){
     u.bn.v = u.bn.pC->movetoTarget;
-#ifndef SQLITE_OMIT_VIRTUALTABLE
   }else if( u.bn.pC->pVtabCursor ){
     u.bn.pVtab = u.bn.pC->pVtabCursor->pVtab;
     u.bn.pModule = u.bn.pVtab->pModule;
     assert( u.bn.pModule->xRowid );
     rc = u.bn.pModule->xRowid(u.bn.pC->pVtabCursor, &u.bn.v);
     importVtabErrMsg(p, u.bn.pVtab);
-#endif /* SQLITE_OMIT_VIRTUALTABLE */
   }else{
     assert( u.bn.pC->pCursor!=0 );
     rc = sqlite3VdbeCursorMoveto(u.bn.pC);
@@ -56968,16 +56916,12 @@ case OP_IdxGE: {        /* jump */
 ** See also: Clear
 */
 case OP_Destroy: {     /* out2-prerelease */
-#ifndef SQLITE_OMIT_VIRTUALTABLE
   u.bw.iCnt = 0;
   for(u.bw.pVdbe=db->pVdbe; u.bw.pVdbe; u.bw.pVdbe = u.bw.pVdbe->pNext){
     if( u.bw.pVdbe->magic==VDBE_MAGIC_RUN && u.bw.pVdbe->inVtabMethod<2 && u.bw.pVdbe->pc>=0 ){
       u.bw.iCnt++;
     }
   }
-#else
-  u.bw.iCnt = db->activeVdbeCnt;
-#endif
   pOut->flags = MEM_Null;
   if( u.bw.iCnt>1 ){
     rc = SQLITE_LOCKED;
@@ -57863,7 +57807,6 @@ case OP_TableLock: {
 }
 #endif /* SQLITE_OMIT_SHARED_CACHE */
 
-#ifndef SQLITE_OMIT_VIRTUALTABLE
 /* Opcode: VBegin * * * P4 *
 **
 ** P4 may be a pointer to an sqlite3_vtab structure. If so, call the 
@@ -57879,9 +57822,7 @@ case OP_VBegin: {
   if( u.cl.pVTab ) importVtabErrMsg(p, u.cl.pVTab->pVtab);
   break;
 }
-#endif /* SQLITE_OMIT_VIRTUALTABLE */
 
-#ifndef SQLITE_OMIT_VIRTUALTABLE
 /* Opcode: VCreate P1 * * P4 *
 **
 ** P4 is the name of a virtual table in database P1. Call the xCreate method
@@ -57891,9 +57832,7 @@ case OP_VCreate: {
   p.zErrMsg, rc = db.VtabCallCreate(pOp->p1, pOp->p4.z)
   break;
 }
-#endif /* SQLITE_OMIT_VIRTUALTABLE */
 
-#ifndef SQLITE_OMIT_VIRTUALTABLE
 /* Opcode: VDestroy P1 * * P4 *
 **
 ** P4 is the name of a virtual table in database P1.  Call the xDestroy method
@@ -57905,9 +57844,7 @@ case OP_VDestroy: {
   p->inVtabMethod = 0;
   break;
 }
-#endif /* SQLITE_OMIT_VIRTUALTABLE */
 
-#ifndef SQLITE_OMIT_VIRTUALTABLE
 /* Opcode: VOpen P1 * * P4 *
 **
 ** P4 is a pointer to a virtual table object, an sqlite3_vtab structure.
@@ -57938,9 +57875,7 @@ case OP_VOpen: {
   }
   break;
 }
-#endif /* SQLITE_OMIT_VIRTUALTABLE */
 
-#ifndef SQLITE_OMIT_VIRTUALTABLE
 /* Opcode: VFilter P1 P2 P3 P4 *
 **
 ** P1 is a cursor opened using VOpen.  P2 is an address to jump to if
@@ -58000,9 +57935,7 @@ case OP_VFilter: {   /* jump */
 
   break;
 }
-#endif /* SQLITE_OMIT_VIRTUALTABLE */
 
-#ifndef SQLITE_OMIT_VIRTUALTABLE
 /* Opcode: VColumn P1 P2 P3 * *
 **
 ** Store the value of the P2-th column of
@@ -58050,9 +57983,7 @@ case OP_VColumn: {
   }
   break;
 }
-#endif /* SQLITE_OMIT_VIRTUALTABLE */
 
-#ifndef SQLITE_OMIT_VIRTUALTABLE
 /* Opcode: VNext P1 P2 * * *
 **
 ** Advance virtual table P1 to the next row in its result set and
@@ -58090,9 +58021,7 @@ case OP_VNext: {   /* jump */
   }
   break;
 }
-#endif /* SQLITE_OMIT_VIRTUALTABLE */
 
-#ifndef SQLITE_OMIT_VIRTUALTABLE
 /* Opcode: VRename P1 * * P4 *
 **
 ** P4 is a pointer to a virtual table object, an sqlite3_vtab structure.
@@ -58111,9 +58040,7 @@ case OP_VRename: {
   p->expired = 0;
   break;
 }
-#endif
 
-#ifndef SQLITE_OMIT_VIRTUALTABLE
 /* Opcode: VUpdate P1 P2 P3 P4 *
 **
 ** P4 is a pointer to a virtual table object, an sqlite3_vtab structure.
@@ -58176,7 +58103,6 @@ case OP_VUpdate: {
   }
   break;
 }
-#endif /* SQLITE_OMIT_VIRTUALTABLE */
 
 #ifndef  SQLITE_OMIT_PAGER_PRAGMAS
 /* Opcode: Pagecount P1 P2 * * *
@@ -64368,7 +64294,6 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
       }else{
         r1 = 0;
       }
-#ifndef SQLITE_OMIT_VIRTUALTABLE
       /* Possibly overload the function if the first argument is
       ** a virtual table column.
       **
@@ -64386,7 +64311,6 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
       }else if( nFarg>0 ){
         pDef = db.VtabOverloadFunction(pDef, nFarg, pFarg->a[0].pExpr);
       }
-#endif
       for(i=0; i<nFarg; i++){
         if( i<32 && sqlite3ExprIsConstant(pFarg->a[i].pExpr) ){
           constMask |= (1<<i);
@@ -66234,7 +66158,6 @@ int isSystemTable(Parse *pParse, const char *zName){
   }
 #endif
 
-#ifndef SQLITE_OMIT_VIRTUALTABLE
   if( sqlite3ViewGetColumnNames(pParse, pTab) ){
     goto exit_rename_table;
   }
@@ -66244,7 +66167,6 @@ int isSystemTable(Parse *pParse, const char *zName){
       pVTab = 0;
     }
   }
-#endif
 
   /* Begin a transaction and code the VerifyCookie for database iDb. 
   ** Then modify the schema cookie (since the ALTER TABLE modifies the
@@ -66263,14 +66185,12 @@ int isSystemTable(Parse *pParse, const char *zName){
   ** of any resources used by the v-table implementation (including other
   ** SQLite tables) that are identified by the name of the virtual table.
   */
-#ifndef SQLITE_OMIT_VIRTUALTABLE
   if( pVTab ){
     int i = ++pParse->nMem;
     sqlite3VdbeAddOp4(v, OP_String8, 0, i, 0, zName, 0);
     sqlite3VdbeAddOp4(v, OP_VRename, i, 0, 0,(const char*)pVTab, P4_VTAB);
     sqlite3MayAbort(pParse);
   }
-#endif
 
   /* figure out how many UTF-8 characters are in zName */
   zTabName = pTab.zName
@@ -66525,12 +66445,10 @@ exit_rename_table:
   pTab = sqlite3LocateTableItem(pParse, 0, &pSrc->a[0]);
   if( !pTab ) goto exit_begin_add_column;
 
-#ifndef SQLITE_OMIT_VIRTUALTABLE
   if( IsVirtual(pTab) ){
     pParse.ErrorMessage("virtual tables may not be altered")
     goto exit_begin_add_column;
   }
-#endif
 
   /* Make sure this is not an attempt to ALTER a view. */
   if( pTab->pSelect ){
@@ -68581,7 +68499,6 @@ void codeTableLocks(Parse *pParse){
                             db->aDb[iDb].pSchema->iGeneration);
         }
       }
-#ifndef SQLITE_OMIT_VIRTUALTABLE
       {
         int i;
         for(i=0; i<pParse->nVtabLock; i++){
@@ -68590,7 +68507,6 @@ void codeTableLocks(Parse *pParse){
         }
         pParse->nVtabLock = 0;
       }
-#endif
 
       /* Once all the cookies have been verified and transactions opened, 
       ** obtain the required table-locks. This is a no-op unless the 
@@ -68981,9 +68897,7 @@ void sqliteDeleteColumnNames(sqlite3 *db, Table *pTable){
 #ifndef SQLITE_OMIT_CHECK
   sqlite3ExprListDelete(db, pTable->pCheck);
 #endif
-#ifndef SQLITE_OMIT_VIRTUALTABLE
   sqlite3VtabClear(db, pTable);
-#endif
   sqlite3DbFree(db, pTable);
 }
 
@@ -69303,11 +69217,9 @@ void sqliteDeleteColumnNames(sqlite3 *db, Table *pTable){
     int reg1, reg2, reg3;
     sqlite3BeginWriteOperation(pParse, 0, iDb);
 
-#ifndef SQLITE_OMIT_VIRTUALTABLE
     if( isVirtual ){
       sqlite3VdbeAddOp0(v, OP_VBegin);
     }
-#endif
 
     /* If the file format in the database have not been set, set it now. */
     reg1 = pParse->regRowid = ++pParse->nMem;
@@ -69334,11 +69246,9 @@ void sqliteDeleteColumnNames(sqlite3 *db, Table *pTable){
     ** The rowid and root page number values are needed by the code that
     ** sqlite3EndTable will generate.
     */
-#if !defined(SQLITE_OMIT_VIRTUALTABLE)
     if( isView || isVirtual ){
       sqlite3VdbeAddOp2(v, OP_Integer, 0, reg2);
     }else
-#endif
     {
       sqlite3VdbeAddOp2(v, OP_CreateTable, iDb, reg2);
     }
@@ -70140,7 +70050,6 @@ char *createTableStmt(sqlite3 *db, Table *p){
   return;
 }
 
-#if !defined(SQLITE_OMIT_VIRTUALTABLE)
 /*
 ** The Table structure pTable is really a VIEW.  Fill in the names of
 ** the columns of the view in the pTable structure.  Return the number
@@ -70156,12 +70065,10 @@ char *createTableStmt(sqlite3 *db, Table *p){
 
   assert( pTable );
 
-#ifndef SQLITE_OMIT_VIRTUALTABLE
   if( sqlite3VtabCallConnect(pParse, pTable) ){
     return SQLITE_ERROR;
   }
   if( IsVirtual(pTable) ) return 0;
-#endif
 
   /* A positive nCol means the columns names for this view are
   ** already known.
@@ -70230,7 +70137,6 @@ char *createTableStmt(sqlite3 *db, Table *p){
   }
   return nErr;  
 }
-#endif /* !defined(SQLITE_OMIT_VIRTUALTABLE) */
 
 /*
 ** Clear the column names from every VIEW in database idx.
@@ -70417,11 +70323,9 @@ void sqlite3ClearStatTables(
   assert( v!=0 );
   sqlite3BeginWriteOperation(pParse, 1, iDb);
 
-#ifndef SQLITE_OMIT_VIRTUALTABLE
   if( IsVirtual(pTab) ){
     sqlite3VdbeAddOp0(v, OP_VBegin);
   }
-#endif
 
   /* Drop all triggers associated with the table being dropped. Code
   ** is generated to remove entries from sqlite_master and/or
@@ -70521,11 +70425,9 @@ void sqlite3ClearStatTables(
       } else {
         code = SQLITE_DROP_VIEW
       }
-#ifndef SQLITE_OMIT_VIRTUALTABLE
     }else if( IsVirtual(pTab) ){
       code = SQLITE_DROP_VTABLE;
       zArg2 = sqlite3GetVTable(db, pTab)->pMod->zName;
-#endif
     }else{
       if iDb == 1 {
         code = SQLITE_DROP_TEMP_TABLE
@@ -70905,12 +70807,10 @@ void sqlite3RefillIndex(Parse *pParse, Index *pIndex, int memRootPage){
     pParse.ErrorMessage("views may not be indexed")
     goto exit_create_index;
   }
-#ifndef SQLITE_OMIT_VIRTUALTABLE
   if( IsVirtual(pTab) ){
     pParse.ErrorMessage("virtual tables may not be indexed")
     goto exit_create_index;
   }
-#endif
 
   /*
   ** Find the name of the index.  Make sure there is not already another
@@ -72534,7 +72434,6 @@ limit_where_cleanup_2:
     addr = sqlite3VdbeAddOp3(v, OP_RowSetRead, iRowSet, end, iRowid);
 
     /* Delete the row */
-#ifndef SQLITE_OMIT_VIRTUALTABLE
     if( IsVirtual(pTab) ){
       const char *pVTab = (const char *)sqlite3GetVTable(db, pTab);
       sqlite3VtabMakeWritable(pParse, pTab);
@@ -72542,7 +72441,6 @@ limit_where_cleanup_2:
       sqlite3VdbeChangeP5(v, OE_Abort);
       sqlite3MayAbort(pParse);
     }else
-#endif
     {
       int count = (pParse->nested==0);    /* True to count changes */
       sqlite3GenerateRowDelete(pParse, pTab, iCur, iRowid, count, pTrigger, OE_Default);
@@ -74127,9 +74025,7 @@ int readsTable(Parse *p, int iStartAddr, int iDb, Table *pTab){
   Vdbe *v = sqlite3GetVdbe(p);
   int i;
   int iEnd = sqlite3VdbeCurrentAddr(v);
-#ifndef SQLITE_OMIT_VIRTUALTABLE
   VTable *pVTab = IsVirtual(pTab) ? sqlite3GetVTable(p->db, pTab) : 0;
-#endif
 
   for(i=iStartAddr; i<iEnd; i++){
     VdbeOp *pOp = sqlite3VdbeGetOp(v, i);
@@ -74146,13 +74042,11 @@ int readsTable(Parse *p, int iStartAddr, int iDb, Table *pTab){
         }
       }
     }
-#ifndef SQLITE_OMIT_VIRTUALTABLE
     if( pOp->opcode==OP_VOpen && pOp->p4.pVtab==pVTab ){
       assert( pOp->p4.pVtab!=0 );
       assert( pOp->p4type==P4_VTAB );
       return 1;
     }
-#endif
   }
   return 0;
 }
@@ -74992,7 +74886,6 @@ int xferOptimization(
     /* Generate code to check constraints and generate index keys and
     ** do the insertion.
     */
-#ifndef SQLITE_OMIT_VIRTUALTABLE
     if( IsVirtual(pTab) ){
       const char *pVTab = (const char *)sqlite3GetVTable(db, pTab);
       sqlite3VtabMakeWritable(pParse, pTab);
@@ -75000,7 +74893,6 @@ int xferOptimization(
       sqlite3VdbeChangeP5(v, onError==OE_Default ? OE_Abort : onError);
       sqlite3MayAbort(pParse);
     }else
-#endif
     {
       int isReplace;    /* Set to true if constraints may cause a replace */
       sqlite3GenerateConstraintChecks(pParse, pTab, baseCur, regIns, aRegIdx,
@@ -75657,11 +75549,9 @@ int xferOptimization(
   if( sqlite3TriggerList(pParse, pDest) ){
     return 0;   /* tab1 must not have triggers */
   }
-#ifndef SQLITE_OMIT_VIRTUALTABLE
   if( pDest->tabFlags & TF_Virtual ){
     return 0;   /* tab1 must not be a virtual table */
   }
-#endif
   if( onError==OE_Default ){
     if( pDest->iPKey>=0 ) onError = pDest->keyConf;
     if( onError==OE_Default ) onError = OE_Abort;
@@ -75716,11 +75606,9 @@ int xferOptimization(
   if( pSrc==pDest ){
     return 0;   /* tab1 and tab2 may not be the same table */
   }
-#ifndef SQLITE_OMIT_VIRTUALTABLE
   if( pSrc->tabFlags & TF_Virtual ){
     return 0;   /* tab2 must not be a virtual table */
   }
-#endif
   if( pSrc->pSelect ){
     return 0;   /* tab2 may not be a view */
   }
@@ -76265,14 +76153,6 @@ struct sqlite3_api_routines {
 
 #ifdef SQLITE_OMIT_PROGRESS_CALLBACK
 # define sqlite3_progress_handler 0
-#endif
-
-#ifdef SQLITE_OMIT_VIRTUALTABLE
-# define sqlite3_create_module 0
-# define sqlite3_create_module_v2 0
-# define sqlite3_declare_vtab 0
-# define sqlite3_vtab_config 0
-# define sqlite3_vtab_on_conflict 0
 #endif
 
 #ifdef SQLITE_OMIT_SHARED_CACHE
@@ -82466,7 +82346,6 @@ int selectExpander(Walker *pWalker, Select *p){
         return WRC_Abort;
       }
       pTab->nRef++;
-#if !defined (SQLITE_OMIT_VIRTUALTABLE)
       if( pTab->pSelect || IsVirtual(pTab) ){
         /* We reach here if the named table is a really a view */
         if( sqlite3ViewGetColumnNames(pParse, pTab) ) return WRC_Abort;
@@ -82474,7 +82353,6 @@ int selectExpander(Walker *pWalker, Select *p){
         pFrom->pSelect = sqlite3SelectDup(db, pTab->pSelect, 0);
         sqlite3WalkSelect(pWalker, pFrom->pSelect);
       }
-#endif
     }
 
     /* Locate the index named by the INDEXED BY clause, if any. */
@@ -85168,7 +85046,6 @@ TriggerPrg *getRowTrigger(
 ** to handle UPDATE statements.
 */
 
-#ifndef SQLITE_OMIT_VIRTUALTABLE
 /* Forward declaration */
 void updateVirtualTable(
   Parse *pParse,       /* The parsing context */
@@ -85180,7 +85057,6 @@ void updateVirtualTable(
   Expr *pWhere,        /* WHERE clause of the UPDATE statement */
   int onError          /* ON CONFLICT strategy */
 );
-#endif /* SQLITE_OMIT_VIRTUALTABLE */
 
 /*
 ** The most recently coded instruction was an OP_Column to retrieve the
@@ -85404,7 +85280,6 @@ void updateVirtualTable(
   if( pParse->nested==0 ) sqlite3VdbeCountChanges(v);
   sqlite3BeginWriteOperation(pParse, 1, iDb);
 
-#ifndef SQLITE_OMIT_VIRTUALTABLE
   /* Virtual tables must be handled separately */
   if( IsVirtual(pTab) ){
     updateVirtualTable(pParse, pTabList, pTab, pChanges, pRowidExpr, aXRef,
@@ -85413,7 +85288,6 @@ void updateVirtualTable(
     pTabList = 0;
     goto update_cleanup;
   }
-#endif
 
   /* Allocate required registers. */
   regRowSet = ++pParse->nMem;
@@ -85712,7 +85586,6 @@ update_cleanup:
  #undef pTrigger
 #endif
 
-#ifndef SQLITE_OMIT_VIRTUALTABLE
 /*
 ** Generate code for an UPDATE of a virtual table.
 **
@@ -85806,7 +85679,6 @@ void updateVirtualTable(
   /* Cleanup */
   sqlite3SelectDelete(db, pSelect);  
 }
-#endif /* SQLITE_OMIT_VIRTUALTABLE */
 
 /************** End of update.c **********************************************/
 /************** Begin file vacuum.c ******************************************/
@@ -86150,10 +86022,6 @@ end_of_vacuum:
 
 /************** End of vacuum.c **********************************************/
 /************** Begin file vtab.c ********************************************/
-/*
-** This file contains code used to help implement virtual tables.
-*/
-#ifndef SQLITE_OMIT_VIRTUALTABLE
 
 /*
 ** Before a virtual table xCreate() or xConnect() method is invoked, the
@@ -86977,7 +86845,7 @@ void callFinaliser(sqlite3 *db, int offset){
   ** virtual module xSync() callback. It is illegal to write to 
   ** virtual module tables in this case, so return SQLITE_LOCKED.
   */
-  if( sqlite3VtabInSync(db) ){
+  if db.VtabInSync() {
     return SQLITE_LOCKED;
   }
   if( !pVTab ){
@@ -87186,8 +87054,6 @@ func (db *sqlite3) VtabOverloadFunction(pDef *Function, nArg int, pExpr *Expr) (
   sqlite3_mutex_leave(db->mutex);
   return rc;
 }
-
-#endif /* SQLITE_OMIT_VIRTUALTABLE */
 
 /************** End of vtab.c ************************************************/
 /************** Begin file where.c *******************************************/
@@ -88031,7 +87897,6 @@ int isLikeOrGlob(
 #endif /* SQLITE_OMIT_LIKE_OPTIMIZATION */
 
 
-#ifndef SQLITE_OMIT_VIRTUALTABLE
 /*
 ** Check to see if the given expression is of the form
 **
@@ -88059,7 +87924,6 @@ int isMatchOfColumn(
   }
   return 1;
 }
-#endif /* SQLITE_OMIT_VIRTUALTABLE */
 
 /*
 ** If the pBase expression originated in the ON or USING clause of
@@ -88603,7 +88467,6 @@ void exprAnalyze(
   }
 #endif /* SQLITE_OMIT_LIKE_OPTIMIZATION */
 
-#ifndef SQLITE_OMIT_VIRTUALTABLE
   /* Add a WO_MATCH auxiliary term to the constraint set if the
   ** current expression is of the form:  column MATCH expr.
   ** This information is used by the xBestIndex methods of
@@ -88637,7 +88500,6 @@ void exprAnalyze(
       pNewTerm->prereqAll = pTerm->prereqAll;
     }
   }
-#endif /* SQLITE_OMIT_VIRTUALTABLE */
 
 #ifdef SQLITE_ENABLE_STAT3
   /* When sqlite_stat3 histogram data is available an operator of the
@@ -88870,7 +88732,7 @@ float64 estLog(float64 N){
 ** SQLITE_DEBUG is not defined, then these routines
 ** are no-ops.
 */
-#if !defined(SQLITE_OMIT_VIRTUALTABLE) && defined(SQLITE_DEBUG)
+#if defined(SQLITE_DEBUG)
 void TRACE_IDX_INPUTS(sqlite3_index_info *p){
   int i;
   if( !sqlite3WhereTrace ) return;
@@ -89254,7 +89116,6 @@ void constructAutomaticIndex(
 }
 #endif /* SQLITE_OMIT_AUTOMATIC_INDEX */
 
-#ifndef SQLITE_OMIT_VIRTUALTABLE
 /*
 ** Allocate and populate an sqlite3_index_info structure. It is the 
 ** responsibility of the caller to eventually release the structure
@@ -89599,7 +89460,6 @@ void bestVirtualIndex(WhereBestIdx *p){
   */
   bestOrClauseIndex(p);
 }
-#endif /* SQLITE_OMIT_VIRTUALTABLE */
 
 #ifdef SQLITE_ENABLE_STAT3
 /*
@@ -90797,7 +90657,6 @@ void bestBtreeIndex(WhereBestIdx *p){
 ** applicable.
 */
 void bestIndex(WhereBestIdx *p){
-#ifndef SQLITE_OMIT_VIRTUALTABLE
   if( IsVirtual(p->pSrc->pTab) ){
     sqlite3_index_info *pIdxInfo = 0;
     p->ppIdxInfo = &pIdxInfo;
@@ -90808,7 +90667,6 @@ void bestIndex(WhereBestIdx *p){
     }
     sqlite3DbFree(p->pParse->db, pIdxInfo);
   }else
-#endif
   {
     bestBtreeIndex(p);
   }
@@ -91214,13 +91072,11 @@ void explainOneScan(
         zMsg = sqlite3MAppendf(db, zMsg, "%s (rowid<?)", zMsg);
       }
     }
-#ifndef SQLITE_OMIT_VIRTUALTABLE
     else if( (flags & WHERE_VIRTUALTABLE)!=0 ){
       sqlite3_index_info *pVtabIdx = pLevel->plan.u.pVtabIdx;
       zMsg = sqlite3MAppendf(db, zMsg, "%s VIRTUAL TABLE INDEX %d:%s", zMsg,
                   pVtabIdx->idxNum, pVtabIdx->idxStr);
     }
-#endif
     if( wctrlFlags&(WHERE_ORDERBY_MIN|WHERE_ORDERBY_MAX) ){
       nRow = 1;
     }else{
@@ -91305,8 +91161,6 @@ Bitmask codeOneLoopStart(
     sqlite3VdbeAddOp2(v, OP_If, regYield+1, addrBrk);
     pLevel->op = OP_Goto;
   }else
-
-#ifndef SQLITE_OMIT_VIRTUALTABLE
   if(  (pLevel->plan.wsFlags & WHERE_VIRTUALTABLE)!=0 ){
     /* Case 0:  The table is a virtual-table.  Use the VFilter and VNext
     **          to access the data.
@@ -91356,8 +91210,6 @@ Bitmask codeOneLoopStart(
     sqlite3ReleaseTempRange(pParse, iReg, nConstraint+2);
     sqlite3ExprCachePop(pParse, 1);
   }else
-#endif /* SQLITE_OMIT_VIRTUALTABLE */
-
   if( pLevel->plan.wsFlags & WHERE_ROWID_EQ ){
     /* Case 1:  We can directly reference a single row using an
     **          equality comparison against the ROWID field.  Or
@@ -92355,12 +92207,10 @@ void whereInfoFree(sqlite3 *db, WhereInfo *pWInfo){
         WHERETRACE(("   === trying table %d (%s) with isOptimal=%d ===\n",
                     j, sWBI.pSrc->pTab->zName, isOptimal));
         assert( sWBI.pSrc->pTab );
-#ifndef SQLITE_OMIT_VIRTUALTABLE
         if( IsVirtual(sWBI.pSrc->pTab) ){
           sWBI.ppIdxInfo = &pWInfo->a[j].pIdxInfo;
           bestVirtualIndex(&sWBI);
         }else 
-#endif
         {
           bestBtreeIndex(&sWBI);
         }
@@ -92528,7 +92378,6 @@ void whereInfoFree(sqlite3 *db, WhereInfo *pWInfo){
     if( (pTab->tabFlags & TF_Ephemeral)!=0 || pTab->pSelect ){
       /* Do nothing */
     }else
-#ifndef SQLITE_OMIT_VIRTUALTABLE
     if( (pLevel->plan.wsFlags & WHERE_VIRTUALTABLE)!=0 ){
       const char *pVTab = (const char *)sqlite3GetVTable(db, pTab);
       int iCur = pTabItem->iCursor;
@@ -92536,7 +92385,6 @@ void whereInfoFree(sqlite3 *db, WhereInfo *pWInfo){
     }else if( IsVirtual(pTab) ){
       /* noop */
     }else
-#endif
     if( (pLevel->plan.wsFlags & WHERE_IDX_ONLY)==0
          && (wctrlFlags & WHERE_OMIT_OPEN_CLOSE)==0 ){
       int op = pWInfo->okOnePass ? OP_OpenWrite : OP_OpenRead;
@@ -96681,9 +96529,7 @@ abort_parse:
     pParse->nTableLock = 0;
   }
 #endif
-#ifndef SQLITE_OMIT_VIRTUALTABLE
   sqlite3_free(pParse->apVtabLock);
-#endif
 
   if( !IN_DECLARE_VTAB ){
     /* If the pParse->declareVtab flag is set, do not delete any table 
@@ -97138,7 +96984,6 @@ func nocaseCollatingFunc(Key1, Key2 string) (r int) {
 ** db. This is called when db is being closed.
 */
 void disconnectAllVtab(sqlite3 *db){
-#ifndef SQLITE_OMIT_VIRTUALTABLE
   int i;
   sqlite3BtreeEnterAll(db);
   for(i=0; i<db->nDb; i++){
@@ -97152,9 +96997,6 @@ void disconnectAllVtab(sqlite3 *db){
     }
   }
   sqlite3BtreeLeaveAll(db);
-#else
-  UNUSED_PARAMETER(db);
-#endif
 }
 
 /*
@@ -97314,14 +97156,12 @@ void sqlite3LeaveMutexAndCloseZombie(sqlite3 *db){
 	}
 	db.CollationSequences = make(map[string]*CollationSequence)
 
-#ifndef SQLITE_OMIT_VIRTUALTABLE
 	for _, module := range db.Modules {
 		if module.xDestroy != nil {
 			module.xDestroy(module.pAux)
 		}
 	}
 	db.Modules = make(map[string]*Module)
-#endif
 
 	sqlite3Error(db, SQLITE_OK, 0)		//	Deallocates any cached error strings.
 	if db.pErr {
@@ -98686,9 +98526,7 @@ int openDatabase(
 #endif
       ;
 	db.CollationSequences = make(map[string]*CollationSequence)
-#ifndef SQLITE_OMIT_VIRTUALTABLE
 	db.Modules = make(map[string]*Module)
-#endif
 
   /* Add the default collation sequence BINARY. BINARY works for UTF-8.
   ** The only error that can occur here is a malloc() failure.
