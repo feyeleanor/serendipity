@@ -10736,7 +10736,7 @@ struct Walker {
 
  void sqlite3CreateView(Parse*,Token*,Token*,Token*,Select*,int,int);
 
-#if !defined(SQLITE_OMIT_VIEW) || !defined(SQLITE_OMIT_VIRTUALTABLE)
+#if !defined(SQLITE_OMIT_VIRTUALTABLE)
    int sqlite3ViewGetColumnNames(Parse*,Table*);
 #else
 # define sqlite3ViewGetColumnNames(A,B) 0
@@ -10859,9 +10859,7 @@ struct Walker {
  int sqlite3SafetyCheckSickOrOk(sqlite3*);
  void sqlite3ChangeCookie(Parse*, int);
 
-#if !defined(SQLITE_OMIT_VIEW)
  void sqlite3MaterializeView(Parse*, Table*, Expr*, int);
-#endif
 
  int sqlite3JoinType(Parse*, Token*, Token*, Token*);
  void sqlite3CreateForeignKey(Parse*, ExprList*, Token*, ExprList*, int);
@@ -11599,9 +11597,6 @@ const char * const azCompileOpt[] = {
 #endif
 #ifdef SQLITE_OMIT_VACUUM
   "OMIT_VACUUM",
-#endif
-#ifdef SQLITE_OMIT_VIEW
-  "OMIT_VIEW",
 #endif
 #ifdef SQLITE_OMIT_VIRTUALTABLE
   "OMIT_VIRTUALTABLE",
@@ -58526,12 +58521,10 @@ int blobSeekToRow(Incrblob *p, sqlite3_int64 iRow, char **pzErr){
       pTab = nil
       pParse.ErrorMessage("cannot open virtual table: %s", zTable)
     }
-#ifndef SQLITE_OMIT_VIEW
     if( pTab && pTab->pSelect ){
       pTab = nil
       pParse.ErrorMessage("cannot open view: %s", zTable)
     }
-#endif
     if( !pTab ){
       if( pParse->zErrMsg ){
         sqlite3DbFree(db, zErr);
@@ -62707,7 +62700,7 @@ Expr *exprDup(sqlite3 *db, Expr *p, int flags, u8 **pzBuffer){
 ** sqlite3SelectDup(), can be called. sqlite3SelectDup() is sometimes
 ** called with a NULL argument.
 */
-#if !defined(SQLITE_OMIT_VIEW) || !defined(SQLITE_OMIT_SUBQUERY)
+#if !defined(SQLITE_OMIT_SUBQUERY)
  SrcList *sqlite3SrcListDup(sqlite3 *db, SrcList *p, int flags){
   SrcList *pNew;
   int i;
@@ -66229,12 +66222,10 @@ int isSystemTable(Parse *pParse, const char *zName){
     exit_rename_table;
   }
 
-#ifndef SQLITE_OMIT_VIEW
   if( pTab->pSelect ){
     pParse.ErrorMessage("view %s may not be altered", pTab.zName)
     goto exit_rename_table;
   }
-#endif
 
 #ifndef SQLITE_OMIT_AUTHORIZATION
   /* Invoke the authorization callback. */
@@ -68114,15 +68105,13 @@ void sqlite3Attach(Parse *pParse, Expr *p, Expr *pDbname, Expr *pKey){
     sqlite3DbFree(pFix->pParse->db, pItem->zDatabase);
     pItem->zDatabase = 0;
     pItem->pSchema = pFix->pSchema;
-#if !defined(SQLITE_OMIT_VIEW)
     if( sqlite3FixSelect(pFix, pItem->pSelect) ) return 1;
     if( sqlite3FixExpr(pFix, pItem->pOn) ) return 1;
-#endif
   }
   return 0;
 }
-#if !defined(SQLITE_OMIT_VIEW)
- int sqlite3FixSelect(
+
+int sqlite3FixSelect(
   DbFixer *pFix,       /* Context of the fixation */
   Select *pSelect      /* The SELECT statement to be fixed to one database */
 ){
@@ -68175,7 +68164,6 @@ void sqlite3Attach(Parse *pParse, Expr *p, Expr *pDbname, Expr *pKey){
   }
   return 0;
 }
-#endif
 
 int sqlite3FixTriggerStep(
   DbFixer *pFix,     /* Context of the fixation */
@@ -69346,7 +69334,7 @@ void sqliteDeleteColumnNames(sqlite3 *db, Table *pTable){
     ** The rowid and root page number values are needed by the code that
     ** sqlite3EndTable will generate.
     */
-#if !defined(SQLITE_OMIT_VIEW) || !defined(SQLITE_OMIT_VIRTUALTABLE)
+#if !defined(SQLITE_OMIT_VIRTUALTABLE)
     if( isView || isVirtual ){
       sqlite3VdbeAddOp2(v, OP_Integer, 0, reg2);
     }else
@@ -69961,12 +69949,10 @@ char *createTableStmt(sqlite3 *db, Table *p){
       /* A regular table */
       zType = "table";
       zType2 = "TABLE";
-#ifndef SQLITE_OMIT_VIEW
     }else{
       /* A view */
       zType = "view";
       zType2 = "VIEW";
-#endif
     }
 
     /* If this is a CREATE TABLE xx AS SELECT ..., execute the SELECT
@@ -70080,7 +70066,6 @@ char *createTableStmt(sqlite3 *db, Table *p){
   }
 }
 
-#ifndef SQLITE_OMIT_VIEW
 /*
 ** The parser calls this routine in order to create a new VIEW
 */
@@ -70154,9 +70139,8 @@ char *createTableStmt(sqlite3 *db, Table *p){
   sqlite3EndTable(pParse, 0, &sEnd, 0);
   return;
 }
-#endif /* SQLITE_OMIT_VIEW */
 
-#if !defined(SQLITE_OMIT_VIEW) || !defined(SQLITE_OMIT_VIRTUALTABLE)
+#if !defined(SQLITE_OMIT_VIRTUALTABLE)
 /*
 ** The Table structure pTable is really a VIEW.  Fill in the names of
 ** the columns of the view in the pTable structure.  Return the number
@@ -70179,7 +70163,6 @@ char *createTableStmt(sqlite3 *db, Table *p){
   if( IsVirtual(pTable) ) return 0;
 #endif
 
-#ifndef SQLITE_OMIT_VIEW
   /* A positive nCol means the columns names for this view are
   ** already known.
   */
@@ -70245,12 +70228,10 @@ char *createTableStmt(sqlite3 *db, Table *p){
   } else {
     nErr++;
   }
-#endif /* SQLITE_OMIT_VIEW */
   return nErr;  
 }
-#endif /* !defined(SQLITE_OMIT_VIEW) || !defined(SQLITE_OMIT_VIRTUALTABLE) */
+#endif /* !defined(SQLITE_OMIT_VIRTUALTABLE) */
 
-#ifndef SQLITE_OMIT_VIEW
 /*
 ** Clear the column names from every VIEW in database idx.
 */
@@ -70268,9 +70249,6 @@ void sqliteViewResetAll(sqlite3 *db, int idx){
   }
   DbClearProperty(db, idx, DB_UnresetViews);
 }
-#else
-# define sqliteViewResetAll(A,B)
-#endif /* SQLITE_OMIT_VIEW */
 
 /*
 ** This function is called by the VDBE to adjust the internal schema
@@ -70568,7 +70546,6 @@ void sqlite3ClearStatTables(
     goto exit_drop_table;
   }
 
-#ifndef SQLITE_OMIT_VIEW
   /* Ensure DROP TABLE is not used on a view, and DROP VIEW is not used
   ** on a table.
   */
@@ -70580,7 +70557,6 @@ void sqlite3ClearStatTables(
     pParse.ErrorMessage("use DROP VIEW to delete view %s", pTab.zName)
     goto exit_drop_table;
   }
-#endif
 
   /* Generate code to remove the table from the master table
   ** on disk.
@@ -70925,12 +70901,10 @@ void sqlite3RefillIndex(Parse *pParse, Index *pIndex, int memRootPage){
     pParse.ErrorMessage("table %s may not be indexed", pTab.zName)
     goto exit_create_index;
   }
-#ifndef SQLITE_OMIT_VIEW
   if( pTab->pSelect ){
     pParse.ErrorMessage("views may not be indexed")
     goto exit_create_index;
   }
-#endif
 #ifndef SQLITE_OMIT_VIRTUALTABLE
   if( IsVirtual(pTab) ){
     pParse.ErrorMessage("virtual tables may not be indexed")
@@ -72252,17 +72226,13 @@ void reindexDatabases(Parse *pParse, char const *zColl){
     return 1;
   }
 
-#ifndef SQLITE_OMIT_VIEW
   if( !viewOk && pTab->pSelect ){
     pParse.ErrorMessage("cannot modify %s because it is a view", pTab.zName)
     return 1;
   }
-#endif
   return 0;
 }
 
-
-#if !defined(SQLITE_OMIT_VIEW)
 /*
 ** Evaluate a view and store its result in an ephemeral table.  The
 ** pWhere argument is an optional WHERE clause that restricts the
@@ -72298,7 +72268,6 @@ void reindexDatabases(Parse *pParse, char const *zColl){
   sqlite3Select(pParse, pSel, &dest);
   sqlite3SelectDelete(db, pSel);
 }
-#endif /* !defined(SQLITE_OMIT_VIEW) */
 
 #if defined(SQLITE_ENABLE_UPDATE_DELETE_LIMIT) && !defined(SQLITE_OMIT_SUBQUERY)
 /*
@@ -72443,10 +72412,6 @@ limit_where_cleanup_2:
   */
   pTrigger = sqlite3TriggersExist(pParse, pTab, TK_DELETE, 0, 0);
   isView = pTab->pSelect!=0;
-#ifdef SQLITE_OMIT_VIEW
-# undef isView
-# define isView 0
-#endif
 
   /* If pTab is really a view, make sure it has been initialized.
   */
@@ -72493,11 +72458,9 @@ limit_where_cleanup_2:
   /* If we are trying to delete from a view, realize that view into
   ** a ephemeral table.
   */
-#if !defined(SQLITE_OMIT_VIEW)
   if( isView ){
     sqlite3MaterializeView(pParse, pTab, pWhere, iCur);
   }
-#endif
 
   /* Resolve the column names in the WHERE clause.
   */
@@ -74621,10 +74584,6 @@ int xferOptimization(
   */
   pTrigger = sqlite3TriggersExist(pParse, pTab, TK_INSERT, 0, &tmask);
   isView = pTab->pSelect!=0;
-#ifdef SQLITE_OMIT_VIEW
-# undef isView
-# define isView 0
-#endif
   assert( (pTrigger && tmask) || (pTrigger==0 && tmask==0) );
 
   /* If pTab is really a view, make sure it has been initialized.
@@ -81677,7 +81636,7 @@ int multiSelectOrderBy(
 }
 #endif
 
-#if !defined(SQLITE_OMIT_SUBQUERY) || !defined(SQLITE_OMIT_VIEW)
+#if !defined(SQLITE_OMIT_SUBQUERY)
 /* Forward Declarations */
 void substExprList(sqlite3*, ExprList*, int, ExprList*);
 void substSelect(sqlite3*, Select *, int, ExprList *);
@@ -81760,9 +81719,9 @@ void substSelect(
     }
   }
 }
-#endif /* !defined(SQLITE_OMIT_SUBQUERY) || !defined(SQLITE_OMIT_VIEW) */
+#endif /* !defined(SQLITE_OMIT_SUBQUERY) */
 
-#if !defined(SQLITE_OMIT_SUBQUERY) || !defined(SQLITE_OMIT_VIEW)
+#if !defined(SQLITE_OMIT_SUBQUERY)
 /*
 ** This routine attempts to flatten subqueries as a performance optimization.
 ** This routine returns 1 if it makes changes and 0 if no flattening occurs.
@@ -82255,7 +82214,7 @@ int flattenSubquery(
 
   return 1;
 }
-#endif /* !defined(SQLITE_OMIT_SUBQUERY) || !defined(SQLITE_OMIT_VIEW) */
+#endif /* !defined(SQLITE_OMIT_SUBQUERY) */
 
 /*
 ** Based on the contents of the AggInfo structure indicated by the first
@@ -82507,7 +82466,7 @@ int selectExpander(Walker *pWalker, Select *p){
         return WRC_Abort;
       }
       pTab->nRef++;
-#if !defined(SQLITE_OMIT_VIEW) || !defined (SQLITE_OMIT_VIRTUALTABLE)
+#if !defined (SQLITE_OMIT_VIRTUALTABLE)
       if( pTab->pSelect || IsVirtual(pTab) ){
         /* We reach here if the named table is a really a view */
         if( sqlite3ViewGetColumnNames(pParse, pTab) ) return WRC_Abort;
@@ -83113,7 +83072,7 @@ void explainSimpleCount(
 
   /* Generate code for all sub-queries in the FROM clause
   */
-#if !defined(SQLITE_OMIT_SUBQUERY) || !defined(SQLITE_OMIT_VIEW)
+#if !defined(SQLITE_OMIT_SUBQUERY)
   for(i=0; !p->pPrior && i<pTabList->nSrc; i++){
     struct SrcList_item *pItem = &pTabList->a[i];
     SelectDest dest;
@@ -85338,10 +85297,6 @@ void updateVirtualTable(
   pTrigger = sqlite3TriggersExist(pParse, pTab, TK_UPDATE, pChanges, &tmask);
   isView = pTab->pSelect!=0;
   assert( pTrigger || tmask==0 );
-#ifdef SQLITE_OMIT_VIEW
-# undef isView
-# define isView 0
-#endif
 
   if( sqlite3ViewGetColumnNames(pParse, pTab) ){
     goto update_cleanup;
@@ -85481,11 +85436,9 @@ void updateVirtualTable(
   /* If we are trying to update a view, realize that view into
   ** a ephemeral table.
   */
-#if !defined(SQLITE_OMIT_VIEW)
   if( isView ){
     sqlite3MaterializeView(pParse, pTab, pWhere, iCur);
   }
-#endif
 
   /* Resolve the column names in all the expressions in the
   ** WHERE clause.
