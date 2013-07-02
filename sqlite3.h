@@ -3054,21 +3054,19 @@ typedef struct sqlite3_stmt sqlite3_stmt;
 ** The [sqlite3_value_blob | sqlite3_value_type()] family of
 ** interfaces require protected sqlite3_value objects.
 */
-typedef struct Mem sqlite3_value;
 
 /*
 ** CAPI3REF: SQL Function Context Object
 **
 ** The context in which an SQL function executes is stored in an
-** sqlite3_context object.  ^A pointer to an sqlite3_context object
+** Context object.  ^A pointer to an Context object
 ** is always first parameter to [application-defined SQL functions].
 ** The application-defined SQL function implementation will pass this
 ** pointer through into calls to [sqlite3_result_int | sqlite3_result()],
 ** [sqlite3_aggregate_context()], [sqlite3_user_data()],
-** [sqlite3_context_db_handle()], [sqlite3_get_auxdata()],
-** and/or [sqlite3_set_auxdata()].
+** [Context_db_handle()], [Context.GetAuxData()],
+** and/or [Context.SetAuxData()].
 */
-typedef struct sqlite3_context sqlite3_context;
 
 /*
 ** CAPI3REF: Binding Values To Prepared Statements
@@ -3667,14 +3665,14 @@ typedef struct sqlite3_context sqlite3_context;
 ** sqlite3_aggregate_context() when the aggregate query concludes.
 **
 ** The first parameter must be a copy of the
-** [sqlite3_context | SQL function context] that is the first parameter
+** [Context | SQL function context] that is the first parameter
 ** to the xStep or xFinal callback routine that implements the aggregate
 ** function.
 **
 ** This routine must be called from the same thread in which
 ** the aggregate SQL function is running.
 */
- void *sqlite3_aggregate_context(sqlite3_context*, int nBytes);
+ void *sqlite3_aggregate_context(Context*, int nBytes);
 
 /*
 ** CAPI3REF: User Data For Functions
@@ -3687,63 +3685,17 @@ typedef struct sqlite3_context sqlite3_context;
 ** This routine must be called from the same thread in which
 ** the application-defined function is running.
 */
- void *sqlite3_user_data(sqlite3_context*);
+ void *sqlite3_user_data(Context*);
 
 /*
 ** CAPI3REF: Database Connection For Functions
 **
-** ^The sqlite3_context_db_handle() interface returns a copy of
+** ^The Context_db_handle() interface returns a copy of
 ** the pointer to the [database connection] (the 1st parameter)
 ** of the [sqlite3.CreateFunction()] routine that originally
 ** registered the application defined function.
 */
- sqlite3 *sqlite3_context_db_handle(sqlite3_context*);
-
-/*
-** CAPI3REF: Function Auxiliary Data
-**
-** The following two functions may be used by scalar SQL functions to
-** associate metadata with argument values. If the same value is passed to
-** multiple invocations of the same SQL function during query execution, under
-** some circumstances the associated metadata may be preserved. This may
-** be used, for example, to add a regular-expression matching scalar
-** function. The compiled version of the regular expression is stored as
-** metadata associated with the SQL value passed as the regular expression
-** pattern.  The compiled regular expression can be reused on multiple
-** invocations of the same function so that the original pattern string
-** does not need to be recompiled on each invocation.
-**
-** ^The sqlite3_get_auxdata() interface returns a pointer to the metadata
-** associated by the sqlite3_set_auxdata() function with the Nth argument
-** value to the application-defined function. ^If no metadata has been ever
-** been set for the Nth argument of the function, or if the corresponding
-** function parameter has changed since the meta-data was set,
-** then sqlite3_get_auxdata() returns a NULL pointer.
-**
-** ^The sqlite3_set_auxdata() interface saves the metadata
-** pointed to by its 3rd parameter as the metadata for the N-th
-** argument of the application-defined function.  Subsequent
-** calls to sqlite3_get_auxdata() might return this data, if it has
-** not been destroyed.
-** ^If it is not NULL, SQLite will invoke the destructor
-** function given by the 4th parameter to sqlite3_set_auxdata() on
-** the metadata when the corresponding function parameter changes
-** or when the SQL statement completes, whichever comes first.
-**
-** SQLite is free to call the destructor and drop metadata on any
-** parameter of any function at any time.  ^The only guarantee is that
-** the destructor will be called before the metadata is dropped.
-**
-** ^(In practice, metadata is preserved between function calls for
-** expressions that are constant at compile time. This includes literal
-** values and [parameters].)^
-**
-** These routines must be called from the same thread in which
-** the SQL function is running.
-*/
- void *sqlite3_get_auxdata(sqlite3_context*, int N);
- void sqlite3_set_auxdata(sqlite3_context*, int N, void*, void (*)(void*));
-
+ sqlite3 *Context_db_handle(Context*);
 
 /*
 ** CAPI3REF: Constants Defining Special Destructor Behavior
@@ -4416,23 +4368,6 @@ typedef void (*sqlite3_destructor_type)(void*);
  void sqlite3_reset_auto_extension(void);
 
 /*
-** The interface to the virtual-table mechanism is currently considered
-** to be experimental.  The interface might change in incompatible ways.
-** If this is a problem for you, do not use the interface at this time.
-**
-** When the virtual-table mechanism stabilizes, we will declare the
-** interface fixed, support it indefinitely, and remove this comment.
-*/
-
-/*
-** Structures used by the virtual table interface
-*/
-typedef struct sqlite3_vtab sqlite3_vtab;
-typedef struct sqlite3_index_info sqlite3_index_info;
-typedef struct sqlite3_vtab_cursor sqlite3_vtab_cursor;
-typedef struct sqlite3_module sqlite3_module;
-
-/*
 ** CAPI3REF: Virtual Table Object
 ** KEYWORDS: sqlite3_module {virtual table module}
 **
@@ -4456,7 +4391,7 @@ struct sqlite3_module {
   int (*xConnect)(sqlite3*, void *pAux,
                int argc, const char *const*argv,
                sqlite3_vtab **ppVTab, char**);
-  int (*xBestIndex)(sqlite3_vtab *pVTab, sqlite3_index_info*);
+  int (*xBestIndex)(*sqlite3_vtab, *IndexInfo)
   int (*xDisconnect)(sqlite3_vtab *pVTab);
   int (*xDestroy)(sqlite3_vtab *pVTab);
   int (*xOpen)(sqlite3_vtab *pVTab, sqlite3_vtab_cursor **ppCursor);
@@ -4465,7 +4400,7 @@ struct sqlite3_module {
                 int argc, sqlite3_value **argv);
   int (*xNext)(sqlite3_vtab_cursor*);
   int (*xEof)(sqlite3_vtab_cursor*);
-  int (*xColumn)(sqlite3_vtab_cursor*, sqlite3_context*, int);
+  int (*xColumn)(sqlite3_vtab_cursor*, Context*, int);
   int (*xRowid)(sqlite3_vtab_cursor*, sqlite3_int64 *pRowid);
   int (*xUpdate)(sqlite3_vtab *, int, sqlite3_value **, sqlite3_int64 *);
   int (*xBegin)(sqlite3_vtab *pVTab);
@@ -4473,7 +4408,7 @@ struct sqlite3_module {
   int (*xCommit)(sqlite3_vtab *pVTab);
   int (*xRollback)(sqlite3_vtab *pVTab);
   int (*xFindFunction)(sqlite3_vtab *pVtab, int nArg, const char *zName,
-                       void (**pxFunc)(sqlite3_context*,int,sqlite3_value**),
+                       void (**pxFunc)(Context*,int,sqlite3_value**),
                        void **ppArg);
   int (*xRename)(sqlite3_vtab *pVtab, const char *zNew);
   /* The methods above are in version 1 of the sqlite_module object. Those 
@@ -4485,9 +4420,9 @@ struct sqlite3_module {
 
 /*
 ** CAPI3REF: Virtual Table Indexing Information
-** KEYWORDS: sqlite3_index_info
+** KEYWORDS: IndexInfo
 **
-** The sqlite3_index_info structure and its substructures is used as part
+** The IndexInfo structure and its substructures is used as part
 ** of the [virtual table] interface to
 ** pass information into and receive the reply from the [xBestIndex]
 ** method of a [virtual table module].  The fields under **Inputs** are the
@@ -4512,13 +4447,13 @@ struct sqlite3_module {
 ** ^The aConstraint[] array only reports WHERE clause terms that are
 ** relevant to the particular virtual table being queried.
 **
-** ^Information about the ORDER BY clause is stored in aOrderBy[].
-** ^Each term of aOrderBy records a column of the ORDER BY clause.
+** ^Information about the ORDER BY clause is stored in OrderBy[].
+** ^Each term of OrderBy records a column of the ORDER BY clause.
 **
-** The [xBestIndex] method must fill aConstraintUsage[] with information
+** The [xBestIndex] method must fill Usage[] with information
 ** about what parameters to pass to xFilter.  ^If argvIndex>0 then
 ** the right-hand side of the corresponding aConstraint[] is evaluated
-** and becomes the argvIndex-th entry in argv.  ^(If aConstraintUsage[].omit
+** and becomes the argvIndex-th entry in argv.  ^(If Usage[].omit
 ** is true, then the constraint is assumed to be fully handled by the
 ** virtual table and is not checked again by SQLite.)^
 **
@@ -4536,37 +4471,12 @@ struct sqlite3_module {
 ** a cost of N.  A binary search of a table of N entries should have a
 ** cost of approximately log(N).
 */
-struct sqlite3_index_info {
-  /* Inputs */
-  int nConstraint;           /* Number of entries in aConstraint */
-  struct sqlite3_index_constraint {
-     int iColumn;              /* Column on left-hand side of constraint */
-     unsigned char op;         /* Constraint operator */
-     unsigned char usable;     /* True if this constraint is usable */
-     int iTermOffset;          /* Used internally - xBestIndex should ignore */
-  } *aConstraint;            /* Table of WHERE clause constraints */
-  int nOrderBy;              /* Number of terms in the ORDER BY clause */
-  struct sqlite3_index_orderby {
-     int iColumn;              /* Column number */
-     unsigned char desc;       /* True for DESC.  False for ASC. */
-  } *aOrderBy;               /* The ORDER BY clause */
-  /* Outputs */
-  struct sqlite3_index_constraint_usage {
-    int argvIndex;           /* if >0, constraint is part of argv to xFilter */
-    unsigned char omit;      /* Do not code a test for this constraint */
-  } *aConstraintUsage;
-  int idxNum;                /* Number used to identify the index */
-  char *idxStr;              /* String, possibly obtained from sqlite3_malloc */
-  int needToFreeIdxStr;      /* Free idxStr using sqlite3_free() if true */
-  int orderByConsumed;       /* True if output is already ordered */
-  float64 estimatedCost;      /* Estimated cost of using this index */
-};
 
 /*
 ** CAPI3REF: Virtual Table Constraint Operator Codes
 **
 ** These macros defined the allowed values for the
-** [sqlite3_index_info].aConstraint[].op field.  Each value represents
+** [IndexInfo].Constraint[].op field.  Each value represents
 ** an operator that is part of a constraint term in the wHERE clause of
 ** a query that uses a [virtual table].
 */

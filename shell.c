@@ -150,7 +150,7 @@ int isNumber(const char *z, int *realnum){
 */
 const char *zShellStatic = 0;
 void shellstaticFunc(
-  sqlite3_context *context,
+  Context *context,
   int argc,
   sqlite3_value **argv
 ){
@@ -2310,13 +2310,6 @@ int do_meta_command(char *zLine, struct callback_data *p){
       }
     }
   }else
-
-#if defined(SQLITE_DEBUG) && defined(SQLITE_ENABLE_WHERETRACE)
-  if c == 'w' && azArg[0][:n] == "wheretrace" {
-    extern int sqlite3WhereTrace;
-    sqlite3WhereTrace = booleanValue(azArg[1]);
-  }else
-#endif
 
   if c == 'w' && azArg[0][:n] == "width" && nArg > 1 {
     int j;

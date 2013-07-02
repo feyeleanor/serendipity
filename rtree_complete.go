@@ -577,7 +577,7 @@ func (cursor *RtreeCursor) freeConstraints() {
 func rtreeClose(cursor *sqlite3_vtab_cursor) (rc int) {
 	tree := (Rtree *)(cursor.pVtab)
 	pCsr := (RtreeCursor *)(cursor)
-	pCsr.freeCursorConstraints()
+	pCsr.freeConstraints()
 	rc = tree.nodeRelease(pCsr.pNode)
 	sqlite3_free(pCsr)
 	return
@@ -779,7 +779,7 @@ func rtreeRowid(pVtabCursor *sqlite3_vtab_cursor) (rowid int64, rc int) {
 }
 
 //	Rtree virtual table module xColumn method.
-func rtreeColumn(pVtabCursor *sqlite3_vtab_cursor, ctx *sqlite3_context, i int) int {
+func rtreeColumn(pVtabCursor *sqlite3_vtab_cursor, ctx *Context, i int) int {
 	tree := (Rtree *)(pVtabCursor.pVtab)
 	cursor := (RtreeCursor *)(pVtabCursor)
 
@@ -933,7 +933,7 @@ func rtreeFilter(pVtabCursor *sqlite3_vtab_cursor, idxNum int, idxStr string, ar
 //		------------------------------------------------
 //
 //	If strategy 1 is used, then idxStr is not meaningful. If strategy 2 is used, idxStr is formatted to contain 2 bytes for each 
-//	constraint used. The first two bytes of idxStr correspond to the constraint in sqlite3_index_info.aConstraintUsage[] with (argvIndex==1) etc.
+//	constraint used. The first two bytes of idxStr correspond to the constraint in IndexInfo.Usage[] with (argvIndex==1) etc.
 //
 //	The first of each pair of bytes in idxStr identifies the constraint operator as follows:
 //
@@ -950,31 +950,31 @@ func rtreeFilter(pVtabCursor *sqlite3_vtab_cursor, idxNum int, idxStr string, ar
 //	The second of each pair of bytes identifies the coordinate column to which the constraint applies. The leftmost coordinate column
 //	is 'a', the second from the left 'b' etc.
 
-func rtreeBestIndex(tab *sqlite3_vtab, pIdxInfo *sqlite3_index_info) (rc int) {
+func rtreeBestIndex(tab *sqlite3_vtab, index_info *IndexInfo) (rc int) {
 	var iIdx	int
 
 	char zIdxStr[RTREE_MAX_DIMENSIONS * 8 + 1]
 
 	UNUSED_PARAMETER(tab);
 
-	assert( pIdxInfo.idxStr == 0 )
-	for i := 0; i < pIdxInfo.nConstraint && iIdx < int(sizeof(zIdxStr) - 1); i++ {
-		p := pIdxInfo.aConstraint[i]
+	assert( index_info.idxStr == 0 )
+	for i := 0; i < len(index_info.Constraint) && iIdx < int(sizeof(zIdxStr) - 1); i++ {
+		p := index_info.Constraint[i]
 
 		if p.usable && p.iColumn == 0 && p.op == SQLITE_INDEX_CONSTRAINT_EQ {
 			//	We have an equality constraint on the rowid. Use strategy 1.
 			var j	int
 			for ; j < i; j++ {
-				pIdxInfo.aConstraintUsage[j].argvIndex = 0
-				pIdxInfo.aConstraintUsage[j].omit = false
+				index_info.Usage[j].argvIndex = 0
+				index_info.Usage[j].omit = false
 			}
-			pIdxInfo.idxNum = 1
-			pIdxInfo.aConstraintUsage[i].argvIndex = 1
-			pIdxInfo.aConstraintUsage[j].omit = true
+			index_info.idxNum = 1
+			index_info.Usage[i].argvIndex = 1
+			index_info.Usage[j].omit = true
 
 			//	This strategy involves a two rowid lookups on an B-Tree structures and then a linear search of an R-Tree node. This should be 
 			//	considered almost as quick as a direct rowid lookup (for which sqlite uses an internal cost of 0.0).
-			pIdxInfo.estimatedCost = 10.0
+			index_info.estimatedCost = 10.0
 			return SQLITE_OK
 		}
 
@@ -997,16 +997,15 @@ func rtreeBestIndex(tab *sqlite3_vtab, pIdxInfo *sqlite3_index_info) (rc int) {
 			}
 			zIdxStr[iIdx++] = op
 			zIdxStr[iIdx++] = p.iColumn - 1 + 'a'
-			pIdxInfo.aConstraintUsage[i].argvIndex = iIdx / 2
-			pIdxInfo.aConstraintUsage[i].omit = true
+			index_info.Usage[i].argvIndex = iIdx / 2
+			index_info.Usage[i].omit = true
 		}
 	}
 
-	pIdxInfo.idxNum = 2
-	pIdxInfo.needToFreeIdxStr = true
-	pIdxInfo.idxStr = sqlite3_mprintf("%s", zIdxStr)
+	index_info.idxNum = 2
+	index_info.idxStr = sqlite3_mprintf("%s", zIdxStr)
 	assert( iIdx >= 0 )
-	pIdxInfo.estimatedCost = 2000000.0 / float64(iIdx + 1)
+	index_info.estimatedCost = 2000000.0 / float64(iIdx + 1)
 	return
 }
 
@@ -2156,7 +2155,7 @@ func rtreeInit(db *sqlite3, aux interface{}, args []string, isCreate bool) (tabl
 //
 //	The human readable string takes the form of a Tcl list with one entry for each cell in the r-tree node. Each entry is itself a
 //	list, containing the 8-byte rowid/pageno followed by the <num-dimension> * 2 coordinates.
-func rtreenode(context *sqlite3_context, args []*sqlite3_value) {
+func rtreenode(context *Context, args []*sqlite3_value) {
 	tree := &Rtree{ Dimensions: sqlite3_value_int(args[0]) }
 	tree.nBytesPerCell = 8 + 8 * tree.Dimensions
 	node := &RtreeNode{ zData: ([]byte)(sqlite3_value_blob(args[1])) }
@@ -2178,7 +2177,7 @@ func rtreenode(context *sqlite3_context, args []*sqlite3_value) {
 	sqlite3_result_text(context, zText, -1, sqlite3_free)
 }
 
-func rtreedepth(context *sqlite3_context, args []*sqlite3_value) {
+func rtreedepth(context *Context, args []*sqlite3_value) {
 	if sqlite3_value_type(args[0]) != SQLITE_BLOB || sqlite3_value_bytes(args[0]) < 2 {
 		sqlite3_result_error(context, "Invalid argument to rtreedepth()", -1)
 	} else {
@@ -2211,7 +2210,7 @@ func doSqlite3Free(p interface{}) {
 //	Each call to sqlite3_rtree_geometry_callback() creates an ordinary SQLite scalar user function. This C function is the callback used for all such
 //	registered SQL functions.
 //	The scalar user functions return a blob that is interpreted by r-tree table MATCH operators.
-func geomCallback(context *sqlite3_context, args []*sqlite3_value) {
+func geomCallback(context *Context, args []*sqlite3_value) {
 	pGeomCtx := sqlite3_user_data(context).(*RtreeGeomCallback)
 
 	nBlob := sizeof(RtreeMatchArg) + (nArg-1)*sizeof(float64)

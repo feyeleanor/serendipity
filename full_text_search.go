@@ -1997,127 +1997,94 @@ int fts3CreateMethod(
   return fts3InitVtab(1, db, pAux, argc, argv, ppVtab, pzErr);
 }
 
-/* 
-** Implementation of the xBestIndex method for FTS3 tables. There
-** are three possible strategies, in order of preference:
-**
-**   1. Direct lookup by rowid or docid. 
-**   2. Full-text search using a MATCH operator on a non-docid column.
-**   3. Linear scan of %_content table.
-*/
-int fts3BestIndexMethod(sqlite3_vtab *pVTab, sqlite3_index_info *pInfo){
-  Fts3Table *p = (Fts3Table *)pVTab;
-  int i;                          /* Iterator variable */
-  int iCons = -1;                 /* Index of constraint to use */
-  int iLangidCons = -1;           /* Index of langid=x constraint, if present */
+//	Implementation of the xBestIndex method for FTS3 tables. There are three possible strategies, in order of preference:
+//
+//		1. Direct lookup by rowid or docid. 
+//		2. Full-text search using a MATCH operator on a non-docid column.
+//		3. Linear scan of %_content table.
+func fts3BestIndexMethod(vtab *sqlite3_vtab, index_info *IndexInfo) (rc int) {
+	table := (*Fts3Table)(vtab)
+	constraint_index := -1
+	language_index := -1
 
-  /* By default use a full table scan. This is an expensive option,
-  ** so search through the constraints to see if a more efficient 
-  ** strategy is possible.
-  */
-  pInfo->idxNum = FTS3_FULLSCAN_SEARCH;
-  pInfo->estimatedCost = 500000;
-  for(i=0; i<pInfo->nConstraint; i++){
-    struct sqlite3_index_constraint *pCons = &pInfo->aConstraint[i];
-    if( pCons->usable==0 ) continue;
+	//	By default use a full table scan. This is an expensive option, so search through the constraints to see if a more efficient strategy is possible.
+	index_info.idxNum = FTS3_FULLSCAN_SEARCH
+	index_info.estimatedCost = 500000
+	for i, constraint := range info.Constraint {
+		if !constraint.usable {
+			continue
+		}
 
-    /* A direct lookup on the rowid or docid column. Assign a cost of 1.0. */
-    if( iCons<0 
-     && pCons->op==SQLITE_INDEX_CONSTRAINT_EQ 
-     && (pCons->iColumn<0 || pCons->iColumn==p->nColumn+1 )
-    ){
-      pInfo->idxNum = FTS3_DOCID_SEARCH;
-      pInfo->estimatedCost = 1.0;
-      iCons = i;
-    }
+		/* A direct lookup on the rowid or docid column. Assign a cost of 1.0. */
+		if constraint_index < 0 && constraint.op == SQLITE_INDEX_CONSTRAINT_EQ && (constraint.iColumn < 0 || constraint.iColumn == table.nColumn + 1) {
+			index_info.idxNum = FTS3_DOCID_SEARCH
+			index_info.estimatedCost = 1.0
+			constraint_index = i
+		}
 
-    /* A MATCH constraint. Use a full-text search.
-    **
-    ** If there is more than one MATCH constraint available, use the first
-    ** one encountered. If there is both a MATCH constraint and a direct
-    ** rowid/docid lookup, prefer the MATCH strategy. This is done even 
-    ** though the rowid/docid lookup is faster than a MATCH query, selecting
-    ** it would lead to an "unable to use function MATCH in the requested 
-    ** context" error.
-    */
-    if( pCons->op==SQLITE_INDEX_CONSTRAINT_MATCH 
-     && pCons->iColumn>=0 && pCons->iColumn<=p->nColumn
-    ){
-      pInfo->idxNum = FTS3_FULLTEXT_SEARCH + pCons->iColumn;
-      pInfo->estimatedCost = 2.0;
-      iCons = i;
-    }
+		/* A MATCH constraint. Use a full-text search.
+		**
+		** If there is more than one MATCH constraint available, use the first one encountered. If there is both a MATCH constraint and a direct
+		** rowid/docid lookup, prefer the MATCH strategy. This is done even though the rowid/docid lookup is faster than a MATCH query, selecting
+		** it would lead to an "unable to use function MATCH in the requested context" error.
+		*/
+		if constraint.op == SQLITE_INDEX_CONSTRAINT_MATCH && constraint.iColumn >= 0 && constraint.iColumn <= table.nColumn {
+			index_info.idxNum = FTS3_FULLTEXT_SEARCH + constraint.iColumn
+			index_info.estimatedCost = 2.0
+			constraint_index = i
+		}
 
-    /* Equality constraint on the langid column */
-    if( pCons->op==SQLITE_INDEX_CONSTRAINT_EQ 
-     && pCons->iColumn==p->nColumn + 2
-    ){
-      iLangidCons = i;
-    }
-  }
+		/* Equality constraint on the langid column */
+		if constraint.op == SQLITE_INDEX_CONSTRAINT_EQ && constraint.iColumn == table.nColumn + 2 {
+			language_index = i
+		}
+	}
 
-  if( iCons>=0 ){
-    pInfo->aConstraintUsage[iCons].argvIndex = 1;
-    pInfo->aConstraintUsage[iCons].omit = 1;
-  } 
-  if( iLangidCons>=0 ){
-    pInfo->aConstraintUsage[iLangidCons].argvIndex = 2;
-  } 
+	if constraint_index >= 0 {
+		index_info.Usage[constraint_index].argvIndex = 1
+		index_info.Usage[constraint_index].omit = 1
+	} 
+	if language_index >= 0 {
+		index_info.Usage[language_index].argvIndex = 2
+	} 
 
-  /* Regardless of the strategy selected, FTS can deliver rows in rowid (or
-  ** docid) order. Both ascending and descending are possible. 
-  */
-  if( pInfo->nOrderBy==1 ){
-    struct sqlite3_index_orderby *pOrder = &pInfo->aOrderBy[0];
-    if( pOrder->iColumn<0 || pOrder->iColumn==p->nColumn+1 ){
-      if( pOrder->desc ){
-        pInfo->idxStr = "DESC";
-      }else{
-        pInfo->idxStr = "ASC";
-      }
-      pInfo->orderByConsumed = 1;
-    }
-  }
-
-  assert( p->pSegments==0 );
-  return SQLITE_OK;
+	//	Regardless of the strategy selected, FTS can deliver rows in rowid (or docid) order. Both ascending and descending are possible. 
+	if len(index_info.OrderBy) == 1 {
+		order_by := index_info.OrderBy[0]
+		if order_by.iColumn < 0 || order_by.iColumn == table.nColumn + 1 {
+			if order_by.desc {
+				index_info.idxStr = "DESC"
+			} else {
+				index_info.idxStr = "ASC"
+			}
+			index_info.orderByConsumed = true
+		}
+	}
+	assert( table.pSegments == 0 )
+	return
 }
 
-/*
-** Implementation of xOpen method.
-*/
-int fts3OpenMethod(sqlite3_vtab *pVTab, sqlite3_vtab_cursor **ppCsr){
-  sqlite3_vtab_cursor *pCsr;               /* Allocated cursor */
-
-  UNUSED_PARAMETER(pVTab);
-
-  /* Allocate a buffer large enough for an Fts3Cursor structure. If the
-  ** allocation succeeds, zero it and return SQLITE_OK. Otherwise, 
-  ** if the allocation fails, return SQLITE_NOMEM.
-  */
-  *ppCsr = pCsr = (sqlite3_vtab_cursor *)sqlite3_malloc(sizeof(Fts3Cursor));
-  if( !pCsr ){
-    return SQLITE_NOMEM;
-  }
-  memset(pCsr, 0, sizeof(Fts3Cursor));
-  return SQLITE_OK;
+//	Implementation of xOpen method.
+func fts3OpenMethod(vtab *sqlite3_vtab, cursor_out **sqlite3_vtab_cursor) (rc int) {
+	UNUSED_PARAMETER(pVTab)
+	//	Allocate a buffer large enough for an Fts3Cursor structure. If the allocation succeeds, zero it and return SQLITE_OK. Otherwise, 
+	//	if the allocation fails, return SQLITE_NOMEM.
+	cursor_out = new(Fts3Cursor)
+	return
 }
 
-/*
-** Close the cursor.  For additional information see the documentation
-** on the xClose method of the virtual table interface.
-*/
-int fts3CloseMethod(sqlite3_vtab_cursor *pCursor){
-  Fts3Cursor *pCsr = (Fts3Cursor *)pCursor;
-  assert( ((Fts3Table *)pCsr->base.pVtab)->pSegments==0 );
-  pCsr.pStmt.Finalize()
-  sqlite3Fts3ExprFree(pCsr->pExpr);
-  sqlite3Fts3FreeDeferredTokens(pCsr);
-  sqlite3_free(pCsr->aDoclist);
-  sqlite3_free(pCsr->aMatchinfo);
-  assert( ((Fts3Table *)pCsr->base.pVtab)->pSegments==0 );
-  sqlite3_free(pCsr);
-  return SQLITE_OK;
+//	Close the cursor.  For additional information see the documentation on the xClose method of the virtual table interface.
+func fts3CloseMethod(cursor *sqlite_vtab_cursor) (rc int) {
+	pCsr := (Fts3Cursor *)(cursor)
+	assert( pCsr.base.pVtab.pSegments == 0 )
+	pCsr.pStmt.Finalize()
+	sqlite3Fts3ExprFree(pCsr.pExpr)
+	sqlite3Fts3FreeDeferredTokens(pCsr)
+	sqlite3_free(pCsr.aDoclist)
+	sqlite3_free(pCsr.aMatchinfo)
+	assert( pCsr.base.pVtab.pSegments == 0 )
+	sqlite3_free(pCsr)
+	return
 }
 
 /*
@@ -2150,7 +2117,7 @@ int fts3CursorSeekStmt(Fts3Cursor *pCsr, sqlite3_stmt **ppStmt){
 ** of the %_content table that contains the last match.  Return
 ** SQLITE_OK on success.  
 */
-int fts3CursorSeek(sqlite3_context *pContext, Fts3Cursor *pCsr){
+int fts3CursorSeek(Context *pContext, Fts3Cursor *pCsr){
   int rc = SQLITE_OK;
   if( pCsr->isRequireSeek ){
     sqlite3_stmt *pStmt = 0;
@@ -3645,7 +3612,7 @@ int fts3RowidMethod(sqlite3_vtab_cursor *pCursor, sqlite_int64 *pRowid){
 */
 int fts3ColumnMethod(
   sqlite3_vtab_cursor *pCursor,   /* Cursor to retrieve value from */
-  sqlite3_context *pCtx,          /* Context for sqlite3_result_xxx() calls */
+  Context *pCtx,          /* Context for sqlite3_result_xxx() calls */
   int iCol                        /* Index of column to read value from */
 ){
   int rc = SQLITE_OK;             /* Return Code */
@@ -3820,7 +3787,7 @@ void fts3ReversePoslist(char *pStart, char **ppPoslist){
 ** string passed via zFunc is used as part of the error message.
 */
 int fts3FunctionArg(
-  sqlite3_context *pContext,      /* SQL function call context */
+  Context *pContext,      /* SQL function call context */
   const char *zFunc,              /* Function name */
   sqlite3_value *pVal,            /* argv[0] passed to function */
   Fts3Cursor **ppCsr              /* OUT: Store cursor handle here */
@@ -3843,7 +3810,7 @@ int fts3FunctionArg(
 ** Implementation of the snippet() function for FTS3
 */
 void fts3SnippetFunc(
-  sqlite3_context *pContext,      /* SQLite function call context */
+  Context *pContext,      /* SQLite function call context */
   int nVal,                       /* Size of apVal[] array */
   sqlite3_value **apVal           /* Array of arguments */
 ){
@@ -3884,7 +3851,7 @@ void fts3SnippetFunc(
 ** Implementation of the offsets() function for FTS3
 */
 void fts3OffsetsFunc(
-  sqlite3_context *pContext,      /* SQLite function call context */
+  Context *pContext,      /* SQLite function call context */
   int nVal,                       /* Size of argument array */
   sqlite3_value **apVal           /* Array of arguments */
 ){
@@ -3910,7 +3877,7 @@ void fts3OffsetsFunc(
 ** where 't' is the name of an FTS3 table.
 */
 void fts3OptimizeFunc(
-  sqlite3_context *pContext,      /* SQLite function call context */
+  Context *pContext,      /* SQLite function call context */
   int nVal,                       /* Size of argument array */
   sqlite3_value **apVal           /* Array of arguments */
 ){
@@ -3944,7 +3911,7 @@ void fts3OptimizeFunc(
 ** Implementation of the matchinfo() function for FTS3
 */
 void fts3MatchinfoFunc(
-  sqlite3_context *pContext,      /* SQLite function call context */
+  Context *pContext,      /* SQLite function call context */
   int nVal,                       /* Size of argument array */
   sqlite3_value **apVal           /* Array of arguments */
 ){
@@ -3967,12 +3934,12 @@ int fts3FindFunctionMethod(
   sqlite3_vtab *pVtab,            /* Virtual table handle */
   int nArg,                       /* Number of SQL function arguments */
   const char *zName,              /* Name of SQL function */
-  void (**pxFunc)(sqlite3_context*,int,sqlite3_value**), /* OUT: Result */
+  void (**pxFunc)(Context*,int,sqlite3_value**), /* OUT: Result */
   void **ppArg                    /* Unused */
 ){
   struct Overloaded {
     const char *zName;
-    void (*xFunc)(sqlite3_context*,int,sqlite3_value**);
+    void (*xFunc)(Context*,int,sqlite3_value**);
   } aOverload[] = {
     { "snippet", fts3SnippetFunc },
     { "offsets", fts3OffsetsFunc },
@@ -6044,89 +6011,83 @@ int fts3auxDisconnectMethod(sqlite3_vtab *pVtab){
 /*
 ** xBestIndex - Analyze a WHERE and ORDER BY clause.
 */
-int fts3auxBestIndexMethod(
-  sqlite3_vtab *pVTab, 
-  sqlite3_index_info *pInfo
-){
-  int i;
-  int iEq = -1;
-  int iGe = -1;
-  int iLe = -1;
+func fts3auxBestIndexMethod(table *sqlite3_vtab, index_info *IndexInfo) (rc int) {
+	Eq := -1
+	Ge := -1
+	Le := -1
 
-  UNUSED_PARAMETER(pVTab);
+	UNUSED_PARAMETER(table)
 
-  /* This vtab delivers always results in "ORDER BY term ASC" order. */
-  if( pInfo->nOrderBy==1 
-   && pInfo->aOrderBy[0].iColumn==0 
-   && pInfo->aOrderBy[0].desc==0
-  ){
-    pInfo->orderByConsumed = 1;
-  }
+	//	This vtab delivers always results in "ORDER BY term ASC" order.
+	if len(index_info.OrderBy) == 1 && index_info.OrderBy[0].iColumn == 0 && index_info.OrderBy[0].desc == 0 {
+		index_info.orderByConsumed = true
+	}
 
-  /* Search for equality and range constraints on the "term" column. */
-  for(i=0; i<pInfo->nConstraint; i++){
-    if( pInfo->aConstraint[i].usable && pInfo->aConstraint[i].iColumn==0 ){
-      int op = pInfo->aConstraint[i].op;
-      if( op==SQLITE_INDEX_CONSTRAINT_EQ ) iEq = i;
-      if( op==SQLITE_INDEX_CONSTRAINT_LT ) iLe = i;
-      if( op==SQLITE_INDEX_CONSTRAINT_LE ) iLe = i;
-      if( op==SQLITE_INDEX_CONSTRAINT_GT ) iGe = i;
-      if( op==SQLITE_INDEX_CONSTRAINT_GE ) iGe = i;
-    }
-  }
+	//	Search for equality and range constraints on the "term" column.
+	for i, constraint := range pInfo.Constraint {
+		if op := constraint.op; constraint.usable && constraint.iColumn == 0 {
+			if op == SQLITE_INDEX_CONSTRAINT_EQ {
+				Eq = i
+			}
+			if op == SQLITE_INDEX_CONSTRAINT_LT {
+				Le = i
+			}
+			if op == SQLITE_INDEX_CONSTRAINT_LE {
+				Le = i
+			}
+			if op == SQLITE_INDEX_CONSTRAINT_GT {
+				Ge = i
+			}
+			if op == SQLITE_INDEX_CONSTRAINT_GE {
+				Ge = i
+			}
+		}
+	}
 
-  if( iEq>=0 ){
-    pInfo->idxNum = FTS4AUX_EQ_CONSTRAINT;
-    pInfo->aConstraintUsage[iEq].argvIndex = 1;
-    pInfo->estimatedCost = 5;
-  }else{
-    pInfo->idxNum = 0;
-    pInfo->estimatedCost = 20000;
-    if( iGe>=0 ){
-      pInfo->idxNum += FTS4AUX_GE_CONSTRAINT;
-      pInfo->aConstraintUsage[iGe].argvIndex = 1;
-      pInfo->estimatedCost /= 2;
-    }
-    if( iLe>=0 ){
-      pInfo->idxNum += FTS4AUX_LE_CONSTRAINT;
-      pInfo->aConstraintUsage[iLe].argvIndex = 1 + (iGe>=0);
-      pInfo->estimatedCost /= 2;
-    }
-  }
-
-  return SQLITE_OK;
+	if Eq >= 0 {
+		index_info.idxNum = FTS4AUX_EQ_CONSTRAINT
+		index_info.Usage[iEq].argvIndex = 1
+		index_info.estimatedCost = 5
+	} else {
+		index_info.idxNum = 0
+		index_info.estimatedCost = 20000
+		if Ge >= 0 {
+			index_info.idxNum += FTS4AUX_GE_CONSTRAINT
+			index_info.Usage[iGe].argvIndex = 1
+			index_info.estimatedCost /= 2
+		}
+		if Le >= 0 {
+			index_info.idxNum += FTS4AUX_LE_CONSTRAINT
+			if Ge >= 0 {
+				index_info.Usage[Le].argvIndex = 2
+			} else {
+				index_info.Usage[Le].argvIndex = 1
+			}
+			index_info.estimatedCost /= 2
+		}
+	}
+	return
 }
 
-/*
-** xOpen - Open a cursor.
-*/
-int fts3auxOpenMethod(sqlite3_vtab *pVTab, sqlite3_vtab_cursor **ppCsr){
-  Fts3auxCursor *pCsr;            /* Pointer to cursor object to return */
-
-  UNUSED_PARAMETER(pVTab);
-
-  pCsr = (Fts3auxCursor *)sqlite3_malloc(sizeof(Fts3auxCursor));
-  if( !pCsr ) return SQLITE_NOMEM;
-  memset(pCsr, 0, sizeof(Fts3auxCursor));
-
-  *ppCsr = (sqlite3_vtab_cursor *)pCsr;
-  return SQLITE_OK;
+//	xOpen - Open a cursor.
+func fts3auxOpenMethod(table *sqlite3_vtab, ppCsr **sqlite3_vtab_cursor) (rc int) {
+	UNUSED_PARAMETER(table)
+	*pCsr := (*sqlite3_vtab_cursor)(new(Fts3auxCursor))
+	return
 }
 
-/*
-** xClose - Close a cursor.
-*/
-int fts3auxCloseMethod(sqlite3_vtab_cursor *pCursor){
-  Fts3Table *pFts3 = ((Fts3auxTable *)pCursor->pVtab)->pFts3Tab;
-  Fts3auxCursor *pCsr = (Fts3auxCursor *)pCursor;
+//	xClose - Close a cursor.
+func fts3auxCloseMethod(pCursor *sqlite3_vtab_cursor) (rc int) {
+	Fts3Table *pFts3 = ((Fts3auxTable *)pCursor->pVtab)->pFts3Tab;
+	Fts3auxCursor *pCsr = (Fts3auxCursor *)pCursor;
 
-  sqlite3Fts3SegmentsClose(pFts3);
-  sqlite3Fts3SegReaderFinish(&pCsr->csr);
-  sqlite3_free((void *)pCsr->filter.zTerm);
-  sqlite3_free(pCsr->zStop);
-  sqlite3_free(pCsr->aStat);
-  sqlite3_free(pCsr);
-  return SQLITE_OK;
+	sqlite3Fts3SegmentsClose(pFts3)
+	sqlite3Fts3SegReaderFinish(&pCsr->csr)
+	sqlite3_free((void *)pCsr->filter.zTerm)
+	sqlite3_free(pCsr->zStop)
+	sqlite3_free(pCsr->aStat)
+	sqlite3_free(pCsr)
+	return
 }
 
 int fts3auxGrowStatArray(Fts3auxCursor *pCsr, int nSize){
@@ -6312,7 +6273,7 @@ int fts3auxEofMethod(sqlite3_vtab_cursor *pCursor){
 */
 int fts3auxColumnMethod(
   sqlite3_vtab_cursor *pCursor,   /* Cursor to retrieve value from */
-  sqlite3_context *pContext,      /* Context for sqlite3_result_xxx() calls */
+  Context *pContext,      /* Context for sqlite3_result_xxx() calls */
   int iCol                        /* Index of column to read value from */
 ){
   Fts3auxCursor *p = (Fts3auxCursor *)pCursor;
@@ -6449,7 +6410,7 @@ struct ParseContext {
   int nCol;                           /* Number of entries in azCol[] */
   int iDefaultCol;                    /* Default column to query */
   int isNot;                          /* True if getNextNode() sees a unary - */
-  sqlite3_context *pCtx;              /* Write error message here */
+  Context *pCtx;              /* Write error message here */
   int nNest;                          /* Number of nested brackets */
 };
 
@@ -8341,7 +8302,7 @@ const sqlite3_tokenizer_module porterTokenizerModule = {
 ** to string <key-name> (after the hash-table is updated, if applicable).
 */
 void scalarFunc(
-  sqlite3_context *context,
+  Context *context,
   int argc,
   sqlite3_value **argv
 ){
@@ -8935,33 +8896,20 @@ int fts3tokDisconnectMethod(sqlite3_vtab *pVtab){
   return SQLITE_OK;
 }
 
-/*
-** xBestIndex - Analyze a WHERE and ORDER BY clause.
-*/
-int fts3tokBestIndexMethod(
-  sqlite3_vtab *pVTab, 
-  sqlite3_index_info *pInfo
-){
-  int i;
-  UNUSED_PARAMETER(pVTab);
-
-  for(i=0; i<pInfo->nConstraint; i++){
-    if( pInfo->aConstraint[i].usable 
-     && pInfo->aConstraint[i].iColumn==0 
-     && pInfo->aConstraint[i].op==SQLITE_INDEX_CONSTRAINT_EQ 
-    ){
-      pInfo->idxNum = 1;
-      pInfo->aConstraintUsage[i].argvIndex = 1;
-      pInfo->aConstraintUsage[i].omit = 1;
-      pInfo->estimatedCost = 1;
-      return SQLITE_OK;
-    }
-  }
-
-  pInfo->idxNum = 0;
-  assert( pInfo->estimatedCost>1000000.0 );
-
-  return SQLITE_OK;
+//	xBestIndex - Analyze a WHERE and ORDER BY clause.
+func fts3tokBestIndexMethod(pVTab *sqlite3_vtab, index_info *IndexInfo) int {
+	UNUSED_PARAMETER(pVTab)
+	for i, constraint := range index_info.Constraint {
+		if constraint.usable && constraint.iColumn == 0 && constraint.op == SQLITE_INDEX_CONSTRAINT_EQ {
+			index_info.idxNum = 1
+			index_info.Usage[i].argvIndex = 1
+			index_info.Usage[i].omit = 1
+			index_info.estimatedCost = 1
+		}
+	}
+	index_info.idxNum = 0
+	assert( index_info.estimatedCost > 1000000.0 )
+	return
 }
 
 /*
@@ -9084,7 +9032,7 @@ int fts3tokEofMethod(sqlite3_vtab_cursor *pCursor){
 */
 int fts3tokColumnMethod(
   sqlite3_vtab_cursor *pCursor,   /* Cursor to retrieve value from */
-  sqlite3_context *pCtx,          /* Context for sqlite3_result_xxx() calls */
+  Context *pCtx,          /* Context for sqlite3_result_xxx() calls */
   int iCol                        /* Index of column to read value from */
 ){
   Fts3tokCursor *pCsr = (Fts3tokCursor *)pCursor;
@@ -15705,7 +15653,7 @@ int fts3GetMatchinfo(
 ** Implementation of snippet() function.
 */
  void sqlite3Fts3Snippet(
-  sqlite3_context *pCtx,          /* SQLite function call context */
+  Context *pCtx,          /* SQLite function call context */
   Fts3Cursor *pCsr,               /* Cursor object */
   const char *zStart,             /* Snippet start text - "<b>" */
   const char *zEnd,               /* Snippet end text - "</b>" */
@@ -15853,7 +15801,7 @@ int fts3ExprTermOffsetInit(Fts3Expr *pExpr, int iPhrase, void *ctx){
 ** Implementation of offsets() function.
 */
  void sqlite3Fts3Offsets(
-  sqlite3_context *pCtx,          /* SQLite function call context */
+  Context *pCtx,          /* SQLite function call context */
   Fts3Cursor *pCsr                /* Cursor object */
 ){
   Fts3Table *pTab = (Fts3Table *)pCsr->base.pVtab;
@@ -15990,7 +15938,7 @@ int fts3ExprTermOffsetInit(Fts3Expr *pExpr, int iPhrase, void *ctx){
 ** Implementation of matchinfo() function.
 */
  void sqlite3Fts3Matchinfo(
-  sqlite3_context *pContext,      /* Function call context */
+  Context *pContext,      /* Function call context */
   Fts3Cursor *pCsr,               /* FTS3 table cursor */
   const char *zArg                /* Second arg to matchinfo() function */
 ){
@@ -16686,7 +16634,7 @@ int icuLikeCompare(
 ** is mapped to like(B, A, E).
 */
 void icuLikeFunc(
-  sqlite3_context *context, 
+  Context *context, 
   int argc, 
   sqlite3_value **argv
 ){
@@ -16732,7 +16680,7 @@ void icuLikeFunc(
 ** loaded with an error message based on the following two args.
 */
 void icuFunctionError(
-  sqlite3_context *pCtx,       /* SQLite scalar function context */
+  Context *pCtx,       /* SQLite scalar function context */
   const char *zName,           /* Name of ICU function that failed */
   UErrorCode e                 /* Error code returned by ICU function */
 ){
@@ -16744,7 +16692,7 @@ void icuFunctionError(
 
 /*
 ** Function to delete compiled regexp objects. Registered as
-** a destructor function with sqlite3_set_auxdata().
+** a destructor function with Context.SetAuxData().
 */
 void icuRegexpDelete(void *p){
   URegularExpression *pExpr = (URegularExpression *)p;
@@ -16777,7 +16725,7 @@ void icuRegexpDelete(void *p){
 **
 ** http://www.icu-project.org/userguide/posix.html#case_mappings
 */
-void icuCaseFunc16(sqlite3_context *p, int nArg, sqlite3_value **apArg){
+void icuCaseFunc16(Context *p, int nArg, sqlite3_value **apArg){
   const UChar *zInput;
   UChar *zOutput;
   int nInput;
@@ -16839,7 +16787,7 @@ int icuCollationColl(
 ** collation sequence to create.
 */
 void icuLoadCollation(
-  sqlite3_context *p, 
+  Context *p, 
   int nArg, 
   sqlite3_value **apArg
 ){
@@ -16880,7 +16828,7 @@ void icuLoadCollation(
     const char *zName;                        /* Function name */
     int nArg;                                 /* Number of arguments */
     void *pContext;                           /* sqlite3_user_data() context */
-    void (*xFunc)(sqlite3_context*,int,sqlite3_value**);
+    void (*xFunc)(Context*,int,sqlite3_value**);
   } scalars[] = {
     {"lower",  1,         0, icuCaseFunc16},
     {"lower",  2,         0, icuCaseFunc16},

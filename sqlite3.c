@@ -3453,13 +3453,13 @@ typedef struct Mem sqlite3_value;
 ** CAPI3REF: SQL Function Context Object
 **
 ** The context in which an SQL function executes is stored in an
-** sqlite3_context object.  ^A pointer to an sqlite3_context object
+** Context object.  ^A pointer to an Context object
 ** is always first parameter to [application-defined SQL functions].
 ** The application-defined SQL function implementation will pass this
 ** pointer through into calls to [sqlite3_result_int | sqlite3_result()],
 ** [sqlite3_aggregate_context()], [sqlite3_user_data()],
-** [sqlite3_context_db_handle()], [sqlite3_get_auxdata()],
-** and/or [sqlite3_set_auxdata()].
+** [Context_db_handle()], [Context.GetAuxData()],
+** and/or [Context.SetAuxData()].
 */
 
 /*
@@ -4172,7 +4172,7 @@ typedef struct Mem sqlite3_value;
 ** sqlite3_aggregate_context() when the aggregate query concludes.
 **
 ** The first parameter must be a copy of the
-** [sqlite3_context | SQL function context] that is the first parameter
+** [Context | SQL function context] that is the first parameter
 ** to the xStep or xFinal callback routine that implements the aggregate
 ** function.
 **
@@ -4195,7 +4195,7 @@ typedef struct Mem sqlite3_value;
 /*
 ** CAPI3REF: Database Connection For Functions
 **
-** ^The sqlite3_context_db_handle() interface returns a copy of
+** ^The Context_db_handle() interface returns a copy of
 ** the pointer to the [database connection] (the 1st parameter)
 ** of the [sqlite3.CreateFunction()] routine that originally
 ** registered the application defined function.
@@ -4215,20 +4215,20 @@ typedef struct Mem sqlite3_value;
 ** invocations of the same function so that the original pattern string
 ** does not need to be recompiled on each invocation.
 **
-** ^The sqlite3_get_auxdata() interface returns a pointer to the metadata
-** associated by the sqlite3_set_auxdata() function with the Nth argument
+** ^The Context.GetAuxData() interface returns a pointer to the metadata
+** associated by the Context.SetAuxData() function with the Nth argument
 ** value to the application-defined function. ^If no metadata has been ever
 ** been set for the Nth argument of the function, or if the corresponding
 ** function parameter has changed since the meta-data was set,
-** then sqlite3_get_auxdata() returns a NULL pointer.
+** then Context.GetAuxData() returns a NULL pointer.
 **
-** ^The sqlite3_set_auxdata() interface saves the metadata
+** ^The Context.SetAuxData() interface saves the metadata
 ** pointed to by its 3rd parameter as the metadata for the N-th
 ** argument of the application-defined function.  Subsequent
-** calls to sqlite3_get_auxdata() might return this data, if it has
+** calls to Context.GetAuxData() might return this data, if it has
 ** not been destroyed.
 ** ^If it is not NULL, SQLite will invoke the destructor
-** function given by the 4th parameter to sqlite3_set_auxdata() on
+** function given by the 4th parameter to Context.SetAuxData() on
 ** the metadata when the corresponding function parameter changes
 ** or when the SQL statement completes, whichever comes first.
 **
@@ -4361,7 +4361,7 @@ typedef void (*sqlite3_destructor_type)(void*);
 **
 ** If these routines are called from within the different thread
 ** than the one containing the application-defined function that received
-** the [sqlite3_context] pointer, the results are undefined.
+** the [Context] pointer, the results are undefined.
 */
 
 /*
@@ -5025,31 +5025,24 @@ typedef void (*sqlite3_destructor_type)(void*);
 */
 struct sqlite3_module {
   int iVersion;
-  int (*xCreate)(sqlite3*, void *pAux,
-               int argc, const char *const*argv,
-               sqlite3_vtab **ppVTab, char**);
-  int (*xConnect)(sqlite3*, void *pAux,
-               int argc, const char *const*argv,
-               sqlite3_vtab **ppVTab, char**);
-  int (*xBestIndex)(sqlite3_vtab *pVTab, sqlite3_index_info*);
+  int (*xCreate)(sqlite3*, void *pAux, int argc, const char *const*argv, sqlite3_vtab **ppVTab, char**);
+  int (*xConnect)(sqlite3*, void *pAux, int argc, const char *const*argv, sqlite3_vtab **ppVTab, char**);
+  int (*xBestIndex)(pVTab *sqlite3_vtab, *IndexInfo)
   int (*xDisconnect)(sqlite3_vtab *pVTab);
   int (*xDestroy)(sqlite3_vtab *pVTab);
   int (*xOpen)(sqlite3_vtab *pVTab, sqlite3_vtab_cursor **ppCursor);
   int (*xClose)(sqlite3_vtab_cursor*);
-  int (*xFilter)(sqlite3_vtab_cursor*, int idxNum, const char *idxStr,
-                int argc, sqlite3_value **argv);
+  int (*xFilter)(sqlite3_vtab_cursor*, int idxNum, const char *idxStr, int argc, sqlite3_value **argv);
   int (*xNext)(sqlite3_vtab_cursor*);
   int (*xEof)(sqlite3_vtab_cursor*);
-  int (*xColumn)(sqlite3_vtab_cursor*, sqlite3_context*, int);
+  int (*xColumn)(sqlite3_vtab_cursor*, Context*, int);
   int (*xRowid)(sqlite3_vtab_cursor*, sqlite3_int64 *pRowid);
   int (*xUpdate)(sqlite3_vtab *, int, sqlite3_value **, sqlite3_int64 *);
   int (*xBegin)(sqlite3_vtab *pVTab);
   int (*xSync)(sqlite3_vtab *pVTab);
   int (*xCommit)(sqlite3_vtab *pVTab);
   int (*xRollback)(sqlite3_vtab *pVTab);
-  int (*xFindFunction)(sqlite3_vtab *pVtab, int nArg, const char *zName,
-                       void (**pxFunc)(sqlite3_context*,int,sqlite3_value**),
-                       void **ppArg);
+  int (*xFindFunction)(sqlite3_vtab *pVtab, int nArg, const char *zName, void (**pxFunc)(Context*,int,sqlite3_value**), void **ppArg);
   int (*xRename)(sqlite3_vtab *pVtab, const char *zNew);
   /* The methods above are in version 1 of the sqlite_module object. Those 
   ** below are for version 2 and greater. */
@@ -5060,9 +5053,9 @@ struct sqlite3_module {
 
 /*
 ** CAPI3REF: Virtual Table Indexing Information
-** KEYWORDS: sqlite3_index_info
+** KEYWORDS: IndexInfo
 **
-** The sqlite3_index_info structure and its substructures is used as part
+** The IndexInfo structure and its substructures is used as part
 ** of the [virtual table] interface to
 ** pass information into and receive the reply from the [xBestIndex]
 ** method of a [virtual table module].  The fields under **Inputs** are the
@@ -5087,13 +5080,13 @@ struct sqlite3_module {
 ** ^The aConstraint[] array only reports WHERE clause terms that are
 ** relevant to the particular virtual table being queried.
 **
-** ^Information about the ORDER BY clause is stored in aOrderBy[].
-** ^Each term of aOrderBy records a column of the ORDER BY clause.
+** ^Information about the ORDER BY clause is stored in OrderBy[].
+** ^Each term of OrderBy records a column of the ORDER BY clause.
 **
-** The [xBestIndex] method must fill aConstraintUsage[] with information
+** The [xBestIndex] method must fill Usage[] with information
 ** about what parameters to pass to xFilter.  ^If argvIndex>0 then
 ** the right-hand side of the corresponding aConstraint[] is evaluated
-** and becomes the argvIndex-th entry in argv.  ^(If aConstraintUsage[].omit
+** and becomes the argvIndex-th entry in argv.  ^(If Usage[].omit
 ** is true, then the constraint is assumed to be fully handled by the
 ** virtual table and is not checked again by SQLite.)^
 **
@@ -5111,37 +5104,44 @@ struct sqlite3_module {
 ** a cost of N.  A binary search of a table of N entries should have a
 ** cost of approximately log(N).
 */
-struct sqlite3_index_info {
-  /* Inputs */
-  int nConstraint;           /* Number of entries in aConstraint */
-  struct sqlite3_index_constraint {
-     int iColumn;              /* Column on left-hand side of constraint */
-     unsigned char op;         /* Constraint operator */
-     unsigned char usable;     /* True if this constraint is usable */
-     int iTermOffset;          /* Used internally - xBestIndex should ignore */
-  } *aConstraint;            /* Table of WHERE clause constraints */
-  int nOrderBy;              /* Number of terms in the ORDER BY clause */
-  struct sqlite3_index_orderby {
-     int iColumn;              /* Column number */
-     unsigned char desc;       /* True for DESC.  False for ASC. */
-  } *aOrderBy;               /* The ORDER BY clause */
-  /* Outputs */
-  struct sqlite3_index_constraint_usage {
-    int argvIndex;           /* if >0, constraint is part of argv to xFilter */
-    unsigned char omit;      /* Do not code a test for this constraint */
-  } *aConstraintUsage;
-  int idxNum;                /* Number used to identify the index */
-  char *idxStr;              /* String, possibly obtained from sqlite3_malloc */
-  int needToFreeIdxStr;      /* Free idxStr using sqlite3_free() if true */
-  int orderByConsumed;       /* True if output is already ordered */
-  float64 estimatedCost;      /* Estimated cost of using this index */
-};
+type IndexConstraint struct {
+	iColumn			int			//	Column on left-hand side of constraint
+	op				byte		//	Constraint operator
+	usable			byte		//	True if this constraint is usable
+	iTermOffset		int			//	Used internally - xBestIndex should ignore
+}
+
+type IndexOrderBy struct {
+	iColumn			int			//	Column number
+	desc			byte		//	True for DESC.  False for ASC.
+}
+
+type IndexUsage struct {
+	argvIndex		int			//	if >0, constraint is part of argv to xFilter
+	omit			byte		//	Do not code a test for this constraint
+}
+
+struct IndexInfo {
+	//	Inputs
+	Constraint			[]*IndexConstraint
+	OrderBy				[]*IndexOrderBy
+	Usage				[]*IndexUsage
+	//	Outputs
+	idxNum				int			//	Number used to identify the index
+	idxStr				string		//	String, possibly obtained from sqlite3_malloc
+	orderByConsumed		int			//	True if output is already ordered
+	estimatedCost		float64		//	Estimated cost of using this index
+}
+
+func NewIndexInfo(n int) (i *IndexInfo) {
+	return &IndexInfo{ idxNum: n, Constraint: make([]*IndexConstraint, 0), OrderBy: make([]*IndexOrderBy, 0), Usage: make([]*IndexUsage, 0) }
+}
 
 /*
 ** CAPI3REF: Virtual Table Constraint Operator Codes
 **
 ** These macros defined the allowed values for the
-** [sqlite3_index_info].aConstraint[].op field.  Each value represents
+** [IndexInfo].Constraint[].op field.  Each value represents
 ** an operator that is part of a constraint term in the wHERE clause of
 ** a query that uses a [virtual table].
 */
@@ -7556,22 +7556,20 @@ struct VdbeOp {
   int p1;             /* First operand */
   int p2;             /* Second parameter (often the jump destination) */
   int p3;             /* The third parameter */
-  union {             /* fourth parameter */
-    int i;                 /* Integer value if p4type==P4_INT32 */
-    void *p;               /* Generic pointer */
-    char *z;               /* Pointer to data for string (char array) types */
-    i64 *pI64;             /* Used when p4type is P4_INT64 */
-    float64 *pReal;         /* Used when p4type is P4_REAL */
-    FuncDef *pFunc;        /* Used when p4type is P4_FUNCDEF */
-    VdbeFunc *pVdbeFunc;   /* Used when p4type is P4_VDBEFUNC */
-    CollationSequence *pColl;        /* Used when p4type is P4_COLLSEQ */
-    Mem *pMem;             /* Used when p4type is P4_MEM */
-    VTable *pVtab;         /* Used when p4type is P4_VTAB */
-    KeyInfo *pKeyInfo;     /* Used when p4type is P4_KEYINFO */
-    int *ai;               /* Used when p4type is P4_INTARRAY */
-    SubProgram *pProgram;  /* Used when p4type is P4_SUBPROGRAM */
-    int (*xAdvance)(BtCursor *, int *);
-  } p4;
+  p4		interface{}
+//  union {             /* fourth parameter */
+//    int i;                 /* Integer value if p4type==P4_INT32 */
+//    void *p;               /* Generic pointer */
+//    char *z;               /* Pointer to data for string (char array) types */
+//    i64 *pI64;             /* Used when p4type is P4_INT64 */
+//    float64 *pReal;         /* Used when p4type is P4_REAL */
+//    Mem *pMem;             /* Used when p4type is P4_MEM */
+//    VTable *pVtab;         /* Used when p4type is P4_VTAB */
+//    KeyInfo *pKeyInfo;     /* Used when p4type is P4_KEYINFO */
+//    int *ai;               /* Used when p4type is P4_INTARRAY */
+//    SubProgram *pProgram;  /* Used when p4type is P4_SUBPROGRAM */
+//    int (*xAdvance)(BtCursor *, int *);
+//  } p4;
 #ifdef SQLITE_DEBUG
   char *zComment;          /* Comment to improve readability */
 #endif
@@ -7608,13 +7606,12 @@ struct VdbeOpList {
 /*
 ** Allowed values of VdbeOp.p4type
 */
-#define P4_NOTUSED    0   /* The P4 parameter is not used */
 #define P4_DYNAMIC  (-1)  /* Pointer to a string obtained from sqliteMalloc() */
 #define P4_STATIC   (-2)  /* Pointer to a string */
-#define P4_COLLSEQ  (-4)  /* P4 is a pointer to a CollationSequence structure */
+
 #define P4_FUNCDEF  (-5)  /* P4 is a pointer to a FuncDef structure */
 #define P4_KEYINFO  (-6)  /* P4 is a pointer to a KeyInfo structure */
-#define P4_VDBEFUNC (-7)  /* P4 is a pointer to a VdbeFunc structure */
+
 #define P4_MEM      (-8)  /* P4 is a pointer to a Mem*    structure */
 #define P4_TRANSIENT  0   /* P4 is a pointer to a transient string */
 #define P4_VTAB     (-10) /* P4 is a pointer to an sqlite3_vtab structure */
@@ -9287,7 +9284,7 @@ struct WherePlan {
   union {
     Index *pIdx;                   /* Index when WHERE_INDEXED is true */
     struct WhereTerm *pTerm;       /* WHERE clause term for OR-search */
-    sqlite3_index_info *pVtabIdx;  /* Virtual table index to use */
+    pVtabIdx	*IndexInfo			//	Virtual table index to use
   } u;
 };
 
@@ -9335,7 +9332,7 @@ struct WhereLevel {
   ** a convenient place since there is one WhereLevel for each FROM clause
   ** element.
   */
-  sqlite3_index_info *pIdxInfo;  /* Index info for n-th source table */
+  pIdxInfo	*IndexInfo	//	Index info for n-th source table
 };
 
 /*
@@ -10699,23 +10696,58 @@ struct Mem {
 #endif
 
 
-/* A VdbeFunc is just a FuncDef (defined in sqliteInt.h) that contains
+/* A VdbeFunction is just a Function (defined in sqliteInt.h) that contains
 ** additional information about auxiliary information bound to arguments
-** of the function.  This is used to implement the sqlite3_get_auxdata()
-** and sqlite3_set_auxdata() APIs.  The "auxdata" is some auxiliary data
+** of the function.  This is used to implement the Context.GetAuxData()
+** and Context.SetAuxData() APIs.  The "auxdata" is some auxiliary data
 ** that can be associated with a constant argument to a function.  This
 ** allows functions such as "regexp" to compile their constant regular
 ** expression argument once and reused the compiled code for multiple
 ** invocations.
 */
-struct VdbeFunc {
-  FuncDef *pFunc;               /* The definition of the function */
-  int nAux;                     /* Number of entries allocated for apAux[] */
-  struct AuxData {
-    void *pAux;                   /* Aux data for the i-th argument */
-    void (*xDelete)(void *);      /* Destructor for the aux data */
-  } apAux[1];                   /* One slot for each function argument */
+type AuxData struct {
+	pAux		interface{}
+	xDelete		func(interface{})
+}
+
+type VdbeFunction struct {
+	FuncDef *pFunc;               /* The definition of the function */
+	int nAux;                     /* Number of entries allocated for apAux[] */
+	apAux			[]AuxData
+	Arguments		[]interface{}
+	Destructors		[]func(interface{})
 };
+
+func NewVdbeFunction(f Function) *VdbeFunction {
+	return &VdbeFunction{ Function: f, Arguments: make([]interface{}, 0), Destructors: make(func(interface{})) }
+}
+
+func (v *VdbeFunction) Destroy(i int) {
+	if v.Arguments[i] != nil && v.Destructors[i] != nil {
+		v.Destructors[i](v.Arguments[i])
+	}	
+}
+
+func (v *VdbeFunction) Set(i int, value interface{}, destructor func(interface{})) {
+	switch {
+	case i < 0:
+		panic(i)
+	case i < len(v.Arguments):
+		v.Destroy(i)
+		v.Arguments[i] = value
+		v.Destructors[i] = destructor
+	default:
+		a := make([]interface{}, i + 1)
+		d := make([]func(interface{}), i + 1)
+		copy(a, v.Arguments)
+		copy(d, v.Destructors)
+		v.Destroy(i)
+		a[i] = value
+		d[i] = destructor
+		v.Arguments = a
+		v.Destructors = d
+	}
+}
 
 /*
 ** The "context" argument for a installable function.  A pointer to an
@@ -10730,15 +10762,15 @@ struct VdbeFunc {
 ** This structure is defined inside of vdbeInt.h because it uses substructures
 ** (Mem) which are only defined there.
 */
-struct sqlite3_context {
-  FuncDef *pFunc;       /* Pointer to function information.  MUST BE FIRST */
-  VdbeFunc *pVdbeFunc;  /* Auxilary data, if created. */
-  Mem s;                /* The return value is stored here */
-  Mem *pMem;            /* Memory cell used to store aggregate context */
-  CollationSequence *pColl;       /* Collating sequence */
-  int isError;          /* Error code returned by the function. */
-  int skipFlag;         /* Skip skip accumulator loading if true */
-};
+type Context struct {
+	*Function							//	Pointer to function information.  MUST BE FIRST
+	*VdbeFunction						//	Auxilary data, if created.
+	s			Mem						//	The return value is stored here
+	pMem		*Mem					//	Memory cell used to store aggregate context
+	pColl		*CollationSequence		//	Collating sequence
+	isError		int						//	Error code returned by the function.
+	skipFlag	int						//	Skip skip accumulator loading if true
+}
 
 /*
 ** An Explain object accumulates indented output which is helpful
@@ -11325,8 +11357,8 @@ int parseYyyyMmDd(const char *zDate, DateTime *p){
 **
 ** Return the number of errors.
 */
-int setDateTimeToCurrent(sqlite3_context *context, DateTime *p){
-  sqlite3 *db = sqlite3_context_db_handle(context);
+int setDateTimeToCurrent(Context *context, DateTime *p){
+  sqlite3 *db = Context_db_handle(context);
   if( sqlite3OsCurrentTimeInt64(db->pVfs, &p->iJD)==SQLITE_OK ){
     p->validJD = 1;
     return 0;
@@ -11352,7 +11384,7 @@ int setDateTimeToCurrent(sqlite3_context *context, DateTime *p){
 ** as there is a year and date.
 */
 int parseDateOrTime(
-  sqlite3_context *context, 
+  Context *context, 
   const char *zDate, 
   DateTime *p
 ){
@@ -11477,7 +11509,7 @@ int osLocaltime(time_t *t, struct tm *pTm){
 */
 sqlite3_int64 localtimeOffset(
   DateTime *p,                    /* Date at which to calculate offset */
-  sqlite3_context *pCtx,          /* Write error here if one occurs */
+  Context *pCtx,          /* Write error here if one occurs */
   int *pRc                        /* OUT: Error code. SQLITE_OK or ERROR */
 ){
   DateTime x, y;
@@ -11549,7 +11581,7 @@ sqlite3_int64 localtimeOffset(
 ** to context pCtx. If the error is an unrecognized modifier, no error is
 ** written to pCtx.
 */
-int parseModifier(sqlite3_context *pCtx, const char *zMod, DateTime *p){
+int parseModifier(Context *pCtx, const char *zMod, DateTime *p){
   int rc = 1;
   int n;
   float64 r;
@@ -11757,7 +11789,7 @@ int parseModifier(sqlite3_context *pCtx, const char *zMod, DateTime *p){
 ** then assume a default value of "now" for argv[0].
 */
 int isDate(
-  sqlite3_context *context, 
+  Context *context, 
   int argc, 
   sqlite3_value **argv, 
   DateTime *p
@@ -11798,7 +11830,7 @@ int isDate(
 ** Return the julian day number of the date specified in the arguments
 */
 void juliandayFunc(
-  sqlite3_context *context,
+  Context *context,
   int argc,
   sqlite3_value **argv
 ){
@@ -11815,7 +11847,7 @@ void juliandayFunc(
 ** Return YYYY-MM-DD HH:MM:SS
 */
 void datetimeFunc(
-  sqlite3_context *context,
+  Context *context,
   int argc,
   sqlite3_value **argv
 ){
@@ -11835,7 +11867,7 @@ void datetimeFunc(
 ** Return HH:MM:SS
 */
 void timeFunc(
-  sqlite3_context *context,
+  Context *context,
   int argc,
   sqlite3_value **argv
 ){
@@ -11854,7 +11886,7 @@ void timeFunc(
 ** Return YYYY-MM-DD
 */
 void dateFunc(
-  sqlite3_context *context,
+  Context *context,
   int argc,
   sqlite3_value **argv
 ){
@@ -11887,7 +11919,7 @@ void dateFunc(
 **   %%  %
 */
 void strftimeFunc(
-  sqlite3_context *context,
+  Context *context,
   int argc,
   sqlite3_value **argv
 ){
@@ -11899,7 +11931,7 @@ void strftimeFunc(
   zFmt := argv[0].Text()
   char zBuf[100];
   if( zFmt==0 || isDate(context, argc-1, argv+1, &x) ) return;
-  db = sqlite3_context_db_handle(context);
+  db = Context_db_handle(context);
   for(i=0, n=1; zFmt[i]; i++, n++){
     if( zFmt[i]=='%' ){
       switch( zFmt[i+1] ){
@@ -12019,7 +12051,7 @@ void strftimeFunc(
 ** This function returns the same value as time('now').
 */
 void ctimeFunc(
-  sqlite3_context *context,
+  Context *context,
   int NotUsed,
   sqlite3_value **NotUsed2
 ){
@@ -12033,7 +12065,7 @@ void ctimeFunc(
 ** This function returns the same value as date('now').
 */
 void cdateFunc(
-  sqlite3_context *context,
+  Context *context,
   int NotUsed,
   sqlite3_value **NotUsed2
 ){
@@ -12047,7 +12079,7 @@ void cdateFunc(
 ** This function returns the same value as datetime('now').
 */
 void ctimestampFunc(
-  sqlite3_context *context,
+  Context *context,
   int NotUsed,
   sqlite3_value **NotUsed2
 ){
@@ -12061,8 +12093,8 @@ void ctimestampFunc(
 ** functions.  This should be the only routine in this file with
 ** external linkage.
 */
- void sqlite3RegisterDateTimeFunctions(void){
-  FuncDef aDateTimeFuncs[] = {
+void sqlite3RegisterDateTimeFunctions(void){
+  aDateTimeFuncs := []Function{
     FUNCTION(julianday,        -1, 0, 0, juliandayFunc ),
     FUNCTION(date,             -1, 0, 0, dateFunc      ),
     FUNCTION(time,             -1, 0, 0, timeFunc      ),
@@ -13964,6 +13996,12 @@ int mutexIsInit = 0;
   }
 }
 
+void sqlite3_mutex_guard(p *sqlite3_mutex, f func()) {
+	sqlite3_mutex_enter(p)
+	f()
+	sqlite3_mutex_leave()
+}
+
 /*
 ** Obtain the mutex p. If successful, return SQLITE_OK. Otherwise, if another
 ** thread holds the mutex and it cannot be obtained, return SQLITE_BUSY.
@@ -14764,20 +14802,19 @@ int sqlite3MemoryAlarm(
   return sqlite3Config.m.xSize(p);
 }
 
-/*
-** Free memory previously obtained from sqlite3Malloc().
-*/
- void sqlite3_free(void *p){
-  if( p==0 ) return;  /* IMP: R-49053-54554 */
-  if( sqlite3Config.bMemstat ){
-    sqlite3_mutex_enter(mem0.mutex);
-    sqlite3StatusAdd(SQLITE_STATUS_MEMORY_USED, -sqlite3MallocSize(p));
-    sqlite3StatusAdd(SQLITE_STATUS_MALLOC_COUNT, -1);
-    sqlite3Config.m.xFree(p);
-    sqlite3_mutex_leave(mem0.mutex);
-  }else{
-    sqlite3Config.m.xFree(p);
-  }
+//	Free memory previously obtained from sqlite3Malloc().
+void sqlite3_free(p interface{}) {
+	if p != nil {
+		if sqlite3Config.bMemstat {
+			sqlite3_mutex_guard(mem0.mutex, func() {
+				sqlite3StatusAdd(SQLITE_STATUS_MEMORY_USED, -sqlite3MallocSize(p))
+				sqlite3StatusAdd(SQLITE_STATUS_MALLOC_COUNT, -1)
+				sqlite3Config.m.xFree(p)
+			})
+		} else {
+			sqlite3Config.m.xFree(p)
+		}
+	}
 }
 
 /*
@@ -44936,24 +44973,23 @@ func (memory *Mem) Stringify() (rc int) {
 ** Return SQLITE_ERROR if the finalizer reports an error.  SQLITE_OK
 ** otherwise.
 */
- int sqlite3VdbeMemFinalize(Mem *pMem, FuncDef *pFunc){
-  int rc = SQLITE_OK;
-  if( ALWAYS(pFunc && pFunc->xFinalize) ){
-    sqlite3_context ctx;
-    assert( (pMem->flags & MEM_Null)!=0 || pFunc==pMem->u.pDef );
-    assert( pMem->db==0 || sqlite3_mutex_held(pMem->db->mutex) );
-    memset(&ctx, 0, sizeof(ctx));
-    ctx.s.flags = MEM_Null;
-    ctx.s.db = pMem->db;
-    ctx.pMem = pMem;
-    ctx.pFunc = pFunc;
-    pFunc->xFinalize(&ctx); /* IMP: R-24505-23230 */
-    assert( 0==(pMem->flags&MEM_Dyn) && !pMem->xDel );
-    sqlite3DbFree(pMem->db, pMem->zMalloc);
-    memcpy(pMem, &ctx.s, sizeof(ctx.s));
-    rc = ctx.isError;
-  }
-  return rc;
+func (pMem *Mem) Finalize(pFunc *Funtion) (rc int) {
+	if ALWAYS(pFunc != nil && pFunc.xFinalize != nil) {
+		assert( pMem.flags & MEM_Null != 0 || pFunc == pMem.u.pDef )
+		assert( pMem.db == 0 || sqlite3_mutex_held(pMem.db.mutex) )
+		memset(&ctx, 0, sizeof(ctx));
+		ctx := Context{}
+		ctx.s.flags = MEM_Null
+		ctx.s.db = pMem.db
+		ctx.pMem = pMem
+		ctx.pFunc = pFunc
+		pFunc.xFinalize(&ctx)									//	IMP: R-24505-23230
+		assert( pMem.flags & MEM_Dyn == 0 && pMem.xDel == nil )
+		sqlite3DbFree(pMem.db, pMem.zMalloc)
+		*pMem = ctx
+		rc = ctx.isError
+	}
+	return rc
 }
 
 /*
@@ -44964,7 +45000,7 @@ func (memory *Mem) Stringify() (rc int) {
  void sqlite3VdbeMemReleaseExternal(Mem *p){
   assert( p->db==0 || sqlite3_mutex_held(p->db->mutex) );
   if( p->flags&MEM_Agg ){
-    sqlite3VdbeMemFinalize(p, p->u.pDef);
+    p.Finalize(p.u.pDef)
     assert( (p->flags & MEM_Agg)==0 );
     sqlite3VdbeMemRelease(p);
   }else if( p->flags&MEM_Dyn && p->xDel ){
@@ -45924,96 +45960,71 @@ int growOpArray(Vdbe *p){
 ** the sqlite3VdbeChangeP4() function to change the value of the P4
 ** operand.
 */
- int sqlite3VdbeAddOp3(Vdbe *p, int op, int p1, int p2, int p3){
-  int i;
-  VdbeOp *pOp;
-
-  i = p->nOp;
-  assert( p->magic==VDBE_MAGIC_INIT );
-  assert( op>0 && op<0xff );
-  if( p->nOpAlloc<=i ){
-    if( growOpArray(p) ){
-      return 1;
-    }
-  }
-  p->nOp++;
-  pOp = &p->aOp[i];
-  pOp->opcode = (u8)op;
-  pOp->p5 = 0;
-  pOp->p1 = p1;
-  pOp->p2 = p2;
-  pOp->p3 = p3;
-  pOp->p4.p = 0;
-  pOp->p4type = P4_NOTUSED;
+func (v *Vdbe) AddOp3(op, p1, p2, p3 int) (i int) {
+	i = v.nOp
+	assert( v.magic == VDBE_MAGIC_INIT )
+	assert( op > 0 && op < 0xff )
+	if v.nOpAlloc <= i {
+		if growOpArray(p) {
+			return 1
+		}
+	}
+	v.nOp++
+	pOp := &v.aOp[i]
+	pOp.opcode = (u8)op
+	pOp.p5 = 0
+	pOp.p1 = p1
+	pOp.p2 = p2
+	pOp.p3 = p3
+	pOp.p4 = nil
 #ifdef SQLITE_DEBUG
-  pOp->zComment = 0;
-  if( p->db->flags & SQLITE_VdbeAddopTrace ){
-    sqlite3VdbePrintOp(0, i, &p->aOp[i]);
-  }
+	pOp.zComment = ""
+	if v.db.flags & SQLITE_VdbeAddopTrace {
+		sqlite3VdbePrintOp(0, i, &v.aOp[i])
+	}
 #endif
 #ifdef VDBE_PROFILE
-  pOp->cycles = 0;
-  pOp->cnt = 0;
+	pOp.cycles = 0
+	pOp.cnt = 0
 #endif
-  return i;
+	return i
 }
- int sqlite3VdbeAddOp0(Vdbe *p, int op){
-  return sqlite3VdbeAddOp3(p, op, 0, 0, 0);
+
+func (v *Vdbe) AddOp0(op int) int {
+	return v.AddOp3(op, 0, 0, 0)
 }
- int sqlite3VdbeAddOp1(Vdbe *p, int op, int p1){
-  return sqlite3VdbeAddOp3(p, op, p1, 0, 0);
+
+func (v *Vdbe) AddOp1(op, p1 int) int {
+	return v.AddOp3(op, p1, 0, 0)
 }
- int sqlite3VdbeAddOp2(Vdbe *p, int op, int p1, int p2){
-  return sqlite3VdbeAddOp3(p, op, p1, p2, 0);
+
+func (v *Vdbe) AddOp2(op, p1, p2 int) int {
+	return p.AddOp3(op, p1, p2, 0);
 }
 
 
 /*
 ** Add an opcode that includes the p4 value as a pointer.
 */
- int sqlite3VdbeAddOp4(
-  Vdbe *p,            /* Add the opcode to this VM */
-  int op,             /* The new opcode */
-  int p1,             /* The P1 operand */
-  int p2,             /* The P2 operand */
-  int p3,             /* The P3 operand */
-  const char *zP4,    /* The P4 operand */
-  int p4type          /* P4 operand type */
-){
-  int addr = sqlite3VdbeAddOp3(p, op, p1, p2, p3);
-  sqlite3VdbeChangeP4(p, addr, zP4, p4type);
-  return addr;
+func (p *Vdbe) AddOp4(op, p1, p2, p3 int, p4 interface{}) (addr int) {
+	addr = p.AddOp3(op, p1, p2, p3)
+	sqlite3VdbeChangeP4(p, addr, zP4, p4type)
+	return
 }
 
 /*
 ** Add an OP_ParseSchema opcode.  This routine is broken out from
-** sqlite3VdbeAddOp4() since it needs to also needs to mark all btrees
-** as having been used.
+** Vdbe.AddOp4() since it also needs to mark all btrees as having been used.
 **
 ** The zWhere string must have been obtained from sqlite3_malloc().
 ** This routine will take ownership of the allocated memory.
 */
- void sqlite3VdbeAddParseSchemaOp(Vdbe *p, int iDb, char *zWhere){
-  int j;
-  int addr = sqlite3VdbeAddOp3(p, OP_ParseSchema, iDb, 0, 0);
-  sqlite3VdbeChangeP4(p, addr, zWhere, P4_DYNAMIC);
-  for(j=0; j<p->db->nDb; j++) sqlite3VdbeUsesBtree(p, j);
-}
-
-/*
-** Add an opcode that includes the p4 value as an integer.
-*/
- int sqlite3VdbeAddOp4Int(
-  Vdbe *p,            /* Add the opcode to this VM */
-  int op,             /* The new opcode */
-  int p1,             /* The P1 operand */
-  int p2,             /* The P2 operand */
-  int p3,             /* The P3 operand */
-  int p4              /* The P4 operand as an integer */
-){
-  int addr = sqlite3VdbeAddOp3(p, op, p1, p2, p3);
-  sqlite3VdbeChangeP4(p, addr, SQLITE_INT_TO_PTR(p4), P4_INT32);
-  return addr;
+func (v *Vdbe) AddParseSchemaOp(db int, where string) {
+	addr := v.AddOp3(OP_ParseSchema, db, 0, 0)
+	sqlite3VdbeChangeP4(v, addr, where, P4_DYNAMIC)
+	for j := 0; j < v.db.nDb; j++ {
+		v.UsesBtree(j)
+	}
 }
 
 /*
@@ -46262,7 +46273,7 @@ void resolveP2Values(Vdbe *p, int *pMaxFuncArgs){
   VdbeOp *aOp = p->aOp;
   assert( aOp && !p->db->mallocFailed );
 
-  /* Check that sqlite3VdbeUsesBtree() was not called on this VM */
+  /* Check that Vdbe.UsesBtree() was not called on this VM */
   assert( p->btreeMask==0 );
 
   resolveP2Values(p, pnMaxArg);
@@ -46296,8 +46307,7 @@ void resolveP2Values(Vdbe *p, int *pMaxFuncArgs){
         pOut->p2 = p2;
       }
       pOut->p3 = pIn->p3;
-      pOut->p4type = P4_NOTUSED;
-      pOut->p4.p = 0;
+      pOut->p4 = nil
       pOut->p5 = 0;
 #ifdef SQLITE_DEBUG
       pOut->zComment = 0;
@@ -46368,13 +46378,13 @@ void resolveP2Values(Vdbe *p, int *pMaxFuncArgs){
 
 
 /*
-** If the input FuncDef structure is ephemeral, then free it.  If
-** the FuncDef is not ephermal, then do nothing.
+** If the input Function structure is ephemeral, then free it.  If
+** the Function is not ephermal, then do nothing.
 */
-void freeEphemeralFunction(sqlite3 *db, FuncDef *pDef){
-  if( ALWAYS(pDef) && (pDef->flags & SQLITE_FUNC_EPHEM)!=0 ){
-    sqlite3DbFree(db, pDef);
-  }
+func (db *sqlite3) freeEphemeralFunction(f *Function){
+	if ALWAYS(f != nil) && (f.flags & SQLITE_FUNC_EPHEM) != 0 {
+		sqlite3DbFree(db, f)
+	}
 }
 
 void vdbeFreeOpArray(sqlite3 *, Op *, int);
@@ -46382,50 +46392,48 @@ void vdbeFreeOpArray(sqlite3 *, Op *, int);
 /*
 ** Delete a P4 value if necessary.
 */
-void freeP4(sqlite3 *db, int p4type, void *p4){
-  if( p4 ){
-    assert( db );
-    switch( p4type ){
-      case P4_REAL:
-      case P4_INT64:
-      case P4_DYNAMIC:
-      case P4_KEYINFO:
-      case P4_INTARRAY:
-      case P4_KEYINFO_HANDOFF: {
-        sqlite3DbFree(db, p4);
-        break;
-      }
-      case P4_MPRINTF: {
-        if( db->pnBytesFreed==0 ) sqlite3_free(p4);
-        break;
-      }
-      case P4_VDBEFUNC: {
-        VdbeFunc *pVdbeFunc = (VdbeFunc *)p4;
-        freeEphemeralFunction(db, pVdbeFunc->pFunc);
-        if( db->pnBytesFreed==0 ) sqlite3VdbeDeleteAuxData(pVdbeFunc, 0);
-        sqlite3DbFree(db, pVdbeFunc);
-        break;
-      }
-      case P4_FUNCDEF: {
-        freeEphemeralFunction(db, (FuncDef*)p4);
-        break;
-      }
-      case P4_MEM: {
-        if( db->pnBytesFreed==0 ){
-          sqlite3ValueFree((sqlite3_value*)p4);
-        }else{
-          Mem *p = (Mem*)p4;
-          sqlite3DbFree(db, p->zMalloc);
-          sqlite3DbFree(db, p);
-        }
-        break;
-      }
-      case P4_VTAB : {
-        if( db->pnBytesFreed==0 ) sqlite3VtabUnlock((VTable *)p4);
-        break;
-      }
-    }
-  }
+func (db *sqlite3) freeP4(p4 interface{}) {
+	switch p4 := p4.(type) {
+	case float64:
+		sqlite3DbFree(db, p4)
+	case int64:
+		sqlite3DbFree(db, p4)
+	case *KeyInfo:
+		sqlite3DbFree(db, p4)
+	case P4_KEYINFO_HANDOFF:
+		sqlite3DbFree(db, p4)
+	case P4_INTARRAY:
+		sqlite3DbFree(db, p4)
+	case P4_DYNAMIC:
+		sqlite3DbFree(db, p4)
+	case P4_MPRINTF:
+		if db.pnBytesFreed == 0 {
+			sqlite3_free(p4)
+		}
+	case *VdbeFunction:
+		db.freeEphemeralFunction(p4.Function)
+    	if db.pnBytesFreed == 0 {
+			p4.DeleteAuxData(0)
+		}
+    	sqlite3DbFree(db, v)
+	case *Function:
+        db.freeEphemeralFunction(p4)
+	case *Mem:
+		if db.pnBytesFreed == 0 {
+			sqlite3ValueFree((*sqlite3_value)(p4))
+		} else {
+			sqlite3DbFree(db, p4.zMalloc)
+			sqlite3DbFree(db, p4)
+		}
+	case *VTable:
+		if db.pnBytesFreed == 0 {
+			sqlite3VtabUnlock(p4)
+		}
+	case *sqlite3_vtab:
+		if db.pnBytesFreed == 0 {
+			sqlite3VtabUnlock((VTable *)(p4))
+		}
+	}
 }
 
 /*
@@ -46471,94 +46479,105 @@ void vdbeFreeOpArray(sqlite3 *db, Op *aOp, int nOp){
 
 /*
 ** Change the value of the P4 operand for a specific instruction.
-** This routine is useful when a large program is loaded from a
+** This routine is useful when a large program is loaded from an
 ** array using sqlite3VdbeAddOpList but we want to make a
 ** few minor changes to the program.
 **
-** If n>=0 then the P4 operand is dynamic, meaning that a copy of
+** If n >= 0 then the P4 operand is dynamic, meaning that a copy of
 ** the string is made into memory obtained from sqlite3_malloc().
-** A value of n==0 means copy bytes of zP4 up to and including the
-** first null byte.  If n>0 then copy n+1 bytes of zP4.
+** A value of n == 0 means copy bytes of zP4 up to and including the
+** first null byte.  If n > 0 then copy n + 1 bytes of zP4.
 **
-** If n==P4_KEYINFO it means that zP4 is a pointer to a KeyInfo structure.
+** If n == P4_KEYINFO it means that zP4 is a pointer to a KeyInfo structure.
 ** A copy is made of the KeyInfo structure into memory obtained from
 ** sqlite3_malloc, to be freed when the Vdbe is finalized.
-** n==P4_KEYINFO_HANDOFF indicates that zP4 points to a KeyInfo structure
+**
+** n == P4_KEYINFO_HANDOFF indicates that zP4 points to a KeyInfo structure
 ** stored in memory that the caller has obtained from sqlite3_malloc. The 
 ** caller should not free the allocation, it will be freed when the Vdbe is
 ** finalized.
 ** 
-** Other values of n (P4_STATIC, P4_COLLSEQ etc.) indicate that zP4 points
+** Other values of n (P4_STATIC etc.) indicate that zP4 points
 ** to a string or structure that is guaranteed to exist for the lifetime of
 ** the Vdbe. In these cases we can just copy the pointer.
 **
-** If addr<0 then change P4 on the most recently inserted instruction.
+** If addr < 0 then change P4 on the most recently inserted instruction.
 */
- void sqlite3VdbeChangeP4(Vdbe *p, int addr, const char *zP4, int n){
-  Op *pOp;
-  sqlite3 *db;
-  assert( p!=0 );
-  db = p->db;
-  assert( p->magic==VDBE_MAGIC_INIT );
-  if( p->aOp==0 || db->mallocFailed ){
-    if ( n!=P4_KEYINFO && n!=P4_VTAB ) {
-      freeP4(db, n, (void*)*(char**)&zP4);
-    }
-    return;
-  }
-  assert( p->nOp>0 );
-  assert( addr<p->nOp );
-  if( addr<0 ){
-    addr = p->nOp - 1;
-  }
-  pOp = &p->aOp[addr];
-  assert( pOp->p4type==P4_NOTUSED || pOp->p4type==P4_INT32 );
-  freeP4(db, pOp->p4type, pOp->p4.p);
-  pOp->p4.p = 0;
-  if( n==P4_INT32 ){
-    /* Note: this cast is safe, because the origin data point was an int
-    ** that was cast to a (const char *). */
-    pOp->p4.i = SQLITE_PTR_TO_INT(zP4);
-    pOp->p4type = P4_INT32;
-  }else if( zP4==0 ){
-    pOp->p4.p = 0;
-    pOp->p4type = P4_NOTUSED;
-  }else if( n==P4_KEYINFO ){
-    KeyInfo *pKeyInfo;
-    int nField, nByte;
+func (v *Vdbe) ChangeP4(addr int, value interface{}) {
+	assert( v.magic == VDBE_MAGIC_INIT )
+	db := v.db
+	if len(v.aOp) == 0 || db.mallocFailed {
+		if n != P4_KEYINFO && n != P4_VTAB {
+			freeP4(db, n, value)
+		}
+		return
+	}
+	assert( addr < v.nOp )
+	if addr < 0 {
+		addr = len(v.aOp) - 1
+	}
+	pOp := &v.aOp[addr]
+	assert( pOp.p4 == nil || pOp.p4.(int32) )
+	freeP4(db, pOp.p4type, pOp.p4.p)
+}
 
-    nField = ((KeyInfo*)zP4)->nField;
-    nByte = sizeof(*pKeyInfo) + (nField-1)*sizeof(pKeyInfo.collations[0]) + nField;
-    pKeyInfo = sqlite3DbMallocRaw(0, nByte);
-    pOp->p4.pKeyInfo = pKeyInfo;
-    if( pKeyInfo ){
-      u8 *aSortOrder;
-      memcpy((char*)pKeyInfo, zP4, nByte - nField);
-      aSortOrder = pKeyInfo->aSortOrder;
-      assert( aSortOrder!=0 );
-      pKeyInfo->aSortOrder = (unsigned char*)&pKeyInfo.collations[nField];
-      memcpy(pKeyInfo->aSortOrder, aSortOrder, nField);
-      pOp->p4type = P4_KEYINFO;
-    }else{
-      p->db->mallocFailed = 1;
-      pOp->p4type = P4_NOTUSED;
-    }
-  }else if( n==P4_KEYINFO_HANDOFF ){
-    pOp->p4.p = (void*)zP4;
-    pOp->p4type = P4_KEYINFO;
-  }else if( n==P4_VTAB ){
-    pOp->p4.p = (void*)zP4;
-    pOp->p4type = P4_VTAB;
-    sqlite3VtabLock((VTable *)zP4);
-    assert( ((VTable *)zP4)->db==p->db );
-  }else if( n<0 ){
-    pOp->p4.p = (void*)zP4;
-    pOp->p4type = (signed char)n;
-  }else{
-    if( n==0 ) n = len(zP4);
-    pOp->p4.z = sqlite3DbStrNDup(p->db, zP4, n);
-    pOp->p4type = P4_DYNAMIC;
-  }
+void sqlite3VdbeChangeP4(Vdbe *p, int addr, const char *zP4, int n){
+	assert( p.magic == VDBE_MAGIC_INIT )
+	db := p.db
+	if len(p.aOp) == 0 || db.mallocFailed {
+		if n != P4_KEYINFO && n != P4_VTAB {
+			freeP4(db, n, (void*)*(char**)&zP4)
+		}
+		return
+	}
+	assert( addr < p.nOp )
+	if addr < 0 {
+		addr = len(p.aOp) - 1
+	}
+	pOp := &p.aOp[addr]
+	assert( pOp.p4 == nil || pOp.p4type == P4_INT32 )
+	freeP4(db, pOp->p4type, pOp->p4.p)
+	pOp.p4.p = 0
+	if n == P4_INT32 {
+		//	Note: this cast is safe, because the origin data point was an int that was cast to a (const char *).
+		pOp.p4.i = SQLITE_PTR_TO_INT(zP4)
+		pOp.p4type = P4_INT32
+	} else if zP4 == nil {
+		pOp.p4 == nil
+	} else if n == P4_KEYINFO {
+		nField := ((KeyInfo*)zP4).nField
+		nByte := sizeof(*pKeyInfo) + (nField - 1) * sizeof(pKeyInfo.collations[0]) + nField
+		pKeyInfo := sqlite3DbMallocRaw(0, nByte)
+		pOp.p4 = pKeyInfo
+		if pKeyInfo {
+			memcpy((char*)pKeyInfo, zP4, nByte - nField)
+			aSortOrder := pKeyInfo.aSortOrder
+			assert( aSortOrder != 0 )
+			pKeyInfo.aSortOrder = (unsigned char*)&pKeyInfo.collations[nField]
+			memcpy(pKeyInfo.aSortOrder, aSortOrder, nField)
+			pOp.p4type = P4_KEYINFO
+		} else {
+			p.db.mallocFailed = true
+			pOp.p4 = nil
+		}
+	} else if n == P4_KEYINFO_HANDOFF {
+		pOp.p4.p = (void*)zP4
+		pOp.p4type = P4_KEYINFO
+	} else if n == P4_VTAB {
+		pOp.p4.p = (void*)zP4
+		pOp.p4type = P4_VTAB
+		sqlite3VtabLock((VTable *)zP4)
+		assert( ((VTable *)zP4).db == p.db )
+	} else if n < 0  {
+		pOp.p4.p = (void*)zP4
+		pOp.p4type = (signed char)n
+	} else {
+		if n == 0 {
+			n = len(zP4)
+		}
+		pOp.p4.z = sqlite3DbStrNDup(p.db, zP4, n)
+		pOp.p4type = P4_DYNAMIC
+	}
 }
 
 #ifndef NDEBUG
@@ -46588,7 +46607,7 @@ void vdbeVComment(Vdbe *p, const char *zFormat, va_list ap){
  void sqlite3VdbeNoopComment(Vdbe *p, const char *zFormat, ...){
   va_list ap;
   if( p ){
-    sqlite3VdbeAddOp0(p, OP_Noop);
+    p.AddOp0(OP_Noop)
     va_start(ap, zFormat);
     vdbeVComment(p, zFormat, ap);
     va_end(ap);
@@ -46632,46 +46651,46 @@ void vdbeVComment(Vdbe *p, const char *zFormat, va_list ap){
 ** Use zTemp for any required temporary buffer space.
 */
 char *displayP4(Op *pOp, char *zTemp, int nTemp){
-  char *zP4 = zTemp;
-  assert( nTemp>=20 );
-  switch( pOp->p4type ){
-    case P4_KEYINFO_STATIC:
-    case P4_KEYINFO: {
-      int i, j;
-      KeyInfo *pKeyInfo = pOp->p4.pKeyInfo;
-      assert( pKeyInfo->aSortOrder!=0 );
-      sqlite3_snprintf(nTemp, zTemp, "keyinfo(%d", pKeyInfo->nField);
-      i = len(zTemp);
-      for(j=0; j<pKeyInfo->nField; j++){
-        CollationSequence *pColl = pKeyInfo.collations[j];
-        const char *zColl = pColl ? pColl->zName : "nil";
-        int n = len(zColl);
-        if( i+n>nTemp-6 ){
-          memcpy(&zTemp[i],",...",4);
-          break;
-        }
-        zTemp[i++] = ',';
-        if( pKeyInfo->aSortOrder[j] ){
-          zTemp[i++] = '-';
-        }
-        memcpy(&zTemp[i], zColl, n+1);
-        i += n;
-      }
-      zTemp[i++] = ')';
-      zTemp[i] = 0;
-      assert( i<nTemp );
-      break;
-    }
-    case P4_COLLSEQ: {
-      CollationSequence *pColl = pOp->p4.pColl;
-      sqlite3_snprintf(nTemp, zTemp, "collseq(%.20s)", pColl->zName);
-      break;
-    }
-    case P4_FUNCDEF: {
-      FuncDef *pDef = pOp->p4.pFunc;
-      sqlite3_snprintf(nTemp, zTemp, "%s(%d)", pDef->zName, pDef->nArg);
-      break;
-    }
+	char *zP4 = zTemp
+	assert( nTemp >= 20 )
+	switch p4 := pOp.p4.(type) {
+	case P4_KEYINFO_STATIC, P4_KEYINFO:
+		KeyInfo *pKeyInfo = pOp.p4.pKeyInfo
+		assert( pKeyInfo.aSortOrder != 0 )
+		sqlite3_snprintf(nTemp, zTemp, "keyinfo(%d", pKeyInfo.nField)
+		i := len(zTemp)
+		for j := 0; j < pKeyInfo.nField; j++ {
+			pColl := pKeyInfo.collations[j]
+			var zColl	string
+			if pColl != nil {
+				zColl = pColl.zName
+			} else {
+				zColl = "nil"
+			}
+			n := len(zColl)
+			if i + n > nTemp - 6 {
+				memcpy(&zTemp[i], ",...", 4)
+				break
+			}
+			zTemp[i++] = ','
+			if pKeyInfo.aSortOrder[j] {
+				zTemp[i++] = '-';
+			}
+			memcpy(&zTemp[i], zColl, n + 1)
+			i += n
+		}
+		zTemp[i++] = ')'
+		zTemp[i] = 0
+		assert( i < nTemp )
+
+    case *CollationSequence:
+		pColl = pOp.p4.(*CollationSequence)
+		sqlite3_snprintf(nTemp, zTemp, "collseq(%.20s)", pColl.zName)
+
+    case *Function:
+      pDef := pOp.p4.pFunc
+      sqlite3_snprintf(nTemp, zTemp, "%s(%d)", pDef.Name, pDef.Arguments);
+
     case P4_INT64: {
       sqlite3_snprintf(nTemp, zTemp, "%lld", *pOp->p4.pI64);
       break;
@@ -46738,13 +46757,14 @@ char *displayP4(Op *pOp, char *zTemp, int nTemp){
 ** is maintained in p->btreeMask.  The p->lockMask value is the subset of
 ** p->btreeMask of databases that will require a lock.
 */
- void sqlite3VdbeUsesBtree(Vdbe *p, int i){
-  assert( i>=0 && i<p->db->nDb && i<(int)sizeof(yDbMask)*8 );
-  assert( i<(int)sizeof(p->btreeMask)*8 );
-  p->btreeMask |= ((yDbMask)1)<<i;
-  if( i!=1 && sqlite3BtreeSharable(p->db->aDb[i].pBt) ){
-    p->lockMask |= ((yDbMask)1)<<i;
-  }
+func (v *Vdbe) UsesBtree(i int) {
+	assert( i >= 0 && i < v.db.nDb && i < (int)sizeof(yDbMask) * 8 )
+	assert( i< (int)sizeof(v.btreeMask) * 8 )
+	dbmask := yDbMask(1) << i
+	v.btreeMask |= dbmask
+	if i != 1 && sqlite3BtreeSharable(v.db.aDb[i].pBt) {
+		p.lockMask |= dbmask
+	}
 }
 
 #if !defined(SQLITE_OMIT_SHARED_CACHE) && SQLITE_THREADSAFE>0
@@ -48155,22 +48175,20 @@ void vdbeInvokeSqllog(Vdbe *v){
 }
 
 /*
-** Call the destructor for each auxdata entry in pVdbeFunc for which
+** Call the destructor for each auxdata entry in v for which
 ** the corresponding bit in mask is clear.  Auxdata entries beyond 31
 ** are always destroyed.  To destroy all auxdata entries, call this
 ** routine with mask==0.
 */
- void sqlite3VdbeDeleteAuxData(VdbeFunc *pVdbeFunc, int mask){
-  int i;
-  for(i=0; i<pVdbeFunc->nAux; i++){
-    struct AuxData *pAux = &pVdbeFunc->apAux[i];
-    if( (i>31 || !(mask&(((u32)1)<<i))) && pAux->pAux ){
-      if( pAux->xDelete ){
-        pAux->xDelete(pAux->pAux);
-      }
-      pAux->pAux = 0;
-    }
-  }
+func (v *VdbeFunction) DeleteAuxData(mask int) {
+	for i, v := range v.Arguments {
+		if (i > 31 || mask & (1 << i) == 0) && v != nil {
+			if d := v.Destructors[i]; d != nil {
+				d(v)
+			}
+			v.Arguments[i] = nil
+		}
+	}
 }
 
 /*
@@ -49015,45 +49033,45 @@ int sqlite3_value_type(sqlite3_value* pVal){
 ** The following routines are used by user-defined functions to specify
 ** the function result.
 */
-func (context *sqlite3_context) setResultStrOrError(data []byte, destructor func(interface{})) {
+func (context *Context) setResultStrOrError(data []byte, destructor func(interface{})) {
 	if context.s.SetStr(data, destructor) == SQLITE_TOOBIG {
 		sqlite3_result_error_toobig(context)
 	}
 }
 
-func (context *sqlite3_context) setResultBlobOrError(data []byte, destructor func(interface{})) {
+func (context *Context) setResultBlobOrError(data []byte, destructor func(interface{})) {
 	if context.s.SetBlob(data, destructor) == SQLITE_TOOBIG {
 		sqlite3_result_error_toobig(context)
 	}
 }
 
-func (context *sqlite3_context) sqlite3_result_blob(data []byte, destructor func(interface{})) {
+func (context *Context) sqlite3_result_blob(data []byte, destructor func(interface{})) {
 	assert( sqlite3_mutex_held(context.s.db.mutex) )
 	context.setResultBlobOrError(data, destructor)
 }
- void sqlite3_result_float64(sqlite3_context *pCtx, float64 rVal){
+ void sqlite3_result_float64(Context *pCtx, float64 rVal){
   assert( sqlite3_mutex_held(pCtx->s.db->mutex) );
   sqlite3VdbeMemSetDouble(&pCtx->s, rVal);
 }
- void sqlite3_result_error(sqlite3_context *pCtx, const char *z, int n){
+ void sqlite3_result_error(Context *pCtx, const char *z, int n){
   assert( sqlite3_mutex_held(pCtx->s.db->mutex) );
   pCtx->isError = SQLITE_ERROR;
   pCtx.s.SetStr(z[:n], SQLITE_TRANSIENT)
 }
- void sqlite3_result_int(sqlite3_context *pCtx, int iVal){
+ void sqlite3_result_int(Context *pCtx, int iVal){
   assert( sqlite3_mutex_held(pCtx->s.db->mutex) );
   sqlite3VdbeMemSetInt64(&pCtx->s, (i64)iVal);
 }
- void sqlite3_result_int64(sqlite3_context *pCtx, i64 iVal){
+ void sqlite3_result_int64(Context *pCtx, i64 iVal){
   assert( sqlite3_mutex_held(pCtx->s.db->mutex) );
   sqlite3VdbeMemSetInt64(&pCtx->s, iVal);
 }
- void sqlite3_result_null(sqlite3_context *pCtx){
+ void sqlite3_result_null(Context *pCtx){
   assert( sqlite3_mutex_held(pCtx->s.db->mutex) );
   sqlite3VdbeMemSetNull(&pCtx->s);
 }
  void sqlite3_result_text(
-  sqlite3_context *pCtx, 
+  Context *pCtx, 
   const char *z, 
   int n,
   void (*xDel)(void *)
@@ -49061,15 +49079,15 @@ func (context *sqlite3_context) sqlite3_result_blob(data []byte, destructor func
   assert( sqlite3_mutex_held(pCtx->s.db->mutex) );
   pCtx.setResultStrOrError(z, xDel)
 }
- void sqlite3_result_value(sqlite3_context *pCtx, sqlite3_value *pValue){
+ void sqlite3_result_value(Context *pCtx, sqlite3_value *pValue){
   assert( sqlite3_mutex_held(pCtx->s.db->mutex) );
   sqlite3VdbeMemCopy(&pCtx->s, pValue);
 }
- void sqlite3_result_zeroblob(sqlite3_context *pCtx, int n){
+ void sqlite3_result_zeroblob(Context *pCtx, int n){
   assert( sqlite3_mutex_held(pCtx->s.db->mutex) );
   pCtx.s.SetZeroBlob(n)
 }
- void sqlite3_result_error_code(sqlite3_context *pCtx, int errCode){
+ void sqlite3_result_error_code(Context *pCtx, int errCode){
   pCtx->isError = errCode;
   if( pCtx->s.flags & MEM_Null ){
     pCtx.s.SetStr(sqlite3ErrStr(errCode), SQLITE_STATIC)
@@ -49077,14 +49095,14 @@ func (context *sqlite3_context) sqlite3_result_blob(data []byte, destructor func
 }
 
 /* Force an SQLITE_TOOBIG error. */
- void sqlite3_result_error_toobig(sqlite3_context *pCtx){
+ void sqlite3_result_error_toobig(Context *pCtx){
   assert( sqlite3_mutex_held(pCtx->s.db->mutex) );
   pCtx->isError = SQLITE_TOOBIG;
   pCtx.s.SetStr("string or blob too big", SQLITE_STATIC)
 }
 
 /* An SQLITE_NOMEM error. */
- void sqlite3_result_error_nomem(sqlite3_context *pCtx){
+ void sqlite3_result_error_nomem(Context *pCtx){
   assert( sqlite3_mutex_held(pCtx->s.db->mutex) );
   sqlite3VdbeMemSetNull(&pCtx->s);
   pCtx->isError = SQLITE_NOMEM;
@@ -49290,24 +49308,24 @@ func (statement sqlite3_stmt) Step() (rc int) {
 }
 
 /*
-** Extract the user data from a sqlite3_context structure and return a
+** Extract the user data from a Context structure and return a
 ** pointer to it.
 */
- void *sqlite3_user_data(sqlite3_context *p){
+ void *sqlite3_user_data(Context *p){
   assert( p != nil && p.pFunc );
   return p.pFunc.UserData;
 }
 
 /*
-** Extract the user data from a sqlite3_context structure and return a
+** Extract the user data from a Context structure and return a
 ** pointer to it.
 **
-** IMPLEMENTATION-OF: R-46798-50301 The sqlite3_context_db_handle() interface
+** IMPLEMENTATION-OF: R-46798-50301 The Context_db_handle() interface
 ** returns a copy of the pointer to the database connection (the 1st
 ** parameter) of the sqlite3.CreateFunction() routine that originally registered the
 ** application defined function.
 */
- sqlite3 *sqlite3_context_db_handle(sqlite3_context *p){
+ sqlite3 *Context_db_handle(Context *p){
   assert( p && p->pFunc );
   return p->s.db;
 }
@@ -49320,7 +49338,7 @@ func (statement sqlite3_stmt) Step() (rc int) {
 ** for name resolution but are actually overloaded by the xFindFunction
 ** method of virtual tables.
 */
-func InvalidFunction(context *sqlite3_context, args []*sqlite3_value) {
+func InvalidFunction(context *Context, args []*sqlite3_value) {
 	sqlite3_result_error(context, fmt.Sprintf("unable to use function %s in the requested context", context.pFunc.zName), -1)
 }
 
@@ -49329,7 +49347,7 @@ func InvalidFunction(context *sqlite3_context, args []*sqlite3_value) {
 ** context is allocated on the first call.  Subsequent calls return the
 ** same context that was returned on prior calls.
 */
- void *sqlite3_aggregate_context(sqlite3_context *p, int nByte){
+ void *sqlite3_aggregate_context(Context *p, int nByte){
   Mem *pMem;
   assert( p && p->pFunc && p->pFunc->xStep );
   assert( sqlite3_mutex_held(p->s.db->mutex) );
@@ -49355,15 +49373,12 @@ func InvalidFunction(context *sqlite3_context, args []*sqlite3_value) {
 ** Return the auxilary data pointer, if any, for the iArg'th argument to
 ** the user-function defined by pCtx.
 */
- void *sqlite3_get_auxdata(sqlite3_context *pCtx, int iArg){
-  VdbeFunc *pVdbeFunc;
-
-  assert( sqlite3_mutex_held(pCtx->s.db->mutex) );
-  pVdbeFunc = pCtx->pVdbeFunc;
-  if( !pVdbeFunc || iArg>=pVdbeFunc->nAux || iArg<0 ){
-    return 0;
-  }
-  return pVdbeFunc->apAux[iArg].pAux;
+func (c *Context) GetAuxData(i int) (value interface{}, destructor func(interface{})) {
+	assert( sqlite3_mutex_held(c.s.db.mutex) )
+	if v := c.VdbeFunction; v != nil && i < len(v.Arguments) && i > -1 {
+		value, destructor = v.Arguments[i], v.Destructors[i]
+	}
+	return
 }
 
 /*
@@ -49371,43 +49386,14 @@ func InvalidFunction(context *sqlite3_context, args []*sqlite3_value) {
 ** argument to the user-function defined by pCtx. Any previous value is
 ** deleted by calling the delete function specified when it was set.
 */
- void sqlite3_set_auxdata(
-  sqlite3_context *pCtx, 
-  int iArg, 
-  void *pAux, 
-  void (*xDelete)(void*)
-){
-  struct AuxData *pAuxData;
-  VdbeFunc *pVdbeFunc;
-  if( iArg<0 ) goto failed;
-
-  assert( sqlite3_mutex_held(pCtx->s.db->mutex) );
-  pVdbeFunc = pCtx->pVdbeFunc;
-  if( !pVdbeFunc || pVdbeFunc->nAux<=iArg ){
-    int nAux = (pVdbeFunc ? pVdbeFunc->nAux : 0);
-    int nMalloc = sizeof(VdbeFunc) + sizeof(struct AuxData)*iArg;
-    pVdbeFunc = sqlite3DbRealloc(pCtx->s.db, pVdbeFunc, nMalloc);
-    if( !pVdbeFunc ){
-      goto failed;
-    }
-    pCtx->pVdbeFunc = pVdbeFunc;
-    memset(&pVdbeFunc->apAux[nAux], 0, sizeof(struct AuxData)*(iArg+1-nAux));
-    pVdbeFunc->nAux = iArg+1;
-    pVdbeFunc->pFunc = pCtx->pFunc;
-  }
-
-  pAuxData = &pVdbeFunc->apAux[iArg];
-  if( pAuxData->pAux && pAuxData->xDelete ){
-    pAuxData->xDelete(pAuxData->pAux);
-  }
-  pAuxData->pAux = pAux;
-  pAuxData->xDelete = xDelete;
-  return;
-
-failed:
-  if( xDelete ){
-    xDelete(pAux);
-  }
+func (c *Context) SetAuxData(i int, value interface{}, destroy func(interface{})) {
+	assert( sqlite3_mutex_held(c.s.db.mutex) )
+	v := c.VdbeFunction
+	if v == nil {
+		v = NewVdbeFunction(c.Function)
+	}
+	v.Set(i, value, destroy)
+	c.VdbeFunction = v
 }
 
 
@@ -50755,7 +50741,7 @@ void importVtabErrMsg(Vdbe *p, sqlite3_vtab *pVtab){
     struct OP_Function_stack_vars {
       int i;
       Mem *pArg;
-      sqlite3_context ctx;
+      Context ctx;
       sqlite3_value **apVal;
       int n;
     } ai;
@@ -51062,7 +51048,7 @@ void importVtabErrMsg(Vdbe *p, sqlite3_vtab *pVtab){
       int i;
       Mem *pMem;
       Mem *pRec;
-      sqlite3_context ctx;
+      Context ctx;
       sqlite3_value **apVal;
     } cg;
     struct OP_AggFinal_stack_vars {
@@ -51111,7 +51097,7 @@ void importVtabErrMsg(Vdbe *p, sqlite3_vtab *pVtab){
       sqlite3_vtab *pVtab;
       const sqlite3_module *pModule;
       Mem *pDest;
-      sqlite3_context sContext;
+      Context sContext;
     } co;
     struct OP_VNext_stack_vars {
       sqlite3_vtab *pVtab;
@@ -51865,13 +51851,11 @@ arithmetic_result_is_null:
 ** to retrieve the collation sequence set by this opcode is not available
 ** publicly, only to user functions defined in func.c.
 */
-case OP_CollSeq: {
-  assert( pOp->p4type==P4_COLLSEQ );
-  if( pOp->p1 ){
-    sqlite3VdbeMemSetInt64(&aMem[pOp->p1], 0);
-  }
-  break;
-}
+case OP_CollSeq:
+	assert( pOpp4.(*CollationSequence) )
+	if pOp.p1 != 0 {
+		sqlite3VdbeMemSetInt64(&aMem[pOp.p1], 0)
+	}
 
 /* Opcode: Function P1 P2 P3 P4 P5
 **
@@ -51884,7 +51868,7 @@ case OP_CollSeq: {
 ** function was determined to be constant at compile time. If the first
 ** argument was constant then bit 0 of P1 is set. This is used to determine
 ** whether meta data associated with a user function argument using the
-** sqlite3_set_auxdata() API may be safely retained until the next
+** Context.SetAuxData() API may be safely retained until the next
 ** invocation of this opcode.
 **
 ** See also: AggStep and AggFinal
@@ -51908,13 +51892,13 @@ case OP_Function: {
     REGISTER_TRACE(pOp->p2+u.ai.i, u.ai.pArg);
   }
 
-  assert( pOp->p4type==P4_FUNCDEF || pOp->p4type==P4_VDBEFUNC );
-  if( pOp->p4type==P4_FUNCDEF ){
-    u.ai.ctx.pFunc = pOp->p4.pFunc;
-    u.ai.ctx.pVdbeFunc = 0;
-  }else{
-    u.ai.ctx.pVdbeFunc = (VdbeFunc*)pOp->p4.pVdbeFunc;
-    u.ai.ctx.pFunc = u.ai.ctx.pVdbeFunc->pFunc;
+  switch p4 := pOp.p4.(type) {
+  case Function:
+    u.ai.ctx.pFunc = p4
+    u.ai.ctx.VdbeFunction = nil
+  case VdbeFunction
+    u.ai.ctx.VdbeFunction = p4
+    u.ai.ctx.pFunc = u.ai.ctx.VdbeFunction.Function
   }
 
   u.ai.ctx.s.flags = MEM_Null;
@@ -51932,9 +51916,9 @@ case OP_Function: {
   u.ai.ctx.isError = 0;
   if( u.ai.ctx.pFunc->flags & SQLITE_FUNC_NEEDCOLL ){
     assert( pOp>aOp );
-    assert( pOp[-1].p4type==P4_COLLSEQ );
-    assert( pOp[-1].opcode==OP_CollSeq );
-    u.ai.ctx.pColl = pOp[-1].p4.pColl;
+    assert( pOp[-1].p4.(*CollationSequence) )
+    assert( pOp[-1].opcode==OP_CollSeq )
+    u.ai.ctx.pColl = pOp[-1].p4.(*CollationSequence)
   }
   db->lastRowid = lastRowid;
   (*u.ai.ctx.pFunc->xFunc)(&u.ai.ctx, u.ai.n, u.ai.apVal); /* IMP: R-24505-23230 */
@@ -51943,10 +51927,9 @@ case OP_Function: {
   /* If any auxiliary data functions have been called by this user function,
   ** immediately call the destructor for any non-values.
   */
-  if( u.ai.ctx.pVdbeFunc ){
-    sqlite3VdbeDeleteAuxData(u.ai.ctx.pVdbeFunc, pOp->p1);
-    pOp->p4.pVdbeFunc = u.ai.ctx.pVdbeFunc;
-    pOp->p4type = P4_VDBEFUNC;
+  if u.ai.ctx.VdbeFunction {
+    u.ai.ctx.VdbeFunction.DeleteAuxData(pOp.p1)
+    pOp.p4 = u.ai.ctx.VdbeFunction
   }
 
   if( db->mallocFailed ){
@@ -52328,7 +52311,7 @@ case OP_Ge: {             /* same as TK_GE, jump, in1, in3 */
       if( db->mallocFailed ) goto no_mem;
     }
 
-    assert( pOp->p4type==P4_COLLSEQ || pOp->p4.pColl==0 );
+    assert( pOp.p4 == nil || pOp.p4.(*CollationSequence) )
     ExpandBlob(pIn1);
     ExpandBlob(pIn3);
     u.ak.res = sqlite3MemCompare(pIn3, pIn1, pOp->p4.pColl);
@@ -55557,58 +55540,57 @@ case OP_IfZero: {        /* jump, in1 */
 /* Opcode: AggStep * P2 P3 P4 P5
 **
 ** Execute the step function for an aggregate.  The
-** function has P5 arguments.   P4 is a pointer to the FuncDef
+** function has P5 arguments.   P4 is a pointer to the Function
 ** structure that specifies the function.  Use register
 ** P3 as the accumulator.
 **
 ** The P5 arguments are taken from register P2 and its
 ** successors.
 */
-case OP_AggStep: {
-  u.cg.n = pOp->p5;
-  assert( u.cg.n>=0 );
-  u.cg.pRec = &aMem[pOp->p2];
-  u.cg.apVal = p->apArg;
-  assert( u.cg.apVal || u.cg.n==0 );
-  for(u.cg.i=0; u.cg.i<u.cg.n; u.cg.i++, u.cg.pRec++){
-    assert( memIsValid(u.cg.pRec) );
-    u.cg.apVal[u.cg.i] = u.cg.pRec;
-    memAboutToChange(p, u.cg.pRec);
-    sqlite3VdbeMemStoreType(u.cg.pRec);
-  }
-  u.cg.ctx.pFunc = pOp->p4.pFunc;
-  assert( pOp->p3>0 && pOp->p3<=p->nMem );
-  u.cg.ctx.pMem = u.cg.pMem = &aMem[pOp->p3];
-  u.cg.pMem->n++;
-  u.cg.ctx.s.flags = MEM_Null;
-  u.cg.ctx.s.z = 0;
-  u.cg.ctx.s.zMalloc = 0;
-  u.cg.ctx.s.xDel = 0;
-  u.cg.ctx.s.db = db;
-  u.cg.ctx.isError = 0;
-  u.cg.ctx.pColl = 0;
-  u.cg.ctx.skipFlag = 0;
-  if( u.cg.ctx.pFunc->flags & SQLITE_FUNC_NEEDCOLL ){
-    assert( pOp>p->aOp );
-    assert( pOp[-1].p4type==P4_COLLSEQ );
-    assert( pOp[-1].opcode==OP_CollSeq );
-    u.cg.ctx.pColl = pOp[-1].p4.pColl;
-  }
-  (u.cg.ctx.pFunc->xStep)(&u.cg.ctx, u.cg.n, u.cg.apVal); /* IMP: R-24505-23230 */
-  if( u.cg.ctx.isError ){
-    sqlite3SetString(&p->zErrMsg, db, "%s", &u.cg.ctx.s.Text())
-    rc = u.cg.ctx.isError;
-  }
-  if( u.cg.ctx.skipFlag ){
-    assert( pOp[-1].opcode==OP_CollSeq );
-    u.cg.i = pOp[-1].p1;
-    if( u.cg.i ) sqlite3VdbeMemSetInt64(&aMem[u.cg.i], 1);
-  }
+case OP_AggStep:
+	u.cg.n = pOp.p5
+	assert( u.cg.n >= 0 )
+	u.cg.pRec = &aMem[pOp.p2]
+	u.cg.apVal = p.apArg
+	assert( u.cg.apVal || u.cg.n == 0 )
+	for u.cg.i=0; u.cg.i < u.cg.n; u.cg.i++, u.cg.pRec++ {
+		assert( memIsValid(u.cg.pRec) )
+		u.cg.apVal[u.cg.i] = u.cg.pRec
+		memAboutToChange(p, u.cg.pRec)
+		sqlite3VdbeMemStoreType(u.cg.pRec)
+	}
+	u.cg.ctx.pFunc = pOp.p4.pFunc
+	assert( pOp.p3 > 0 && pOp.p3 <= p.nMem )
+	u.cg.ctx.pMem = u.cg.pMem = &aMem[pOp.p3]
+	u.cg.pMem.n++
+	u.cg.ctx.s.flags = MEM_Null
+	u.cg.ctx.s.z = 0
+	u.cg.ctx.s.zMalloc = 0
+	u.cg.ctx.s.xDel = 0
+	u.cg.ctx.s.db = db
+	u.cg.ctx.isError = 0
+	u.cg.ctx.pColl = 0
+	u.cg.ctx.skipFlag = 0
+	if u.cg.ctx.pFunc.flags & SQLITE_FUNC_NEEDCOLL {
+		assert( pOp > p.aOp )
+		assert( pOp[-1].p4.(*CollationSequence) )
+		assert( pOp[-1].opcode == OP_CollSeq )
+		u.cg.ctx.pColl = pOp[-1].p4.pColl
+	}
+	u.cg.ctx.pFunc.xStep(&u.cg.ctx, u.cg.n, u.cg.apVal)				//	IMP: R-24505-23230
+	if u.cg.ctx.isError {
+		sqlite3SetString(&p.zErrMsg, db, "%s", &u.cg.ctx.s.Text())
+		rc = u.cg.ctx.isError
+	}
+	if u.cg.ctx.skipFlag {
+		assert( pOp[-1].opcode == OP_CollSeq )
+		u.cg.i = pOp[-1].p1
+		if u.cg.i != 0 {
+			sqlite3VdbeMemSetInt64(&aMem[u.cg.i], 1)
+		}
+	}
+	sqlite3VdbeMemRelease(&u.cg.ctx.s)
 
-  sqlite3VdbeMemRelease(&u.cg.ctx.s);
-
-  break;
-}
 
 /* Opcode: AggFinal P1 P2 * P4 *
 **
@@ -55616,24 +55598,24 @@ case OP_AggStep: {
 ** the memory location that is the accumulator for the aggregate.
 **
 ** P2 is the number of arguments that the step function takes and
-** P4 is a pointer to the FuncDef for this function.  The P2
+** P4 is a pointer to the Function for this function.  The P2
 ** argument is not used by this opcode.  It is only there to disambiguate
 ** functions that can take varying numbers of arguments.  The
 ** P4 argument is only needed for the degenerate case where
 ** the step function was not previously called.
 */
 case OP_AggFinal: {
-  assert( pOp->p1>0 && pOp->p1<=p->nMem );
-  u.ch.pMem = &aMem[pOp->p1];
-  assert( (u.ch.pMem->flags & ~(MEM_Null|MEM_Agg))==0 );
-  rc = sqlite3VdbeMemFinalize(u.ch.pMem, pOp->p4.pFunc);
-  if( rc ){
-    sqlite3SetString(&p->zErrMsg, db, "%s", u.ch.pMem.Text());
-  }
-  if( sqlite3VdbeMemTooBig(u.ch.pMem) ){
-    goto too_big;
-  }
-  break;
+	assert( pOp.p1 > 0 && pOp.p1 <= p.nMem )
+	u.ch.pMem = &aMem[pOp.p1]
+	assert( u.ch.pMem.flags & ~MEM_Null|MEM_Agg == 0 )
+	rc = u.ch.pMem.Finalize(pOp.p4.pFunc)
+	if rc != SQLITE_OK {
+		sqlite3SetString(&p.zErrMsg, db, "%s", u.ch.pMem.Text())
+	}
+	if sqlite3VdbeMemTooBig(u.ch.pMem) {
+		goto too_big
+	}
+	break
 }
 
 #ifndef SQLITE_OMIT_WAL
@@ -56573,7 +56555,7 @@ int blobSeekToRow(Incrblob *p, sqlite3_int64 iRow, char **pzErr){
       sqlite3VdbeChangeP3(v, 1, pTab->pSchema->iGeneration);
 
       /* Make sure a mutex is held on the table to be accessed */
-      sqlite3VdbeUsesBtree(v, iDb); 
+      v.UsesBtree(iDb); 
 
       /* Configure the OP_TableLock instruction */
 #ifdef SQLITE_OMIT_SHARED_CACHE
@@ -59027,13 +59009,12 @@ int resolveExprStep(Walker *pWalker, Expr *pExpr){
       int auth;                   /* Authorization to use the function */
       int nId;                    /* Number of characters in function name */
       const char *zId;            /* The function name. */
-      FuncDef *pDef;              /* Information about the function */
 
       assert( !ExprHasProperty(pExpr, EP_xIsSelect) );
       zId = pExpr->u.zToken;
       nId = len(zId);
-      pDef = pParse.db.FindFunction(zId, n, false)
-      if( pDef==0 ){
+      pDef := pParse.db.FindFunction(zId, n, false)
+      if pDef == nil {
         pDef = pParse.db.FindFunction(zId, -2, false)
         if( pDef==0 ){
           no_such_func = 1;
@@ -59044,7 +59025,7 @@ int resolveExprStep(Walker *pWalker, Expr *pExpr){
         is_agg = pDef->xFunc==0;
       }
 #ifndef SQLITE_OMIT_AUTHORIZATION
-      if( pDef ){
+      if pDef != nil {
         auth = sqlite3AuthCheck(pParse, SQLITE_FUNCTION, 0, pDef->zName, 0);
         if( auth!=SQLITE_OK ){
           if( auth==SQLITE_DENY ){
@@ -60002,8 +59983,7 @@ int codeCompare(
 
   p4 = sqlite3BinaryCompareCollSeq(pParse, pLeft, pRight);
   p5 = binaryCompareP5(pLeft, pRight, jumpIfNull);
-  addr = sqlite3VdbeAddOp4(pParse->pVdbe, opcode, in2, dest, in1,
-                           (void*)p4, P4_COLLSEQ);
+  addr = pParse.pVdbe.AddOp4(opcode, in2, dest, in1, p4)
   sqlite3VdbeChangeP5(pParse->pVdbe, (u8)p5);
   return addr;
 }
@@ -61043,7 +61023,7 @@ int exprIsConst(Expr *p, int initFlag){
   int iDest           /* Jump here if the value is null */
 ){
   if( sqlite3ExprCanBeNull(pExpr) ){
-    sqlite3VdbeAddOp2(v, OP_IsNull, iReg, iDest);
+    v.AddOp2(OP_IsNull, iReg, iDest);
   }
 }
 
@@ -61149,7 +61129,7 @@ int isCandidateForInOpt(Select *p){
 */
  int sqlite3CodeOnce(Parse *pParse){
   Vdbe *v = sqlite3GetVdbe(pParse);      /* Virtual machine being coded */
-  return sqlite3VdbeAddOp1(v, OP_Once, pParse->nOnce++);
+  return v.AddOp1(OP_Once, pParse->nOnce++);
 }
 
 /*
@@ -61290,7 +61270,7 @@ int isCandidateForInOpt(Select *p){
           pKey = (char *)sqlite3IndexKeyinfo(pParse, pIdx);
           iAddr = sqlite3CodeOnce(pParse);
   
-          sqlite3VdbeAddOp4(v, OP_OpenRead, iTab, pIdx->tnum, iDb,
+          v.AddOp4(OP_OpenRead, iTab, pIdx->tnum, iDb,
                                pKey,P4_KEYINFO_HANDOFF);
           VdbeComment((v, "%s", pIdx->zName));
           assert( IN_INDEX_INDEX_DESC == IN_INDEX_INDEX_ASC+1 );
@@ -61299,7 +61279,7 @@ int isCandidateForInOpt(Select *p){
           sqlite3VdbeJumpHere(v, iAddr);
           if( prNotFound && !pTab->aCol[iCol].notNull ){
             *prNotFound = ++pParse->nMem;
-            sqlite3VdbeAddOp2(v, OP_Null, 0, *prNotFound);
+            v.AddOp2(OP_Null, 0, *prNotFound);
           }
         }
       }
@@ -61315,7 +61295,7 @@ int isCandidateForInOpt(Select *p){
     eType = IN_INDEX_EPH;
     if( prNotFound ){
       *prNotFound = rMayHaveNull = ++pParse->nMem;
-      sqlite3VdbeAddOp2(v, OP_Null, 0, *prNotFound);
+      v.AddOp2(OP_Null, 0, *prNotFound);
     }else{
       pParse->nQueryLoop = (float64)1;
       if( pX->pLeft->iColumn<0 && !ExprHasAnyProperty(pX, EP_xIsSelect) ){
@@ -61397,7 +61377,7 @@ int isCandidateForInOpt(Select *p){
         pParse->db, "EXECUTE %s%s SUBQUERY %d", testAddr>=0?"":"CORRELATED ",
         pExpr->op==TK_IN?"LIST":"SCALAR", pParse->iNextSelectId
     );
-    sqlite3VdbeAddOp4(v, OP_Explain, pParse->iSelectId, 0, 0, zMsg, P4_DYNAMIC);
+    v.AddOp4(OP_Explain, pParse->iSelectId, 0, 0, zMsg, P4_DYNAMIC);
   }
 #endif
 
@@ -61410,7 +61390,7 @@ int isCandidateForInOpt(Select *p){
       Expr *pLeft = pExpr->pLeft; /* the LHS of the IN operator */
 
       if( rMayHaveNull ){
-        sqlite3VdbeAddOp2(v, OP_Null, 0, rMayHaveNull);
+        v.AddOp2(OP_Null, 0, rMayHaveNull);
       }
 
       affinity = sqlite3ExprAffinity(pLeft);
@@ -61429,7 +61409,7 @@ int isCandidateForInOpt(Select *p){
       ** is used.
       */
       pExpr->iTable = pParse->nTab++;
-      addr = sqlite3VdbeAddOp2(v, OP_OpenEphemeral, pExpr->iTable, !isRowid);
+      addr = v.AddOp2(OP_OpenEphemeral, pExpr->iTable, !isRowid);
       if( rMayHaveNull==0 ) sqlite3VdbeChangeP5(v, BTREE_UNORDERED);
       memset(&keyInfo, 0, sizeof(keyInfo));
       keyInfo.nField = 1;
@@ -61479,7 +61459,7 @@ int isCandidateForInOpt(Select *p){
         /* Loop through each expression in <exprlist>. */
         r1 = sqlite3GetTempReg(pParse);
         r2 = sqlite3GetTempReg(pParse);
-        sqlite3VdbeAddOp2(v, OP_Null, 0, r2);
+        v.AddOp2(OP_Null, 0, r2);
         for(i=pList->nExpr, pItem=pList->a; i>0; i--, pItem++){
           Expr *pE2 = pItem->pExpr;
           int iValToIns;
@@ -61496,17 +61476,17 @@ int isCandidateForInOpt(Select *p){
 
           /* Evaluate the expression and insert it into the temp table */
           if( isRowid && sqlite3ExprIsInteger(pE2, &iValToIns) ){
-            sqlite3VdbeAddOp3(v, OP_InsertInt, pExpr->iTable, r2, iValToIns);
+            v.AddOp3(OP_InsertInt, pExpr->iTable, r2, iValToIns);
           }else{
             r3 = sqlite3ExprCodeTarget(pParse, pE2, r1);
             if( isRowid ){
-              sqlite3VdbeAddOp2(v, OP_MustBeInt, r3,
+              v.AddOp2(OP_MustBeInt, r3,
                                 sqlite3VdbeCurrentAddr(v)+2);
-              sqlite3VdbeAddOp3(v, OP_Insert, pExpr->iTable, r2, r3);
+              v.AddOp3(OP_Insert, pExpr->iTable, r2, r3);
             }else{
-              sqlite3VdbeAddOp4(v, OP_MakeRecord, r3, 1, r2, &affinity, 1);
+              v.AddOp4(OP_MakeRecord, r3, 1, r2, &affinity, 1);
               sqlite3ExprCacheAffinityChange(pParse, r3, 1);
-              sqlite3VdbeAddOp2(v, OP_IdxInsert, pExpr->iTable, r2);
+              v.AddOp2(OP_IdxInsert, pExpr->iTable, r2);
             }
           }
         }
@@ -61538,11 +61518,11 @@ int isCandidateForInOpt(Select *p){
       sqlite3SelectDestInit(&dest, 0, ++pParse->nMem);
       if( pExpr->op==TK_SELECT ){
         dest.eDest = SRT_Mem;
-        sqlite3VdbeAddOp2(v, OP_Null, 0, dest.iSDParm);
+        v.AddOp2(OP_Null, 0, dest.iSDParm);
         VdbeComment((v, "Init subquery result"));
       }else{
         dest.eDest = SRT_Exists;
-        sqlite3VdbeAddOp2(v, OP_Integer, 0, dest.iSDParm);
+        v.AddOp2(OP_Integer, 0, dest.iSDParm);
         VdbeComment((v, "Init EXISTS result"));
       }
       sqlite3ExprDelete(pParse->db, pSel->pLimit);
@@ -61623,23 +61603,23 @@ void sqlite3ExprCodeIN(
   if( destIfNull==destIfFalse ){
     /* Shortcut for the common case where the false and NULL outcomes are
     ** the same. */
-    sqlite3VdbeAddOp2(v, OP_IsNull, r1, destIfNull);
+    v.AddOp2(OP_IsNull, r1, destIfNull);
   }else{
-    int addr1 = sqlite3VdbeAddOp1(v, OP_NotNull, r1);
-    sqlite3VdbeAddOp2(v, OP_Rewind, pExpr->iTable, destIfFalse);
-    sqlite3VdbeAddOp2(v, OP_Goto, 0, destIfNull);
+    int addr1 = v.AddOp1(OP_NotNull, r1);
+    v.AddOp2(OP_Rewind, pExpr->iTable, destIfFalse);
+    v.AddOp2(OP_Goto, 0, destIfNull);
     sqlite3VdbeJumpHere(v, addr1);
   }
 
   if( eType==IN_INDEX_ROWID ){
     /* In this case, the RHS is the ROWID of table b-tree
     */
-    sqlite3VdbeAddOp2(v, OP_MustBeInt, r1, destIfFalse);
-    sqlite3VdbeAddOp3(v, OP_NotExists, pExpr->iTable, destIfFalse, r1);
+    v.AddOp2(OP_MustBeInt, r1, destIfFalse);
+    v.AddOp3(OP_NotExists, pExpr->iTable, destIfFalse, r1);
   }else{
     /* In this case, the RHS is an index b-tree.
     */
-    sqlite3VdbeAddOp4(v, OP_Affinity, r1, 1, 0, &affinity, 1);
+    v.AddOp4(OP_Affinity, r1, 1, 0, &affinity, 1);
 
     /* If the set membership test fails, then the result of the 
     ** "x IN (...)" expression must be either 0 or NULL. If the set
@@ -61655,7 +61635,7 @@ void sqlite3ExprCodeIN(
       ** Also run this branch if NULL is equivalent to FALSE
       ** for this particular IN operator.
       */
-      sqlite3VdbeAddOp4Int(v, OP_NotFound, pExpr->iTable, destIfFalse, r1, 1);
+      v.AddOp4(OP_NotFound, pExpr.iTable, destIfFalse, r1, 1)
 
     }else{
       /* In this branch, the RHS of the IN might contain a NULL and
@@ -61668,7 +61648,7 @@ void sqlite3ExprCodeIN(
       ** then the presence of NULLs in the RHS does not matter, so jump
       ** over all of the code that follows.
       */
-      j1 = sqlite3VdbeAddOp4Int(v, OP_Found, pExpr->iTable, 0, r1, 1);
+      j1 = v.AddOp4(OP_Found, pExpr.iTable, 0, r1, 1)
 
       /* Here we begin generating code that runs if the LHS is not
       ** contained within the RHS.  Generate additional code that
@@ -61676,18 +61656,18 @@ void sqlite3ExprCodeIN(
       ** jump to destIfNull.  If there are no NULLs in the RHS then
       ** jump to destIfFalse.
       */
-      j2 = sqlite3VdbeAddOp1(v, OP_NotNull, rRhsHasNull);
-      j3 = sqlite3VdbeAddOp4Int(v, OP_Found, pExpr->iTable, 0, rRhsHasNull, 1);
-      sqlite3VdbeAddOp2(v, OP_Integer, -1, rRhsHasNull);
+      j2 = v.AddOp1(OP_NotNull, rRhsHasNull);
+      j3 = v.AddOp4(OP_Found, pExpr.iTable, 0, rRhsHasNull, 1)
+      v.AddOp2(OP_Integer, -1, rRhsHasNull);
       sqlite3VdbeJumpHere(v, j3);
-      sqlite3VdbeAddOp2(v, OP_AddImm, rRhsHasNull, 1);
+      v.AddOp2(OP_AddImm, rRhsHasNull, 1);
       sqlite3VdbeJumpHere(v, j2);
 
       /* Jump to the appropriate target depending on whether or not
       ** the RHS contains a NULL
       */
-      sqlite3VdbeAddOp2(v, OP_If, rRhsHasNull, destIfNull);
-      sqlite3VdbeAddOp2(v, OP_Goto, 0, destIfFalse);
+      v.AddOp2(OP_If, rRhsHasNull, destIfNull);
+      v.AddOp2(OP_Goto, 0, destIfFalse);
 
       /* The OP_Found at the top of this branch jumps here when true, 
       ** causing the overall IN expression evaluation to fall through.
@@ -61728,7 +61708,7 @@ void codeReal(Vdbe *v, const char *z, int negateFlag, int iMem){
     assert( !math.IsNaN(value) )					//	The new AtoF never returns NaN
     if( negateFlag ) value = -value;
     zV = dup8bytes(v, (char*)&value);
-    sqlite3VdbeAddOp4(v, OP_Real, 0, iMem, 0, zV, P4_REAL);
+    v.AddOp4(OP_Real, 0, iMem, 0, zV, P4_REAL);
   }
 }
 
@@ -61745,7 +61725,7 @@ void codeInteger(Parse *pParse, Expr *pExpr, int negFlag, int iMem){
     int i = pExpr->u.iValue;
     assert( i>=0 );
     if( negFlag ) i = -i;
-    sqlite3VdbeAddOp2(v, OP_Integer, i, iMem);
+    v.AddOp2(OP_Integer, i, iMem);
   }else{
     int c;
     i64 value;
@@ -61756,7 +61736,7 @@ void codeInteger(Parse *pParse, Expr *pExpr, int negFlag, int iMem){
       char *zV;
       if( negFlag ){ value = c==2 ? SMALLEST_INT64 : -value; }
       zV = dup8bytes(v, (char*)&value);
-      sqlite3VdbeAddOp4(v, OP_Int64, 0, iMem, 0, zV, P4_INT64);
+      v.AddOp4(OP_Int64, 0, iMem, 0, zV, P4_INT64);
     }else{
       codeReal(v, z, negFlag, iMem);
     }
@@ -61906,10 +61886,10 @@ void sqlite3ExprCachePinRegister(Parse *pParse, int iReg){
   int regOut      /* Extract the valud into this register */
 ){
   if( iCol<0 || iCol==pTab->iPKey ){
-    sqlite3VdbeAddOp2(v, OP_Rowid, iTabCur, regOut);
+    v.AddOp2(OP_Rowid, iTabCur, regOut);
   }else{
     int op = IsVirtual(pTab) ? OP_VColumn : OP_Column;
-    sqlite3VdbeAddOp3(v, op, iTabCur, iCol, regOut);
+    v.AddOp3(op, iTabCur, iCol, regOut);
   }
   if( iCol>=0 ){
     sqlite3ColumnDefault(v, pTab, iCol, regOut);
@@ -61985,7 +61965,7 @@ void sqlite3ExprCachePinRegister(Parse *pParse, int iReg){
   int i;
   struct yColCache *p;
   assert( iFrom>=iTo+nReg || iFrom+nReg<=iTo );
-  sqlite3VdbeAddOp3(pParse->pVdbe, OP_Move, iFrom, iTo, nReg-1);
+  pParse.pVdbe.AddOp3(OP_Move, iFrom, iTo, nReg-1);
   for(i=0, p=pParse->aColCache; i<SQLITE_N_COLCACHE; i++, p++){
     int x = p->iReg;
     if( x>=iFrom && x<iFrom+nReg ){
@@ -62051,7 +62031,7 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
         inReg = pCol->iMem;
         break;
       }else if( pAggInfo->useSortingIdx ){
-        sqlite3VdbeAddOp3(v, OP_Column, pAggInfo->sortingIdxPTab,
+        v.AddOp3(OP_Column, pAggInfo->sortingIdxPTab,
                               pCol->iSorterColumn, target);
         break;
       }
@@ -62080,11 +62060,11 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
     }
     case TK_STRING: {
       assert( !ExprHasProperty(pExpr, EP_IntValue) );
-      sqlite3VdbeAddOp4(v, OP_String8, 0, target, 0, pExpr->u.zToken, 0);
+      v.AddOp4(OP_String8, 0, target, 0, pExpr->u.zToken, 0);
       break;
     }
     case TK_NULL: {
-      sqlite3VdbeAddOp2(v, OP_Null, 0, target);
+      v.AddOp2(OP_Null, 0, target);
       break;
     }
 #ifndef SQLITE_OMIT_BLOB_LITERAL
@@ -62099,7 +62079,7 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
       n = len(z) - 1;
       assert( z[n]=='\'' );
       zBlob = HexToBlob(sqlite3VdbeDb(v), z, n)
-      sqlite3VdbeAddOp4(v, OP_Blob, n/2, target, 0, zBlob, P4_DYNAMIC);
+      v.AddOp4(OP_Blob, n/2, target, 0, zBlob, P4_DYNAMIC);
       break;
     }
 #endif
@@ -62107,7 +62087,7 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
       assert( !ExprHasProperty(pExpr, EP_IntValue) );
       assert( pExpr->u.zToken!=0 );
       assert( pExpr->u.zToken[0]!=0 );
-      sqlite3VdbeAddOp2(v, OP_Variable, pExpr->iColumn, target);
+      v.AddOp2(OP_Variable, pExpr->iColumn, target);
       if( pExpr->u.zToken[1]!=0 ){
         assert( pExpr.u.zToken[0] == '?' || pExpr.u.zToken == pParse.azVar[pExpr.iColumn - 1] )
         sqlite3VdbeChangeP4(v, -1, pParse->azVar[pExpr->iColumn-1], P4_STATIC);
@@ -62136,10 +62116,10 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
       assert( to_op==OP_ToInt     || aff!=SQLITE_AFF_INTEGER );
       assert( to_op==OP_ToReal    || aff!=SQLITE_AFF_REAL    );
       if( inReg!=target ){
-        sqlite3VdbeAddOp2(v, OP_SCopy, inReg, target);
+        v.AddOp2(OP_SCopy, inReg, target);
         inReg = target;
       }
-      sqlite3VdbeAddOp1(v, to_op, inReg);
+      v.AddOp1(to_op, inReg);
       sqlite3ExprCacheAffinityChange(pParse, inReg, 1);
       break;
     }
@@ -62196,7 +62176,7 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
       assert( TK_CONCAT==OP_Concat );
       r1 = sqlite3ExprCodeTemp(pParse, pExpr->pLeft, &regFree1);
       r2 = sqlite3ExprCodeTemp(pParse, pExpr->pRight, &regFree2);
-      sqlite3VdbeAddOp3(v, op, r2, r1, target);
+      v.AddOp3(op, r2, r1, target);
       break;
     }
     case TK_UMINUS: {
@@ -62209,9 +62189,9 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
         codeReal(v, pLeft->u.zToken, 1, target);
       }else{
         regFree1 = r1 = sqlite3GetTempReg(pParse);
-        sqlite3VdbeAddOp2(v, OP_Integer, 0, r1);
+        v.AddOp2(OP_Integer, 0, r1);
         r2 = sqlite3ExprCodeTemp(pParse, pExpr->pLeft, &regFree2);
-        sqlite3VdbeAddOp3(v, OP_Subtract, r2, r1, target);
+        v.AddOp3(OP_Subtract, r2, r1, target);
       }
       inReg = target;
       break;
@@ -62222,7 +62202,7 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
       assert( TK_NOT==OP_Not );
       r1 = sqlite3ExprCodeTemp(pParse, pExpr->pLeft, &regFree1);
       inReg = target;
-      sqlite3VdbeAddOp2(v, op, r1, inReg);
+      v.AddOp2(op, r1, inReg);
       break;
     }
     case TK_ISNULL:
@@ -62230,10 +62210,10 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
       int addr;
       assert( TK_ISNULL==OP_IsNull );
       assert( TK_NOTNULL==OP_NotNull );
-      sqlite3VdbeAddOp2(v, OP_Integer, 1, target);
+      v.AddOp2(OP_Integer, 1, target);
       r1 = sqlite3ExprCodeTemp(pParse, pExpr->pLeft, &regFree1);
-      addr = sqlite3VdbeAddOp1(v, op, r1);
-      sqlite3VdbeAddOp2(v, OP_AddImm, target, -1);
+      addr = v.AddOp1(op, r1);
+      v.AddOp2(OP_AddImm, target, -1);
       sqlite3VdbeJumpHere(v, addr);
       break;
     }
@@ -62251,12 +62231,10 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
     case TK_FUNCTION: {
       ExprList *pFarg;       /* List of function arguments */
       int nFarg;             /* Number of function arguments */
-      FuncDef *pDef;         /* The function definition object */
       int nId;               /* Length of the function name in bytes */
       const char *zId;       /* The function name */
       int constMask = 0;     /* Mask of function arguments that are constant */
       int i;                 /* Loop counter */
-      CollationSequence *pColl = 0;    /* A collating sequence */
 
       assert( !ExprHasProperty(pExpr, EP_xIsSelect) );
       if( ExprHasAnyProperty(pExpr, EP_TokenOnly) ){
@@ -62268,7 +62246,7 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
       assert( !ExprHasProperty(pExpr, EP_IntValue) );
       zId = pExpr->u.zToken;
       nId = len(zId);
-      pDef = db.FindFunction(zId, nFarg, false)
+      pDef := db.FindFunction(zId, nFarg, false)
       if( pDef==0 ){
         pParse.ErrorMessage("unknown function: %.*s()", nId, zId)
         break;
@@ -62283,7 +62261,7 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
         assert( nFarg>=2 );
         sqlite3ExprCode(pParse, pFarg->a[0].pExpr, target);
         for(i=1; i<nFarg; i++){
-          sqlite3VdbeAddOp2(v, OP_NotNull, target, endCoalesce);
+          v.AddOp2(OP_NotNull, target, endCoalesce);
           sqlite3ExprCacheRemove(pParse, target, 1);
           sqlite3ExprCachePush(pParse);
           sqlite3ExprCode(pParse, pFarg->a[i].pExpr, target);
@@ -62337,6 +62315,9 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
       }else if( nFarg>0 ){
         pDef = db.VtabOverloadFunction(pDef, nFarg, pFarg->a[0].pExpr);
       }
+
+      var pColl	CollationSequence
+
       for(i=0; i<nFarg; i++){
         if( i<32 && sqlite3ExprIsConstant(pFarg->a[i].pExpr) ){
           constMask |= (1<<i);
@@ -62347,9 +62328,9 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
       }
       if( pDef->flags & SQLITE_FUNC_NEEDCOLL ){
         if( !pColl ) pColl = db->DefaultCollationSequence; 
-        sqlite3VdbeAddOp4(v, OP_CollSeq, 0, 0, 0, (char *)pColl, P4_COLLSEQ);
+        v.AddOp4(OP_CollSeq, 0, 0, 0, pColl)
       }
-      sqlite3VdbeAddOp4(v, OP_Function, constMask, r1, target, (char*)pDef, P4_FUNCDEF);
+      v.AddOp4(OP_Function, constMask, r1, target, pDef)
       sqlite3VdbeChangeP5(v, (u8)nFarg);
       if( nFarg ){
         sqlite3ReleaseTempRange(pParse, r1, nFarg);
@@ -62365,11 +62346,11 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
     case TK_IN: {
       int destIfFalse = sqlite3VdbeMakeLabel(v);
       int destIfNull = sqlite3VdbeMakeLabel(v);
-      sqlite3VdbeAddOp2(v, OP_Null, 0, target);
+      v.AddOp2(OP_Null, 0, target);
       sqlite3ExprCodeIN(pParse, pExpr, destIfFalse, destIfNull);
-      sqlite3VdbeAddOp2(v, OP_Integer, 1, target);
+      v.AddOp2(OP_Integer, 1, target);
       sqlite3VdbeResolveLabel(v, destIfFalse);
-      sqlite3VdbeAddOp2(v, OP_AddImm, target, 0);
+      v.AddOp2(OP_AddImm, target, 0);
       sqlite3VdbeResolveLabel(v, destIfNull);
       break;
     }
@@ -62403,7 +62384,7 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
       sqlite3ReleaseTempReg(pParse, regFree2);
       r2 = sqlite3ExprCodeTemp(pParse, pRight, &regFree2);
       codeCompare(pParse, pLeft, pRight, OP_Le, r1, r2, r4, SQLITE_STOREP2);
-      sqlite3VdbeAddOp3(v, OP_And, r3, r4, target);
+      v.AddOp3(OP_And, r3, r4, target);
       sqlite3ReleaseTempReg(pParse, r3);
       sqlite3ReleaseTempReg(pParse, r4);
       break;
@@ -62448,7 +62429,7 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
       assert( pTab->iPKey<0 || pExpr->iColumn!=pTab->iPKey );
       assert( p1>=0 && p1<(pTab->nCol*2+2) );
 
-      sqlite3VdbeAddOp2(v, OP_Param, p1, target);
+      v.AddOp2(OP_Param, p1, target);
       VdbeComment((v, "%s.%s -> $%d",
         (pExpr->iTable ? "new" : "old"),
         (pExpr->iColumn<0 ? "rowid" : pExpr->pTab->aCol[pExpr->iColumn].zName),
@@ -62460,7 +62441,7 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
       if( pExpr->iColumn>=0 
        && pTab->aCol[pExpr->iColumn].affinity==SQLITE_AFF_REAL
       ){
-        sqlite3VdbeAddOp1(v, OP_RealAffinity, target);
+        v.AddOp1(OP_RealAffinity, target);
       }
       break;
     }
@@ -62531,7 +62512,7 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
         nextCase = sqlite3VdbeMakeLabel(v);
         sqlite3ExprIfFalse(pParse, pTest, nextCase, SQLITE_JUMPIFNULL);
         sqlite3ExprCode(pParse, aListelem[i+1].pExpr, target);
-        sqlite3VdbeAddOp2(v, OP_Goto, 0, endLabel);
+        v.AddOp2(OP_Goto, 0, endLabel);
         sqlite3ExprCachePop(pParse, 1);
         sqlite3VdbeResolveLabel(v, nextCase);
       }
@@ -62540,7 +62521,7 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
         sqlite3ExprCode(pParse, pExpr->pRight, target);
         sqlite3ExprCachePop(pParse, 1);
       }else{
-        sqlite3VdbeAddOp2(v, OP_Null, 0, target);
+        v.AddOp2(OP_Null, 0, target);
       }
       assert( db->mallocFailed || pParse->nErr>0 
            || pParse->iCacheLevel==iCacheLevel );
@@ -62562,8 +62543,7 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
       }
       assert( !ExprHasProperty(pExpr, EP_IntValue) );
       if( pExpr->affinity==OE_Ignore ){
-        sqlite3VdbeAddOp4(
-            v, OP_Halt, SQLITE_OK, OE_Ignore, 0, pExpr->u.zToken,0);
+        v.AddOp4(OP_Halt, SQLITE_OK, OE_Ignore, 0, pExpr->u.zToken,0)
       }else{
         sqlite3HaltConstraint(pParse, SQLITE_CONSTRAINT_TRIGGER,
                               pExpr->affinity, pExpr->u.zToken, 0);
@@ -62608,12 +62588,12 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
 
   assert( target>0 && target<=pParse->nMem );
   if( pExpr && pExpr->op==TK_REGISTER ){
-    sqlite3VdbeAddOp2(pParse->pVdbe, OP_Copy, pExpr->iTable, target);
+    pParse.pVdbe.AddOp2(OP_Copy, pExpr->iTable, target);
   }else{
     inReg = sqlite3ExprCodeTarget(pParse, pExpr, target);
     assert( pParse->pVdbe || pParse->db->mallocFailed );
     if( inReg!=target && pParse->pVdbe ){
-      sqlite3VdbeAddOp2(pParse->pVdbe, OP_SCopy, inReg, target);
+      pParse.pVdbe.AddOp2(OP_SCopy, inReg, target);
     }
   }
   return target;
@@ -62645,7 +62625,7 @@ int usedAsColumnCache(Parse *pParse, int iFrom, int iTo){
   if( ALWAYS(pExpr->op!=TK_REGISTER) ){  
     int iMem;
     iMem = ++pParse->nMem;
-    sqlite3VdbeAddOp2(v, OP_Copy, inReg, iMem);
+    v.AddOp2(OP_Copy, inReg, iMem);
     pExpr->iTable = iMem;
     pExpr->op2 = pExpr->op;
     pExpr->op = TK_REGISTER;
@@ -63073,7 +63053,7 @@ int evalConstExpr(Walker *pWalker, Expr *pExpr){
     Expr *pExpr = pItem->pExpr;
     int inReg = sqlite3ExprCodeTarget(pParse, pExpr, target+i);
     if( inReg!=target+i ){
-      sqlite3VdbeAddOp2(pParse->pVdbe, doHardCopy ? OP_Copy : OP_SCopy,
+      pParse.pVdbe.AddOp2(doHardCopy ? OP_Copy : OP_SCopy,
                         inReg, target+i);
     }
   }
@@ -63202,7 +63182,7 @@ void exprCodeBetween(
       assert( TK_ISNULL==OP_IsNull );
       assert( TK_NOTNULL==OP_NotNull );
       r1 = sqlite3ExprCodeTemp(pParse, pExpr->pLeft, &regFree1);
-      sqlite3VdbeAddOp2(v, op, r1, dest);
+      v.AddOp2(op, r1, dest);
       break;
     }
     case TK_BETWEEN: {
@@ -63214,14 +63194,14 @@ void exprCodeBetween(
       int destIfFalse = sqlite3VdbeMakeLabel(v);
       int destIfNull = jumpIfNull ? dest : destIfFalse;
       sqlite3ExprCodeIN(pParse, pExpr, destIfFalse, destIfNull);
-      sqlite3VdbeAddOp2(v, OP_Goto, 0, dest);
+      v.AddOp2(OP_Goto, 0, dest);
       sqlite3VdbeResolveLabel(v, destIfFalse);
       break;
     }
 #endif
     default: {
       r1 = sqlite3ExprCodeTemp(pParse, pExpr, &regFree1);
-      sqlite3VdbeAddOp3(v, OP_If, r1, dest, jumpIfNull!=0);
+      v.AddOp3(OP_If, r1, dest, jumpIfNull!=0);
       break;
     }
   }
@@ -63323,7 +63303,7 @@ void exprCodeBetween(
     case TK_ISNULL:
     case TK_NOTNULL: {
       r1 = sqlite3ExprCodeTemp(pParse, pExpr->pLeft, &regFree1);
-      sqlite3VdbeAddOp2(v, op, r1, dest);
+      v.AddOp2(op, r1, dest);
       break;
     }
     case TK_BETWEEN: {
@@ -63344,7 +63324,7 @@ void exprCodeBetween(
 #endif
     default: {
       r1 = sqlite3ExprCodeTemp(pParse, pExpr, &regFree1);
-      sqlite3VdbeAddOp3(v, OP_IfNot, r1, dest, jumpIfNull!=0);
+      v.AddOp3(OP_IfNot, r1, dest, jumpIfNull!=0);
       break;
     }
   }
@@ -63782,7 +63762,7 @@ int analyzeAggregatesInSelect(Walker *pWalker, Select *pSelect){
 **     -> 'CREATE INDEX i ON def(a, b, c)'
 */
 void renameTableFunc(
-  sqlite3_context *context,
+  Context *context,
   int NotUsed,
   sqlite3_value **argv
 ){
@@ -63795,7 +63775,7 @@ void renameTableFunc(
   int len = 0;
   char *zRet;
 
-  sqlite3 *db = sqlite3_context_db_handle(context);
+  sqlite3 *db = Context_db_handle(context);
 
   UNUSED_PARAMETER(NotUsed);
 
@@ -63847,11 +63827,11 @@ void renameTableFunc(
 */
 #ifndef SQLITE_OMIT_FOREIGN_KEY
 void renameParentFunc(
-  sqlite3_context *context,
+  Context *context,
   int NotUsed,
   sqlite3_value **argv
 ){
-  sqlite3 *db = sqlite3_context_db_handle(context);
+  sqlite3 *db = Context_db_handle(context);
   char *zOutput = 0;
   char *zResult;
   zInput := argv[0].Text()
@@ -63901,7 +63881,7 @@ void renameParentFunc(
 ** TRIGGER, not CREATE INDEX and CREATE TABLE.
 */
 void renameTriggerFunc(
-  sqlite3_context *context,
+  Context *context,
   int NotUsed,
   sqlite3_value **argv
 ){
@@ -63914,7 +63894,7 @@ void renameTriggerFunc(
   unsigned char const *zCsr = zSql;
   int len = 0;
   char *zRet;
-  sqlite3 *db = sqlite3_context_db_handle(context);
+  sqlite3 *db = Context_db_handle(context);
 
   UNUSED_PARAMETER(NotUsed);
 
@@ -64083,22 +64063,22 @@ void reloadTableSchema(Parse *pParse, Table *pTab, const char *zName){
   for(pTrig=sqlite3TriggerList(pParse, pTab); pTrig; pTrig=pTrig->pNext){
     int iTrigDb = sqlite3SchemaToIndex(pParse->db, pTrig->pSchema);
     assert( iTrigDb==iDb || iTrigDb==1 );
-    sqlite3VdbeAddOp4(v, OP_DropTrigger, iTrigDb, 0, 0, pTrig->zName, 0);
+    v.AddOp4(OP_DropTrigger, iTrigDb, 0, 0, pTrig->zName, 0);
   }
 
   /* Drop the table and index from the internal schema.  */
-  sqlite3VdbeAddOp4(v, OP_DropTable, iDb, 0, 0, pTab->zName, 0);
+  v.AddOp4(OP_DropTable, iDb, 0, 0, pTab->zName, 0);
 
   /* Reload the table, index and permanent trigger schemas. */
   zWhere = sqlite3MPrintf(pParse->db, "tbl_name=%Q", zName);
   if( !zWhere ) return;
-  sqlite3VdbeAddParseSchemaOp(v, iDb, zWhere);
+  v.AddParseSchemaOp(iDb, zWhere);
 
   /* Now, if the table is not stored in the temp database, reload any temp 
   ** triggers. Don't use IN(...) in case SQLITE_OMIT_SUBQUERY is defined. 
   */
   if( (zWhere=whereTempTriggers(pParse, pTab))!=0 ){
-    sqlite3VdbeAddParseSchemaOp(v, 1, zWhere);
+    v.AddParseSchemaOp(1, zWhere);
   }
 }
 
@@ -64213,8 +64193,8 @@ int isSystemTable(Parse *pParse, const char *zName){
   */
   if( pVTab ){
     int i = ++pParse->nMem;
-    sqlite3VdbeAddOp4(v, OP_String8, 0, i, 0, zName, 0);
-    sqlite3VdbeAddOp4(v, OP_VRename, i, 0, 0,(const char*)pVTab, P4_VTAB);
+    v.AddOp4(OP_String8, 0, i, 0, zName, 0);
+    v.AddOp4(OP_VRename, i, 0, 0,(const char*)pVTab, P4_VTAB);
     sqlite3MayAbort(pParse);
   }
 
@@ -64314,11 +64294,11 @@ exit_rename_table:
     int r1 = sqlite3GetTempReg(pParse);
     int r2 = sqlite3GetTempReg(pParse);
     int j1;
-    sqlite3VdbeAddOp3(v, OP_ReadCookie, iDb, r1, BTREE_FILE_FORMAT);
-    sqlite3VdbeUsesBtree(v, iDb);
-    sqlite3VdbeAddOp2(v, OP_Integer, minFormat, r2);
-    j1 = sqlite3VdbeAddOp3(v, OP_Ge, r2, 0, r1);
-    sqlite3VdbeAddOp3(v, OP_SetCookie, iDb, BTREE_FILE_FORMAT, r2);
+    v.AddOp3(OP_ReadCookie, iDb, r1, BTREE_FILE_FORMAT);
+    v.UsesBtree(iDb);
+    v.AddOp2(OP_Integer, minFormat, r2);
+    j1 = v.AddOp3(OP_Ge, r2, 0, r1);
+    v.AddOp3(OP_SetCookie, iDb, BTREE_FILE_FORMAT, r2);
     sqlite3VdbeJumpHere(v, j1);
     sqlite3ReleaseTempReg(pParse, r1);
     sqlite3ReleaseTempReg(pParse, r2);
@@ -64716,14 +64696,14 @@ void openStatTable(
         );
       }else{
         /* The sqlite_stat[12] table already exists.  Delete all rows. */
-        sqlite3VdbeAddOp2(v, OP_Clear, aRoot[i], iDb);
+        v.AddOp2(OP_Clear, aRoot[i], iDb);
       }
     }
   }
 
   /* Open the sqlite_stat[13] tables for writing. */
   for(i=0; i<ArraySize(aTable); i++){
-    sqlite3VdbeAddOp3(v, OP_OpenWrite, iStatCur+i, aRoot[i], iDb);
+    v.AddOp3(OP_OpenWrite, iStatCur+i, aRoot[i], iDb);
     sqlite3VdbeChangeP4(v, -1, (char *)3, P4_INT32);
     sqlite3VdbeChangeP5(v, aCreateTbl[i]);
   }
@@ -64770,7 +64750,7 @@ struct Stat3Accum {
 ** The return value is the Stat3Accum object (P).
 */
 void stat3Init(
-  sqlite3_context *context,
+  Context *context,
   int argc,
   sqlite3_value **argv
 ){
@@ -64807,7 +64787,7 @@ const stat3InitFuncdef = &Function{ Arguments: 2, Func: stat3Init, Name: "stat3_
 ** The return value is NULL.
 */
 void stat3Push(
-  sqlite3_context *context,
+  Context *context,
   int argc,
   sqlite3_value **argv
 ){
@@ -64890,7 +64870,7 @@ const stat3PushFuncdef = &Function{ Arguments: 5, Func: stat3Push, Name: "stat3_
 **   argc==5    result:  nDLt
 */
 void stat3Get(
-  sqlite3_context *context,
+  Context *context,
   int argc,
   sqlite3_value **argv
 ){
@@ -64983,7 +64963,7 @@ void analyzeOneTable(
   sqlite3TableLock(pParse, iDb, pTab->tnum, 0, pTab->zName);
 
   iIdxCur = pParse->nTab++;
-  sqlite3VdbeAddOp4(v, OP_String8, 0, regTabname, 0, pTab->zName, 0);
+  v.AddOp4(OP_String8, 0, regTabname, 0, pTab->zName, 0);
   for(pIdx=pTab->pIndex; pIdx; pIdx=pIdx->pNext){
     int nCol;
     KeyInfo *pKey;
@@ -65002,26 +64982,25 @@ void analyzeOneTable(
 
     /* Open a cursor to the index to be analyzed. */
     assert( iDb==sqlite3SchemaToIndex(db, pIdx->pSchema) );
-    sqlite3VdbeAddOp4(v, OP_OpenRead, iIdxCur, pIdx->tnum, iDb,
+    v.AddOp4(OP_OpenRead, iIdxCur, pIdx->tnum, iDb,
         (char *)pKey, P4_KEYINFO_HANDOFF);
     VdbeComment((v, "%s", pIdx->zName));
 
     /* Populate the register containing the index name. */
-    sqlite3VdbeAddOp4(v, OP_String8, 0, regIdxname, 0, pIdx->zName, 0);
+    v.AddOp4(OP_String8, 0, regIdxname, 0, pIdx->zName, 0);
 
 #ifdef SQLITE_ENABLE_STAT3
     if( once ){
       once = 0;
       sqlite3OpenTable(pParse, iTabCur, iDb, pTab, OP_OpenRead);
     }
-    sqlite3VdbeAddOp2(v, OP_Count, iIdxCur, regCount);
-    sqlite3VdbeAddOp2(v, OP_Integer, SQLITE_STAT3_SAMPLES, regTemp1);
-    sqlite3VdbeAddOp2(v, OP_Integer, 0, regNumEq);
-    sqlite3VdbeAddOp2(v, OP_Integer, 0, regNumLt);
-    sqlite3VdbeAddOp2(v, OP_Integer, -1, regNumDLt);
-    sqlite3VdbeAddOp3(v, OP_Null, 0, regSample, regAccum);
-    sqlite3VdbeAddOp4(v, OP_Function, 1, regCount, regAccum,
-                      (char*)&stat3InitFuncdef, P4_FUNCDEF);
+    v.AddOp2(OP_Count, iIdxCur, regCount);
+    v.AddOp2(OP_Integer, SQLITE_STAT3_SAMPLES, regTemp1);
+    v.AddOp2(OP_Integer, 0, regNumEq);
+    v.AddOp2(OP_Integer, 0, regNumLt);
+    v.AddOp2(OP_Integer, -1, regNumDLt);
+    v.AddOp3(OP_Null, 0, regSample, regAccum);
+    v.AddOp4(OP_Function, 1, regCount, regAccum, &stat3InitFuncdef)
     sqlite3VdbeChangeP5(v, 2);
 #endif /* SQLITE_ENABLE_STAT3 */
 
@@ -65042,93 +65021,86 @@ void analyzeOneTable(
     ** initialized to contain an SQL NULL.
     */
     for(i=0; i<=nCol; i++){
-      sqlite3VdbeAddOp2(v, OP_Integer, 0, iMem+i);
+      v.AddOp2(OP_Integer, 0, iMem+i);
     }
     for(i=0; i<nCol; i++){
-      sqlite3VdbeAddOp2(v, OP_Null, 0, iMem+nCol+i+1);
+      v.AddOp2(OP_Null, 0, iMem+nCol+i+1);
     }
 
     /* Start the analysis loop. This loop runs through all the entries in
     ** the index b-tree.  */
     endOfLoop = sqlite3VdbeMakeLabel(v);
-    sqlite3VdbeAddOp2(v, OP_Rewind, iIdxCur, endOfLoop);
+    v.AddOp2(OP_Rewind, iIdxCur, endOfLoop);
     topOfLoop = sqlite3VdbeCurrentAddr(v);
-    sqlite3VdbeAddOp2(v, OP_AddImm, iMem, 1);  /* Increment row counter */
+    v.AddOp2(OP_AddImm, iMem, 1);  /* Increment row counter */
 
     for(i=0; i<nCol; i++){
       CollationSequence *pColl;
-      sqlite3VdbeAddOp3(v, OP_Column, iIdxCur, i, regCol);
+      v.AddOp3(OP_Column, iIdxCur, i, regCol);
       if( i==0 ){
         /* Always record the very first row */
-        addrIfNot = sqlite3VdbeAddOp1(v, OP_IfNot, iMem+1);
+        addrIfNot = v.AddOp1(OP_IfNot, iMem+1);
       }
       assert( pIdx->azColl!=0 );
       assert( pIdx->azColl[i]!=0 );
       pColl = pParse.LocateCollationSequence(pIdx.azColl[i])
-      aChngAddr[i] = sqlite3VdbeAddOp4(v, OP_Ne, regCol, 0, iMem+nCol+i+1,
-                                      (char*)pColl, P4_COLLSEQ);
+      aChngAddr[i] = v.AddOp4(OP_Ne, regCol, 0, iMem+nCol + i + 1, pColl)
       sqlite3VdbeChangeP5(v, SQLITE_NULLEQ);
       VdbeComment((v, "jump if column %d changed", i));
 #ifdef SQLITE_ENABLE_STAT3
       if( i==0 ){
-        sqlite3VdbeAddOp2(v, OP_AddImm, regNumEq, 1);
+        v.AddOp2(OP_AddImm, regNumEq, 1);
         VdbeComment((v, "incr repeat count"));
       }
 #endif
     }
-    sqlite3VdbeAddOp2(v, OP_Goto, 0, endOfLoop);
+    v.AddOp2(OP_Goto, 0, endOfLoop);
     for(i=0; i<nCol; i++){
       sqlite3VdbeJumpHere(v, aChngAddr[i]);  /* Set jump dest for the OP_Ne */
       if( i==0 ){
         sqlite3VdbeJumpHere(v, addrIfNot);   /* Jump dest for OP_IfNot */
 #ifdef SQLITE_ENABLE_STAT3
-        sqlite3VdbeAddOp4(v, OP_Function, 1, regNumEq, regTemp2,
-                          (char*)&stat3PushFuncdef, P4_FUNCDEF);
+        v.AddOp4(OP_Function, 1, regNumEq, regTemp2, &stat3PushFuncdef)
         sqlite3VdbeChangeP5(v, 5);
-        sqlite3VdbeAddOp3(v, OP_Column, iIdxCur, pIdx->nColumn, regRowid);
-        sqlite3VdbeAddOp3(v, OP_Add, regNumEq, regNumLt, regNumLt);
-        sqlite3VdbeAddOp2(v, OP_AddImm, regNumDLt, 1);
-        sqlite3VdbeAddOp2(v, OP_Integer, 1, regNumEq);
+        v.AddOp3(OP_Column, iIdxCur, pIdx->nColumn, regRowid);
+        v.AddOp3(OP_Add, regNumEq, regNumLt, regNumLt);
+        v.AddOp2(OP_AddImm, regNumDLt, 1);
+        v.AddOp2(OP_Integer, 1, regNumEq);
 #endif        
       }
-      sqlite3VdbeAddOp2(v, OP_AddImm, iMem+i+1, 1);
-      sqlite3VdbeAddOp3(v, OP_Column, iIdxCur, i, iMem+nCol+i+1);
+      v.AddOp2(OP_AddImm, iMem+i+1, 1);
+      v.AddOp3(OP_Column, iIdxCur, i, iMem+nCol+i+1);
     }
     sqlite3DbFree(db, aChngAddr);
 
     /* Always jump here after updating the iMem+1...iMem+1+nCol counters */
     sqlite3VdbeResolveLabel(v, endOfLoop);
 
-    sqlite3VdbeAddOp2(v, OP_Next, iIdxCur, topOfLoop);
-    sqlite3VdbeAddOp1(v, OP_Close, iIdxCur);
+    v.AddOp2(OP_Next, iIdxCur, topOfLoop);
+    v.AddOp1(OP_Close, iIdxCur)
 #ifdef SQLITE_ENABLE_STAT3
-    sqlite3VdbeAddOp4(v, OP_Function, 1, regNumEq, regTemp2,
-                      (char*)&stat3PushFuncdef, P4_FUNCDEF);
+    v.AddOp4(OP_Function, 1, regNumEq, regTemp2, &stat3PushFuncdef)
     sqlite3VdbeChangeP5(v, 5);
-    sqlite3VdbeAddOp2(v, OP_Integer, -1, regLoop);
+    v.AddOp2(OP_Integer, -1, regLoop);
     shortJump = 
-    sqlite3VdbeAddOp2(v, OP_AddImm, regLoop, 1);
-    sqlite3VdbeAddOp4(v, OP_Function, 1, regAccum, regTemp1,
-                      (char*)&stat3GetFuncdef, P4_FUNCDEF);
-    sqlite3VdbeChangeP5(v, 2);
-    sqlite3VdbeAddOp1(v, OP_IsNull, regTemp1);
-    sqlite3VdbeAddOp3(v, OP_NotExists, iTabCur, shortJump, regTemp1);
-    sqlite3VdbeAddOp3(v, OP_Column, iTabCur, pIdx->aiColumn[0], regSample);
-    sqlite3ColumnDefault(v, pTab, pIdx->aiColumn[0], regSample);
-    sqlite3VdbeAddOp4(v, OP_Function, 1, regAccum, regNumEq,
-                      (char*)&stat3GetFuncdef, P4_FUNCDEF);
-    sqlite3VdbeChangeP5(v, 3);
-    sqlite3VdbeAddOp4(v, OP_Function, 1, regAccum, regNumLt,
-                      (char*)&stat3GetFuncdef, P4_FUNCDEF);
-    sqlite3VdbeChangeP5(v, 4);
-    sqlite3VdbeAddOp4(v, OP_Function, 1, regAccum, regNumDLt,
-                      (char*)&stat3GetFuncdef, P4_FUNCDEF);
-    sqlite3VdbeChangeP5(v, 5);
-    sqlite3VdbeAddOp4(v, OP_MakeRecord, regTabname, 6, regRec, "bbbbbb", 0);
-    sqlite3VdbeAddOp2(v, OP_NewRowid, iStatCur+1, regNewRowid);
-    sqlite3VdbeAddOp3(v, OP_Insert, iStatCur+1, regRec, regNewRowid);
-    sqlite3VdbeAddOp2(v, OP_Goto, 0, shortJump);
-    sqlite3VdbeJumpHere(v, shortJump+2);
+    v.AddOp2(OP_AddImm, regLoop, 1)
+    v.AddOp4(OP_Function, 1, regAccum, regTemp1, &stat3GetFuncdef)
+    sqlite3VdbeChangeP5(v, 2)
+    v.AddOp1(OP_IsNull, regTemp1)
+    v.AddOp3(OP_NotExists, iTabCur, shortJump, regTemp1)
+    v.AddOp3(OP_Column, iTabCur, pIdx.aiColumn[0], regSample)
+    sqlite3ColumnDefault(v, pTab, pIdx.aiColumn[0], regSample)
+    v.AddOp4(OP_Function, 1, regAccum, regNumEq, &stat3GetFuncdef)
+    sqlite3VdbeChangeP5(v, 3)
+    v.AddOp4(OP_Function, 1, regAccum, regNumLt, &stat3GetFuncdef)
+    sqlite3VdbeChangeP5(v, 4)
+    v.AddOp4(OP_Function, 1, regAccum, regNumDLt, &stat3GetFuncdef)
+    sqlite3VdbeChangeP5(v, 5)
+    v.AddOp4(OP_MakeRecord, regTabname, 6, regRec, "bbbbbb", 0)
+    v.AddOp2(OP_NewRowid, iStatCur + 1, regNewRowid)
+    v.AddOp3(OP_Insert, iStatCur + 1, regRec, regNewRowid)
+    v.AddOp2(OP_Goto, 0, shortJump)
+    sqlite3VdbeJumpHere(v, shortJump + 2)
 #endif        
 
     /* Store the results in sqlite_stat1.
@@ -65149,22 +65121,22 @@ void analyzeOneTable(
     ** If K>0 then it is always the case the D>0 so division by zero
     ** is never possible.
     */
-    sqlite3VdbeAddOp2(v, OP_SCopy, iMem, regStat1);
+    v.AddOp2(OP_SCopy, iMem, regStat1);
     if( jZeroRows<0 ){
-      jZeroRows = sqlite3VdbeAddOp1(v, OP_IfNot, iMem);
+      jZeroRows = v.AddOp1(OP_IfNot, iMem);
     }
     for(i=0; i<nCol; i++){
-      sqlite3VdbeAddOp4(v, OP_String8, 0, regTemp, 0, " ", 0);
-      sqlite3VdbeAddOp3(v, OP_Concat, regTemp, regStat1, regStat1);
-      sqlite3VdbeAddOp3(v, OP_Add, iMem, iMem+i+1, regTemp);
-      sqlite3VdbeAddOp2(v, OP_AddImm, regTemp, -1);
-      sqlite3VdbeAddOp3(v, OP_Divide, iMem+i+1, regTemp, regTemp);
-      sqlite3VdbeAddOp1(v, OP_ToInt, regTemp);
-      sqlite3VdbeAddOp3(v, OP_Concat, regTemp, regStat1, regStat1);
+      v.AddOp4(OP_String8, 0, regTemp, 0, " ", 0);
+      v.AddOp3(OP_Concat, regTemp, regStat1, regStat1);
+      v.AddOp3(OP_Add, iMem, iMem+i+1, regTemp);
+      v.AddOp2(OP_AddImm, regTemp, -1);
+      v.AddOp3(OP_Divide, iMem+i+1, regTemp, regTemp);
+      v.AddOp1(OP_ToInt, regTemp);
+      v.AddOp3(OP_Concat, regTemp, regStat1, regStat1);
     }
-    sqlite3VdbeAddOp4(v, OP_MakeRecord, regTabname, 3, regRec, "aaa", 0);
-    sqlite3VdbeAddOp2(v, OP_NewRowid, iStatCur, regNewRowid);
-    sqlite3VdbeAddOp3(v, OP_Insert, iStatCur, regRec, regNewRowid);
+    v.AddOp4(OP_MakeRecord, regTabname, 3, regRec, "aaa", 0);
+    v.AddOp2(OP_NewRowid, iStatCur, regNewRowid);
+    v.AddOp3(OP_Insert, iStatCur, regRec, regNewRowid);
     sqlite3VdbeChangeP5(v, OPFLAG_APPEND);
   }
 
@@ -65172,19 +65144,19 @@ void analyzeOneTable(
   ** containing NULL as the index name and the row count as the content.
   */
   if( pTab->pIndex==0 ){
-    sqlite3VdbeAddOp3(v, OP_OpenRead, iIdxCur, pTab->tnum, iDb);
+    v.AddOp3(OP_OpenRead, iIdxCur, pTab->tnum, iDb);
     VdbeComment((v, "%s", pTab->zName));
-    sqlite3VdbeAddOp2(v, OP_Count, iIdxCur, regStat1);
-    sqlite3VdbeAddOp1(v, OP_Close, iIdxCur);
-    jZeroRows = sqlite3VdbeAddOp1(v, OP_IfNot, regStat1);
+    v.AddOp2(OP_Count, iIdxCur, regStat1);
+    v.AddOp1(OP_Close, iIdxCur);
+    jZeroRows = v.AddOp1(OP_IfNot, regStat1);
   }else{
     sqlite3VdbeJumpHere(v, jZeroRows);
-    jZeroRows = sqlite3VdbeAddOp0(v, OP_Goto);
+    jZeroRows = v.AddOp0(OP_Goto);
   }
-  sqlite3VdbeAddOp2(v, OP_Null, 0, regIdxname);
-  sqlite3VdbeAddOp4(v, OP_MakeRecord, regTabname, 3, regRec, "aaa", 0);
-  sqlite3VdbeAddOp2(v, OP_NewRowid, iStatCur, regNewRowid);
-  sqlite3VdbeAddOp3(v, OP_Insert, iStatCur, regRec, regNewRowid);
+  v.AddOp2(OP_Null, 0, regIdxname);
+  v.AddOp4(OP_MakeRecord, regTabname, 3, regRec, "aaa", 0);
+  v.AddOp2(OP_NewRowid, iStatCur, regNewRowid);
+  v.AddOp3(OP_Insert, iStatCur, regRec, regNewRowid);
   sqlite3VdbeChangeP5(v, OPFLAG_APPEND);
   if( pParse->nMem<regRec ) pParse->nMem = regRec;
   sqlite3VdbeJumpHere(v, jZeroRows);
@@ -65198,7 +65170,7 @@ void analyzeOneTable(
 void loadAnalysis(Parse *pParse, int iDb){
   Vdbe *v = sqlite3GetVdbe(pParse);
   if( v ){
-    sqlite3VdbeAddOp1(v, OP_LoadAnalysis, iDb);
+    v.AddOp1(OP_LoadAnalysis, iDb);
   }
 }
 
@@ -65664,13 +65636,13 @@ int resolveAttachExpr(NameContext *pName, Expr *pExpr)
 ** third argument.
 */
 void attachFunc(
-  sqlite3_context *context,
+  Context *context,
   int NotUsed,
   sqlite3_value **argv
 ){
   int i;
   int rc = 0;
-  sqlite3 *db = sqlite3_context_db_handle(context);
+  sqlite3 *db = Context_db_handle(context);
   const char *zName;
   const char *zFile;
   char *zPath = 0;
@@ -65847,12 +65819,12 @@ attach_error:
 **     SELECT sqlite_detach(x)
 */
 void detachFunc(
-  sqlite3_context *context,
+  Context *context,
   int NotUsed,
   sqlite3_value **argv
 ){
   zName := argv[0].Text()
-  sqlite3 *db = sqlite3_context_db_handle(context);
+  sqlite3 *db = Context_db_handle(context);
   int i;
   Db *pDb = 0;
   char zErr[128];
@@ -65951,16 +65923,16 @@ void codeAttach(
 
   assert( v || db->mallocFailed );
   if( v ){
-    sqlite3VdbeAddOp3(v, OP_Function, 0, regArgs+3-pFunc->nArg, regArgs+3);
-    assert( pFunc->nArg==-1 || (pFunc->nArg&0xff)==pFunc->nArg );
-    sqlite3VdbeChangeP5(v, (u8)(pFunc->nArg));
-    sqlite3VdbeChangeP4(v, -1, (char *)pFunc, P4_FUNCDEF);
+    v.AddOp3(OP_Function, 0, regArgs + 3 - pFunc.nArg, regArgs + 3)
+    assert( pFunc.nArg == -1 || (pFunc.nArg & 0xff) == pFunc.nArg )
+    sqlite3VdbeChangeP5(v, (u8)(pFunc->nArg))
+    sqlite3VdbeChangeP4(v, -1, pFunc, P4_FUNCDEF)
 
     /* Code an OP_Expire. For an ATTACH statement, set P1 to true (expire this
     ** statement only). For DETACH, set it to false (expire all existing
     ** statements).
     */
-    sqlite3VdbeAddOp1(v, OP_Expire, (type==SQLITE_ATTACH));
+    v.AddOp1(OP_Expire, (type==SQLITE_ATTACH));
   }
   
 attach_end:
@@ -66467,8 +66439,7 @@ void codeTableLocks(Parse *pParse){
   for(i=0; i<pParse->nTableLock; i++){
     TableLock *p = &pParse->aTableLock[i];
     int p1 = p->iDb;
-    sqlite3VdbeAddOp4(pVdbe, OP_TableLock, p1, p->iTab, p->isWriteLock,
-                      p->zName, P4_STATIC);
+    pVdbe.AddOp4(OP_TableLock, p1, p->iTab, p->isWriteLock, p->zName, P4_STATIC)
   }
 }
 #else
@@ -66502,7 +66473,7 @@ void codeTableLocks(Parse *pParse){
   assert( !pParse->isMultiWrite 
        || sqlite3VdbeAssertMayAbort(v, pParse->mayAbort));
   if( v ){
-    sqlite3VdbeAddOp0(v, OP_Halt);
+    v.AddOp0(OP_Halt);
 
     /* The cookie mask contains one bit for each database file open.
     ** (Bit 0 is for main, bit 1 is for temp, and so forth.)  Bits are
@@ -66516,11 +66487,11 @@ void codeTableLocks(Parse *pParse){
       sqlite3VdbeJumpHere(v, pParse->cookieGoto-1);
       for(iDb=0, mask=1; iDb<db->nDb; mask<<=1, iDb++){
         if( (mask & pParse->cookieMask)==0 ) continue;
-        sqlite3VdbeUsesBtree(v, iDb);
-        sqlite3VdbeAddOp2(v,OP_Transaction, iDb, (mask & pParse->writeMask)!=0);
+        v.UsesBtree(iDb);
+        v.AddOp2(OP_Transaction, iDb, (mask & pParse->writeMask)!=0);
         if( db->init.busy==0 ){
           assert( sqlite3SchemaMutexHeld(db, iDb, 0) );
-          sqlite3VdbeAddOp3(v, OP_VerifyCookie,
+          v.AddOp3(OP_VerifyCookie,
                             iDb, pParse->cookieValue[iDb],
                             db->aDb[iDb].pSchema->iGeneration);
         }
@@ -66529,7 +66500,7 @@ void codeTableLocks(Parse *pParse){
         int i;
         for(i=0; i<pParse->nVtabLock; i++){
           char *vtab = (char *)sqlite3GetVTable(db, pParse->apVtabLock[i]);
-          sqlite3VdbeAddOp4(v, OP_VBegin, 0, 0, 0, vtab, P4_VTAB);
+          v.AddOp4(OP_VBegin, 0, 0, 0, vtab, P4_VTAB);
         }
         pParse->nVtabLock = 0;
       }
@@ -66545,7 +66516,7 @@ void codeTableLocks(Parse *pParse){
       sqlite3AutoincrementBegin(pParse);
 
       /* Finally, jump back to the beginning of the executable code. */
-      sqlite3VdbeAddOp2(v, OP_Goto, 0, pParse->cookieGoto);
+      v.AddOp2(OP_Goto, 0, pParse->cookieGoto);
     }
   }
 
@@ -66977,7 +66948,7 @@ void sqliteDeleteColumnNames(sqlite3 *db, Table *pTable){
  void sqlite3OpenMasterTable(Parse *p, int iDb){
   Vdbe *v = sqlite3GetVdbe(p);
   sqlite3TableLock(p, iDb, MASTER_ROOT, 1, SCHEMA_TABLE(iDb));
-  sqlite3VdbeAddOp3(v, OP_OpenWrite, 0, MASTER_ROOT, iDb);
+  v.AddOp3(OP_OpenWrite, 0, MASTER_ROOT, iDb);
   sqlite3VdbeChangeP4(v, -1, (char *)5, P4_INT32);  /* 5 column table */
   if( p->nTab==0 ){
     p->nTab = 1;
@@ -67244,23 +67215,23 @@ void sqliteDeleteColumnNames(sqlite3 *db, Table *pTable){
     sqlite3BeginWriteOperation(pParse, 0, iDb);
 
     if( isVirtual ){
-      sqlite3VdbeAddOp0(v, OP_VBegin);
+      v.AddOp0(OP_VBegin);
     }
 
     /* If the file format in the database have not been set, set it now. */
     reg1 = pParse->regRowid = ++pParse->nMem;
     reg2 = pParse->regRoot = ++pParse->nMem;
     reg3 = ++pParse->nMem;
-    sqlite3VdbeAddOp3(v, OP_ReadCookie, iDb, reg3, BTREE_FILE_FORMAT);
-    sqlite3VdbeUsesBtree(v, iDb);
-    j1 = sqlite3VdbeAddOp1(v, OP_If, reg3);
+    v.AddOp3(OP_ReadCookie, iDb, reg3, BTREE_FILE_FORMAT);
+    v.UsesBtree(iDb);
+    j1 = v.AddOp1(OP_If, reg3);
 	if db.flags & SQLITE_LegacyFileFmt != 0 {
 		fileFormat = 1
 	} else {
 		fileFormat = SQLITE_MAX_FILE_FORMAT
 	}
-    sqlite3VdbeAddOp2(v, OP_Integer, fileFormat, reg3);
-    sqlite3VdbeAddOp3(v, OP_SetCookie, iDb, BTREE_FILE_FORMAT, reg3);
+    v.AddOp2(OP_Integer, fileFormat, reg3);
+    v.AddOp3(OP_SetCookie, iDb, BTREE_FILE_FORMAT, reg3);
     sqlite3VdbeJumpHere(v, j1);
 
     /* This just creates a place-holder record in the sqlite_master table.
@@ -67273,17 +67244,17 @@ void sqliteDeleteColumnNames(sqlite3 *db, Table *pTable){
     ** sqlite3EndTable will generate.
     */
     if( isView || isVirtual ){
-      sqlite3VdbeAddOp2(v, OP_Integer, 0, reg2);
+      v.AddOp2(OP_Integer, 0, reg2);
     }else
     {
-      sqlite3VdbeAddOp2(v, OP_CreateTable, iDb, reg2);
+      v.AddOp2(OP_CreateTable, iDb, reg2);
     }
     sqlite3OpenMasterTable(pParse, iDb);
-    sqlite3VdbeAddOp2(v, OP_NewRowid, 0, reg1);
-    sqlite3VdbeAddOp2(v, OP_Null, 0, reg3);
-    sqlite3VdbeAddOp3(v, OP_Insert, 0, reg3, reg1);
+    v.AddOp2(OP_NewRowid, 0, reg1);
+    v.AddOp2(OP_Null, 0, reg3);
+    v.AddOp3(OP_Insert, 0, reg3, reg1);
     sqlite3VdbeChangeP5(v, OPFLAG_APPEND);
-    sqlite3VdbeAddOp0(v, OP_Close);
+    v.AddOp0(OP_Close);
   }
 
   /* Normal (non-error) return. */
@@ -67662,8 +67633,8 @@ func (parse *Parse) LocateCollationSequence(name string) (sequence *CollationSeq
   sqlite3 *db = pParse->db;
   Vdbe *v = pParse->pVdbe;
   assert( sqlite3SchemaMutexHeld(db, iDb, 0) );
-  sqlite3VdbeAddOp2(v, OP_Integer, db->aDb[iDb].pSchema->schema_cookie+1, r1);
-  sqlite3VdbeAddOp3(v, OP_SetCookie, iDb, BTREE_SCHEMA_VERSION, r1);
+  v.AddOp2(OP_Integer, db->aDb[iDb].pSchema->schema_cookie+1, r1);
+  v.AddOp3(OP_SetCookie, iDb, BTREE_SCHEMA_VERSION, r1);
   sqlite3ReleaseTempReg(pParse, r1);
 }
 
@@ -67876,7 +67847,7 @@ char *createTableStmt(sqlite3 *db, Table *p){
     v = sqlite3GetVdbe(pParse);
     if( NEVER(v==0) ) return;
 
-    sqlite3VdbeAddOp1(v, OP_Close, 0);
+    v.AddOp1(OP_Close, 0);
 
     /* 
     ** Initialize zType for the new view or table.
@@ -67909,12 +67880,12 @@ char *createTableStmt(sqlite3 *db, Table *p){
       Table *pSelTab;
 
       assert(pParse->nTab==1);
-      sqlite3VdbeAddOp3(v, OP_OpenWrite, 1, pParse->regRoot, iDb);
+      v.AddOp3(OP_OpenWrite, 1, pParse->regRoot, iDb);
       sqlite3VdbeChangeP5(v, OPFLAG_P2ISREG);
       pParse->nTab = 2;
       sqlite3SelectDestInit(&dest, SRT_Table, 1);
       sqlite3Select(pParse, pSelect, &dest);
-      sqlite3VdbeAddOp1(v, OP_Close, 1);
+      v.AddOp1(OP_Close, 1);
       if( pParse->nErr==0 ){
         pSelTab = sqlite3ResultSetOfSelect(pParse, pSelect);
         if( pSelTab==0 ) return;
@@ -67973,7 +67944,7 @@ char *createTableStmt(sqlite3 *db, Table *p){
 #endif
 
     /* Reparse everything to update our internal data structures */
-    sqlite3VdbeAddParseSchemaOp(v, iDb,
+    v.AddParseSchemaOp(iDb,
                sqlite3MPrintf(db, "tbl_name='%q'", p->zName));
   }
 
@@ -68233,7 +68204,7 @@ void sqliteViewResetAll(sqlite3 *db, int idx){
 void destroyRootPage(Parse *pParse, int iTable, int iDb){
   Vdbe *v = sqlite3GetVdbe(pParse);
   int r1 = sqlite3GetTempReg(pParse);
-  sqlite3VdbeAddOp3(v, OP_Destroy, iTable, r1, iDb);
+  v.AddOp3(OP_Destroy, iTable, r1, iDb);
   sqlite3MayAbort(pParse);
 #ifndef SQLITE_OMIT_AUTOVACUUM
   /* OP_Destroy stores an in integer r1. If this integer
@@ -68350,7 +68321,7 @@ void sqlite3ClearStatTables(
   sqlite3BeginWriteOperation(pParse, 1, iDb);
 
   if( IsVirtual(pTab) ){
-    sqlite3VdbeAddOp0(v, OP_VBegin);
+    v.AddOp0(OP_VBegin);
   }
 
   /* Drop all triggers associated with the table being dropped. Code
@@ -68397,9 +68368,9 @@ void sqlite3ClearStatTables(
   ** the schema cookie.
   */
   if( IsVirtual(pTab) ){
-    sqlite3VdbeAddOp4(v, OP_VDestroy, iDb, 0, 0, pTab->zName, 0);
+    v.AddOp4(OP_VDestroy, iDb, 0, 0, pTab->zName, 0);
   }
-  sqlite3VdbeAddOp4(v, OP_DropTable, iDb, 0, 0, pTab->zName, 0);
+  v.AddOp4(OP_DropTable, iDb, 0, 0, pTab->zName, 0);
   sqlite3ChangeCookie(pParse, iDb);
   sqliteViewResetAll(db, iDb);
 }
@@ -68678,49 +68649,49 @@ void sqlite3RefillIndex(Parse *pParse, Index *pIndex, int memRootPage){
     tnum = memRootPage;
   }else{
     tnum = pIndex->tnum;
-    sqlite3VdbeAddOp2(v, OP_Clear, tnum, iDb);
+    v.AddOp2(OP_Clear, tnum, iDb);
   }
   pKey = sqlite3IndexKeyinfo(pParse, pIndex);
-  sqlite3VdbeAddOp4(v, OP_OpenWrite, iIdx, tnum, iDb, 
+  v.AddOp4(OP_OpenWrite, iIdx, tnum, iDb, 
                     (char *)pKey, P4_KEYINFO_HANDOFF);
   sqlite3VdbeChangeP5(v, OPFLAG_BULKCSR|((memRootPage>=0)?OPFLAG_P2ISREG:0));
 
   /* Open the sorter cursor if we are to use one. */
   iSorter = pParse->nTab++;
-  sqlite3VdbeAddOp4(v, OP_SorterOpen, iSorter, 0, 0, (char*)pKey, P4_KEYINFO);
+  v.AddOp4(OP_SorterOpen, iSorter, 0, 0, (char*)pKey, P4_KEYINFO);
 
   /* Open the table. Loop through all rows of the table, inserting index
   ** records into the sorter. */
   sqlite3OpenTable(pParse, iTab, iDb, pTab, OP_OpenRead);
-  addr1 = sqlite3VdbeAddOp2(v, OP_Rewind, iTab, 0);
+  addr1 = v.AddOp2(OP_Rewind, iTab, 0);
   regRecord = sqlite3GetTempReg(pParse);
 
   sqlite3GenerateIndexKey(pParse, pIndex, iTab, regRecord, 1);
-  sqlite3VdbeAddOp2(v, OP_SorterInsert, iSorter, regRecord);
-  sqlite3VdbeAddOp2(v, OP_Next, iTab, addr1+1);
+  v.AddOp2(OP_SorterInsert, iSorter, regRecord);
+  v.AddOp2(OP_Next, iTab, addr1+1);
   sqlite3VdbeJumpHere(v, addr1);
-  addr1 = sqlite3VdbeAddOp2(v, OP_SorterSort, iSorter, 0);
+  addr1 = v.AddOp2(OP_SorterSort, iSorter, 0);
   if( pIndex->onError!=OE_None ){
     int j2 = sqlite3VdbeCurrentAddr(v) + 3;
-    sqlite3VdbeAddOp2(v, OP_Goto, 0, j2);
+    v.AddOp2(OP_Goto, 0, j2);
     addr2 = sqlite3VdbeCurrentAddr(v);
-    sqlite3VdbeAddOp3(v, OP_SorterCompare, iSorter, j2, regRecord);
+    v.AddOp3(OP_SorterCompare, iSorter, j2, regRecord);
     sqlite3HaltConstraint(pParse, SQLITE_CONSTRAINT_UNIQUE,
         OE_Abort, "indexed columns are not unique", P4_STATIC
     );
   }else{
     addr2 = sqlite3VdbeCurrentAddr(v);
   }
-  sqlite3VdbeAddOp2(v, OP_SorterData, iSorter, regRecord);
-  sqlite3VdbeAddOp3(v, OP_IdxInsert, iIdx, regRecord, 1);
+  v.AddOp2(OP_SorterData, iSorter, regRecord);
+  v.AddOp3(OP_IdxInsert, iIdx, regRecord, 1);
   sqlite3VdbeChangeP5(v, OPFLAG_USESEEKRESULT);
   sqlite3ReleaseTempReg(pParse, regRecord);
-  sqlite3VdbeAddOp2(v, OP_SorterNext, iSorter, addr2);
+  v.AddOp2(OP_SorterNext, iSorter, addr2);
   sqlite3VdbeJumpHere(v, addr1);
 
-  sqlite3VdbeAddOp1(v, OP_Close, iTab);
-  sqlite3VdbeAddOp1(v, OP_Close, iIdx);
-  sqlite3VdbeAddOp1(v, OP_Close, iSorter);
+  v.AddOp1(OP_Close, iTab);
+  v.AddOp1(OP_Close, iIdx);
+  v.AddOp1(OP_Close, iSorter);
 }
 
 /*
@@ -69119,7 +69090,7 @@ void sqlite3RefillIndex(Parse *pParse, Index *pIndex, int memRootPage){
     /* Create the rootpage for the index
     */
     sqlite3BeginWriteOperation(pParse, 1, iDb);
-    sqlite3VdbeAddOp2(v, OP_CreateIndex, iDb, iMem);
+    v.AddOp2(OP_CreateIndex, iDb, iMem);
 
     /* Gather the complete text of the CREATE INDEX statement into
     ** the zStmt variable
@@ -69155,9 +69126,9 @@ void sqlite3RefillIndex(Parse *pParse, Index *pIndex, int memRootPage){
     if( pTblName ){
       sqlite3RefillIndex(pParse, pIndex, iMem);
       sqlite3ChangeCookie(pParse, iDb);
-      sqlite3VdbeAddParseSchemaOp(v, iDb,
+      v.AddParseSchemaOp(iDb,
          sqlite3MPrintf(db, "name='%q' AND type='index'", pIndex->zName));
-      sqlite3VdbeAddOp1(v, OP_Expire, 0);
+      v.AddOp1(OP_Expire, 0);
     }
   }
 
@@ -69293,7 +69264,7 @@ exit_create_index:
     sqlite3ClearStatTables(pParse, iDb, "idx", pIndex->zName);
     sqlite3ChangeCookie(pParse, iDb);
     destroyRootPage(pParse, pIndex->tnum, iDb);
-    sqlite3VdbeAddOp4(v, OP_DropIndex, iDb, 0, 0, pIndex->zName, 0);
+    v.AddOp4(OP_DropIndex, iDb, 0, 0, pIndex->zName, 0);
   }
 
 exit_drop_index:
@@ -69686,11 +69657,11 @@ exit_drop_index:
   if( !v ) return;
   if( type!=TK_DEFERRED ){
     for(i=0; i<db->nDb; i++){
-      sqlite3VdbeAddOp2(v, OP_Transaction, i, (type==TK_EXCLUSIVE)+1);
-      sqlite3VdbeUsesBtree(v, i);
+      v.AddOp2(OP_Transaction, i, (type==TK_EXCLUSIVE)+1);
+      v.UsesBtree(i);
     }
   }
-  sqlite3VdbeAddOp2(v, OP_AutoCommit, 0, 0);
+  v.AddOp2(OP_AutoCommit, 0, 0);
 }
 
 /*
@@ -69706,7 +69677,7 @@ exit_drop_index:
   }
   v = sqlite3GetVdbe(pParse);
   if( v ){
-    sqlite3VdbeAddOp2(v, OP_AutoCommit, 1, 0);
+    v.AddOp2(OP_AutoCommit, 1, 0);
   }
 }
 
@@ -69723,7 +69694,7 @@ exit_drop_index:
   }
   v = sqlite3GetVdbe(pParse);
   if( v ){
-    sqlite3VdbeAddOp2(v, OP_AutoCommit, 1, 1);
+    v.AddOp2(OP_AutoCommit, 1, 1);
   }
 }
 
@@ -69743,7 +69714,7 @@ exit_drop_index:
       sqlite3DbFree(pParse->db, zName);
       return;
     }
-    sqlite3VdbeAddOp4(v, OP_Savepoint, op, 0, 0, zName, P4_DYNAMIC);
+    v.AddOp4(OP_Savepoint, op, 0, 0, zName, P4_DYNAMIC);
   }
 }
 
@@ -69814,7 +69785,7 @@ exit_drop_index:
   if( pToplevel->cookieGoto==0 ){
     Vdbe *v = sqlite3GetVdbe(pToplevel);
     if( v==0 ) return;  /* This only happens if there was a prior error */
-    pToplevel->cookieGoto = sqlite3VdbeAddOp2(v, OP_Goto, 0, 0)+1;
+    pToplevel->cookieGoto = v.AddOp2(OP_Goto, 0, 0)+1;
   }
   if( iDb>=0 ){
     sqlite3 *db = pToplevel->db;
@@ -69920,7 +69891,7 @@ exit_drop_index:
   if( onError==OE_Abort ){
     sqlite3MayAbort(pParse);
   }
-  sqlite3VdbeAddOp4(v, OP_Halt, errCode, onError, 0, p4, p4type);
+  v.AddOp4(OP_Halt, errCode, onError, 0, p4, p4type);
 }
 
 /*
@@ -70402,7 +70373,7 @@ limit_where_cleanup_2:
   */
   if( db->flags & SQLITE_CountRows ){
     memCnt = ++pParse->nMem;
-    sqlite3VdbeAddOp2(v, OP_Integer, 0, memCnt);
+    v.AddOp2(OP_Integer, 0, memCnt);
   }
 
 #ifndef SQLITE_OMIT_TRUNCATE_OPTIMIZATION
@@ -70414,11 +70385,11 @@ limit_where_cleanup_2:
    && 0==sqlite3FkRequired(pParse, pTab, 0, 0)
   ){
     assert( !isView );
-    sqlite3VdbeAddOp4(v, OP_Clear, pTab->tnum, iDb, memCnt,
+    v.AddOp4(OP_Clear, pTab->tnum, iDb, memCnt,
                       pTab->zName, P4_STATIC);
     for(pIdx=pTab->pIndex; pIdx; pIdx=pIdx->pNext){
       assert( pIdx->pSchema==pTab->pSchema );
-      sqlite3VdbeAddOp2(v, OP_Clear, pIdx->tnum, iDb);
+      v.AddOp2(OP_Clear, pIdx->tnum, iDb);
     }
   }else
 #endif /* SQLITE_OMIT_TRUNCATE_OPTIMIZATION */
@@ -70432,15 +70403,15 @@ limit_where_cleanup_2:
 
     /* Collect rowids of every row to be deleted.
     */
-    sqlite3VdbeAddOp2(v, OP_Null, 0, iRowSet);
+    v.AddOp2(OP_Null, 0, iRowSet);
     pWInfo = sqlite3WhereBegin(
         pParse, pTabList, pWhere, 0, 0, WHERE_DUPLICATES_OK, 0
     );
     if( pWInfo==0 ) goto delete_from_cleanup;
     regRowid = sqlite3ExprCodeGetColumn(pParse, pTab, -1, iCur, iRowid, 0);
-    sqlite3VdbeAddOp2(v, OP_RowSetAdd, iRowSet, regRowid);
+    v.AddOp2(OP_RowSetAdd, iRowSet, regRowid);
     if( db->flags & SQLITE_CountRows ){
-      sqlite3VdbeAddOp2(v, OP_AddImm, memCnt, 1);
+      v.AddOp2(OP_AddImm, memCnt, 1);
     }
     sqlite3WhereEnd(pWInfo);
 
@@ -70457,13 +70428,13 @@ limit_where_cleanup_2:
       sqlite3OpenTableAndIndices(pParse, pTab, iCur, OP_OpenWrite);
     }
 
-    addr = sqlite3VdbeAddOp3(v, OP_RowSetRead, iRowSet, end, iRowid);
+    addr = v.AddOp3(OP_RowSetRead, iRowSet, end, iRowid);
 
     /* Delete the row */
     if( IsVirtual(pTab) ){
       const char *pVTab = (const char *)sqlite3GetVTable(db, pTab);
       sqlite3VtabMakeWritable(pParse, pTab);
-      sqlite3VdbeAddOp4(v, OP_VUpdate, 0, 1, iRowid, pVTab, P4_VTAB);
+      v.AddOp4(OP_VUpdate, 0, 1, iRowid, pVTab, P4_VTAB);
       sqlite3VdbeChangeP5(v, OE_Abort);
       sqlite3MayAbort(pParse);
     }else
@@ -70473,15 +70444,15 @@ limit_where_cleanup_2:
     }
 
     /* End of the delete loop */
-    sqlite3VdbeAddOp2(v, OP_Goto, 0, addr);
+    v.AddOp2(OP_Goto, 0, addr);
     sqlite3VdbeResolveLabel(v, end);
 
     /* Close the cursors open on the table and its indexes. */
     if( !isView && !IsVirtual(pTab) ){
       for(i=1, pIdx=pTab->pIndex; pIdx; i++, pIdx=pIdx->pNext){
-        sqlite3VdbeAddOp2(v, OP_Close, iCur + i, pIdx->tnum);
+        v.AddOp2(OP_Close, iCur + i, pIdx->tnum);
       }
-      sqlite3VdbeAddOp1(v, OP_Close, iCur);
+      v.AddOp1(OP_Close, iCur);
     }
   }
 
@@ -70498,7 +70469,7 @@ limit_where_cleanup_2:
   ** invoke the callback function.
   */
   if( (db->flags&SQLITE_CountRows) && !pParse->nested && !pParse->pTriggerTab ){
-    sqlite3VdbeAddOp2(v, OP_ResultRow, memCnt, 1);
+    v.AddOp2(OP_ResultRow, memCnt, 1);
     sqlite3VdbeSetNumCols(v, 1);
     sqlite3VdbeSetColName(v, 0, COLNAME_NAME, "rows deleted", SQLITE_STATIC);
   }
@@ -70558,7 +70529,7 @@ delete_from_cleanup:
   ** (this can happen if a trigger program has already deleted it), do
   ** not attempt to delete it or fire any DELETE triggers.  */
   iLabel = sqlite3VdbeMakeLabel(v);
-  sqlite3VdbeAddOp3(v, OP_NotExists, iCur, iLabel, iRowid);
+  v.AddOp3(OP_NotExists, iCur, iLabel, iRowid);
  
   /* If there are any triggers to fire, allocate a range of registers to
   ** use for the old.* references in the triggers.  */
@@ -70577,7 +70548,7 @@ delete_from_cleanup:
 
     /* Populate the OLD.* pseudo-table register array. These values will be 
     ** used by any BEFORE and AFTER triggers that exist.  */
-    sqlite3VdbeAddOp2(v, OP_Copy, iRowid, iOld);
+    v.AddOp2(OP_Copy, iRowid, iOld);
     for(iCol=0; iCol<pTab->nCol; iCol++){
       if( mask==0xffffffff || mask&(1<<iCol) ){
         sqlite3ExprCodeGetColumnOfTable(v, pTab, iCur, iCol, iOld+iCol+1);
@@ -70593,7 +70564,7 @@ delete_from_cleanup:
     ** the BEFORE triggers coded above have already removed the row
     ** being deleted. Do not attempt to delete the row a second time, and 
     ** do not fire AFTER triggers.  */
-    sqlite3VdbeAddOp3(v, OP_NotExists, iCur, iLabel, iRowid);
+    v.AddOp3(OP_NotExists, iCur, iLabel, iRowid);
 
     /* Do FK processing. This call checks that any FK constraints that
     ** refer to this table (i.e. constraints attached to other tables) 
@@ -70606,7 +70577,7 @@ delete_from_cleanup:
   ** fire the INSTEAD OF triggers).  */ 
   if( pTab->pSelect==0 ){
     sqlite3GenerateRowIndexDelete(pParse, pTab, iCur, 0);
-    sqlite3VdbeAddOp2(v, OP_Delete, iCur, (count?OPFLAG_NCHANGE:0));
+    v.AddOp2(OP_Delete, iCur, (count?OPFLAG_NCHANGE:0));
     if( count ){
       sqlite3VdbeChangeP4(v, -1, pTab->zName, P4_TRANSIENT);
     }
@@ -70657,7 +70628,7 @@ delete_from_cleanup:
   for(i=1, pIdx=pTab->pIndex; pIdx; i++, pIdx=pIdx->pNext){
     if( aRegIdx!=0 && aRegIdx[i-1]==0 ) continue;
     r1 = sqlite3GenerateIndexKey(pParse, pIdx, iCur, 0, 0);
-    sqlite3VdbeAddOp3(pParse->pVdbe, OP_IdxDelete, iCur+i, r1,pIdx->nColumn+1);
+    pParse.pVdbe.AddOp3(OP_IdxDelete, iCur+i, r1,pIdx->nColumn+1);
   }
 }
 
@@ -70687,13 +70658,13 @@ delete_from_cleanup:
 
   nCol = pIdx->nColumn;
   regBase = sqlite3GetTempRange(pParse, nCol+1);
-  sqlite3VdbeAddOp2(v, OP_Rowid, iCur, regBase+nCol);
+  v.AddOp2(OP_Rowid, iCur, regBase+nCol);
   for(j=0; j<nCol; j++){
     int idx = pIdx->aiColumn[j];
     if( idx==pTab->iPKey ){
-      sqlite3VdbeAddOp2(v, OP_SCopy, regBase+nCol, regBase+j);
+      v.AddOp2(OP_SCopy, regBase+nCol, regBase+j);
     }else{
-      sqlite3VdbeAddOp3(v, OP_Column, iCur, idx, regBase+j);
+      v.AddOp3(OP_Column, iCur, idx, regBase+j);
       sqlite3ColumnDefault(v, pTab, idx, -1);
     }
   }
@@ -70704,7 +70675,7 @@ delete_from_cleanup:
     }else{
       zAff = sqlite3IndexAffinityStr(v, pIdx);
     }
-    sqlite3VdbeAddOp3(v, OP_MakeRecord, regBase, nCol+1, regOut);
+    v.AddOp3(OP_MakeRecord, regBase, nCol+1, regOut);
     sqlite3VdbeChangeP4(v, -1, zAff, P4_TRANSIENT);
   }
   sqlite3ReleaseTempRange(pParse, regBase, nCol+1);
@@ -71051,11 +71022,11 @@ void fkLookupParent(
   ** any are, then the constraint is considered satisfied. No need to 
   ** search for a matching row in the parent table.  */
   if( nIncr<0 ){
-    sqlite3VdbeAddOp2(v, OP_FkIfZero, pFKey->isDeferred, iOk);
+    v.AddOp2(OP_FkIfZero, pFKey->isDeferred, iOk);
   }
   for(i=0; i<pFKey->nCol; i++){
     int iReg = aiCol[i] + regData + 1;
-    sqlite3VdbeAddOp2(v, OP_IsNull, iReg, iOk);
+    v.AddOp2(OP_IsNull, iReg, iOk);
   }
 
   if( isIgnore==0 ){
@@ -71070,20 +71041,20 @@ void fkLookupParent(
       ** is no matching parent key. Before using MustBeInt, make a copy of
       ** the value. Otherwise, the value inserted into the child key column
       ** will have INTEGER affinity applied to it, which may not be correct.  */
-      sqlite3VdbeAddOp2(v, OP_SCopy, aiCol[0]+1+regData, regTemp);
-      iMustBeInt = sqlite3VdbeAddOp2(v, OP_MustBeInt, regTemp, 0);
+      v.AddOp2(OP_SCopy, aiCol[0]+1+regData, regTemp);
+      iMustBeInt = v.AddOp2(OP_MustBeInt, regTemp, 0);
   
       /* If the parent table is the same as the child table, and we are about
       ** to increment the constraint-counter (i.e. this is an INSERT operation),
       ** then check if the row being inserted matches itself. If so, do not
       ** increment the constraint-counter.  */
       if( pTab==pFKey->pFrom && nIncr==1 ){
-        sqlite3VdbeAddOp3(v, OP_Eq, regData, iOk, regTemp);
+        v.AddOp3(OP_Eq, regData, iOk, regTemp);
       }
   
       sqlite3OpenTable(pParse, iCur, iDb, pTab, OP_OpenRead);
-      sqlite3VdbeAddOp3(v, OP_NotExists, iCur, 0, regTemp);
-      sqlite3VdbeAddOp2(v, OP_Goto, 0, iOk);
+      v.AddOp3(OP_NotExists, iCur, 0, regTemp);
+      v.AddOp2(OP_Goto, 0, iOk);
       sqlite3VdbeJumpHere(v, sqlite3VdbeCurrentAddr(v)-2);
       sqlite3VdbeJumpHere(v, iMustBeInt);
       sqlite3ReleaseTempReg(pParse, regTemp);
@@ -71093,10 +71064,10 @@ void fkLookupParent(
       int regRec = sqlite3GetTempReg(pParse);
       KeyInfo *pKey = sqlite3IndexKeyinfo(pParse, pIdx);
   
-      sqlite3VdbeAddOp3(v, OP_OpenRead, iCur, pIdx->tnum, iDb);
+      v.AddOp3(OP_OpenRead, iCur, pIdx->tnum, iDb);
       sqlite3VdbeChangeP4(v, -1, (char*)pKey, P4_KEYINFO_HANDOFF);
       for(i=0; i<nCol; i++){
-        sqlite3VdbeAddOp2(v, OP_Copy, aiCol[i]+1+regData, regTemp+i);
+        v.AddOp2(OP_Copy, aiCol[i]+1+regData, regTemp+i);
       }
   
       /* If the parent table is the same as the child table, and we are about
@@ -71119,15 +71090,15 @@ void fkLookupParent(
             /* The parent key is a composite key that includes the IPK column */
             iParent = regData;
           }
-          sqlite3VdbeAddOp3(v, OP_Ne, iChild, iJump, iParent);
+          v.AddOp3(OP_Ne, iChild, iJump, iParent);
           sqlite3VdbeChangeP5(v, SQLITE_JUMPIFNULL);
         }
-        sqlite3VdbeAddOp2(v, OP_Goto, 0, iOk);
+        v.AddOp2(OP_Goto, 0, iOk);
       }
   
-      sqlite3VdbeAddOp3(v, OP_MakeRecord, regTemp, nCol, regRec);
+      v.AddOp3(OP_MakeRecord, regTemp, nCol, regRec);
       sqlite3VdbeChangeP4(v, -1, sqlite3IndexAffinityStr(v,pIdx), P4_TRANSIENT);
-      sqlite3VdbeAddOp4Int(v, OP_Found, iCur, iOk, regRec, 0);
+      v.AddOp4(OP_Found, iCur, iOk, regRec, 0)
   
       sqlite3ReleaseTempReg(pParse, regRec);
       sqlite3ReleaseTempRange(pParse, regTemp, nCol);
@@ -71147,11 +71118,11 @@ void fkLookupParent(
     if( nIncr>0 && pFKey->isDeferred==0 ){
       sqlite3ParseToplevel(pParse)->mayAbort = 1;
     }
-    sqlite3VdbeAddOp2(v, OP_FkCounter, pFKey->isDeferred, nIncr);
+    v.AddOp2(OP_FkCounter, pFKey->isDeferred, nIncr);
   }
 
   sqlite3VdbeResolveLabel(v, iOk);
-  sqlite3VdbeAddOp1(v, OP_Close, iCur);
+  v.AddOp1(OP_Close, iCur);
 }
 
 /*
@@ -71203,7 +71174,7 @@ void fkScanChildren(
   assert( !pIdx || pIdx->pTable==pTab );
 
   if( nIncr<0 ){
-    iFkIfZero = sqlite3VdbeAddOp2(v, OP_FkIfZero, pFKey->isDeferred, 0);
+    iFkIfZero = v.AddOp2(OP_FkIfZero, pFKey->isDeferred, 0);
   }
 
   /* Create an Expr object representing an SQL expression like:
@@ -71283,7 +71254,7 @@ void fkScanChildren(
   if( nIncr>0 && pFKey->isDeferred==0 ){
     sqlite3ParseToplevel(pParse)->mayAbort = 1;
   }
-  sqlite3VdbeAddOp2(v, OP_FkCounter, pFKey->isDeferred, nIncr);
+  v.AddOp2(OP_FkCounter, pFKey->isDeferred, nIncr);
   if( pWInfo ){
     sqlite3WhereEnd(pWInfo);
   }
@@ -71365,7 +71336,7 @@ void fkTriggerDelete(sqlite3 *dbMem, Trigger *p){
       }
       if( !p ) return;
       iSkip = sqlite3VdbeMakeLabel(v);
-      sqlite3VdbeAddOp2(v, OP_FkIfZero, 1, iSkip);
+      v.AddOp2(OP_FkIfZero, 1, iSkip);
     }
 
     pParse->disableTriggers = 1;
@@ -71376,7 +71347,7 @@ void fkTriggerDelete(sqlite3 *dbMem, Trigger *p){
     ** violations, halt the VDBE and return an error at this point, before
     ** any modifications to the schema are made. This is because statement
     ** transactions are not able to rollback schema changes.  */
-    sqlite3VdbeAddOp2(v, OP_FkIfZero, 0, sqlite3VdbeCurrentAddr(v)+2);
+    v.AddOp2(OP_FkIfZero, 0, sqlite3VdbeCurrentAddr(v)+2);
     sqlite3HaltConstraint(pParse, SQLITE_CONSTRAINT_FOREIGNKEY,
         OE_Abort, "foreign key constraint failed", P4_STATIC
     );
@@ -71463,9 +71434,9 @@ void fkTriggerDelete(sqlite3 *dbMem, Trigger *p){
         int iJump = sqlite3VdbeCurrentAddr(v) + pFKey->nCol + 1;
         for(i=0; i<pFKey->nCol; i++){
           int iReg = pFKey->aCol[i].iFrom + regOld + 1;
-          sqlite3VdbeAddOp2(v, OP_IsNull, iReg, iJump);
+          v.AddOp2(OP_IsNull, iReg, iJump);
         }
-        sqlite3VdbeAddOp2(v, OP_FkCounter, pFKey->isDeferred, -1);
+        v.AddOp2(OP_FkCounter, pFKey->isDeferred, -1);
       }
       continue;
     }
@@ -71943,7 +71914,7 @@ Trigger *fkActionTrigger(
   v = sqlite3GetVdbe(p);
   assert( opcode==OP_OpenWrite || opcode==OP_OpenRead );
   sqlite3TableLock(p, iDb, pTab->tnum, (opcode==OP_OpenWrite)?1:0, pTab->zName);
-  sqlite3VdbeAddOp3(v, opcode, iCur, pTab->tnum, iDb);
+  v.AddOp3(opcode, iCur, pTab->tnum, iDb);
   sqlite3VdbeChangeP4(v, -1, SQLITE_INT_TO_PTR(pTab->nCol), P4_INT32);
   VdbeComment((v, "%s", pTab->zName));
 }
@@ -72149,19 +72120,19 @@ int autoIncBegin(
     memId = p->regCtr;
     assert( sqlite3SchemaMutexHeld(db, 0, pDb->pSchema) );
     sqlite3OpenTable(pParse, 0, p->iDb, pDb->pSchema->pSeqTab, OP_OpenRead);
-    sqlite3VdbeAddOp3(v, OP_Null, 0, memId, memId+1);
+    v.AddOp3(OP_Null, 0, memId, memId+1);
     addr = sqlite3VdbeCurrentAddr(v);
-    sqlite3VdbeAddOp4(v, OP_String8, 0, memId-1, 0, p->pTab->zName, 0);
-    sqlite3VdbeAddOp2(v, OP_Rewind, 0, addr+9);
-    sqlite3VdbeAddOp3(v, OP_Column, 0, 0, memId);
-    sqlite3VdbeAddOp3(v, OP_Ne, memId-1, addr+7, memId);
+    v.AddOp4(OP_String8, 0, memId-1, 0, p->pTab->zName, 0);
+    v.AddOp2(OP_Rewind, 0, addr+9);
+    v.AddOp3(OP_Column, 0, 0, memId);
+    v.AddOp3(OP_Ne, memId-1, addr+7, memId);
     sqlite3VdbeChangeP5(v, SQLITE_JUMPIFNULL);
-    sqlite3VdbeAddOp2(v, OP_Rowid, 0, memId+1);
-    sqlite3VdbeAddOp3(v, OP_Column, 0, 1, memId);
-    sqlite3VdbeAddOp2(v, OP_Goto, 0, addr+9);
-    sqlite3VdbeAddOp2(v, OP_Next, 0, addr+2);
-    sqlite3VdbeAddOp2(v, OP_Integer, 0, memId);
-    sqlite3VdbeAddOp0(v, OP_Close);
+    v.AddOp2(OP_Rowid, 0, memId+1);
+    v.AddOp3(OP_Column, 0, 1, memId);
+    v.AddOp2(OP_Goto, 0, addr+9);
+    v.AddOp2(OP_Next, 0, addr+2);
+    v.AddOp2(OP_Integer, 0, memId);
+    v.AddOp0(OP_Close);
   }
 }
 
@@ -72175,7 +72146,7 @@ int autoIncBegin(
 */
 void autoIncStep(Parse *pParse, int memId, int regRowid){
   if( memId>0 ){
-    sqlite3VdbeAddOp2(pParse->pVdbe, OP_MemMax, memId, regRowid);
+    pParse.pVdbe.AddOp2(OP_MemMax, memId, regRowid);
   }
 }
 
@@ -72201,22 +72172,22 @@ void autoIncStep(Parse *pParse, int memId, int regRowid){
     iRec = sqlite3GetTempReg(pParse);
     assert( sqlite3SchemaMutexHeld(db, 0, pDb->pSchema) );
     sqlite3OpenTable(pParse, 0, p->iDb, pDb->pSchema->pSeqTab, OP_OpenWrite);
-    j1 = sqlite3VdbeAddOp1(v, OP_NotNull, memId+1);
-    j2 = sqlite3VdbeAddOp0(v, OP_Rewind);
-    j3 = sqlite3VdbeAddOp3(v, OP_Column, 0, 0, iRec);
-    j4 = sqlite3VdbeAddOp3(v, OP_Eq, memId-1, 0, iRec);
-    sqlite3VdbeAddOp2(v, OP_Next, 0, j3);
+    j1 = v.AddOp1(OP_NotNull, memId+1);
+    j2 = v.AddOp0(OP_Rewind);
+    j3 = v.AddOp3(OP_Column, 0, 0, iRec);
+    j4 = v.AddOp3(OP_Eq, memId-1, 0, iRec);
+    v.AddOp2(OP_Next, 0, j3);
     sqlite3VdbeJumpHere(v, j2);
-    sqlite3VdbeAddOp2(v, OP_NewRowid, 0, memId+1);
-    j5 = sqlite3VdbeAddOp0(v, OP_Goto);
+    v.AddOp2(OP_NewRowid, 0, memId+1);
+    j5 = v.AddOp0(OP_Goto);
     sqlite3VdbeJumpHere(v, j4);
-    sqlite3VdbeAddOp2(v, OP_Rowid, 0, memId+1);
+    v.AddOp2(OP_Rowid, 0, memId+1);
     sqlite3VdbeJumpHere(v, j1);
     sqlite3VdbeJumpHere(v, j5);
-    sqlite3VdbeAddOp3(v, OP_MakeRecord, memId-1, 2, iRec);
-    sqlite3VdbeAddOp3(v, OP_Insert, 0, iRec, memId+1);
+    v.AddOp3(OP_MakeRecord, memId-1, 2, iRec);
+    v.AddOp3(OP_Insert, 0, iRec, memId+1);
     sqlite3VdbeChangeP5(v, OPFLAG_APPEND);
-    sqlite3VdbeAddOp0(v, OP_Close);
+    v.AddOp0(OP_Close);
     sqlite3ReleaseTempReg(pParse, iRec);
   }
 }
@@ -72301,19 +72272,19 @@ void autoIncStep(Parse *pParse, int memId, int regRowid){
   regEof = ++pParse->nMem;
   v = sqlite3GetVdbe(pParse);
   addrTop = sqlite3VdbeCurrentAddr(v);
-  sqlite3VdbeAddOp2(v, OP_Integer, addrTop+2, regYield); /* X <- A */
+  v.AddOp2(OP_Integer, addrTop+2, regYield); /* X <- A */
   VdbeComment((v, "Co-routine entry point"));
-  sqlite3VdbeAddOp2(v, OP_Integer, 0, regEof);           /* EOF <- 0 */
+  v.AddOp2(OP_Integer, 0, regEof);           /* EOF <- 0 */
   VdbeComment((v, "Co-routine completion flag"));
   sqlite3SelectDestInit(pDest, SRT_Coroutine, regYield);
-  j1 = sqlite3VdbeAddOp2(v, OP_Goto, 0, 0);
+  j1 = v.AddOp2(OP_Goto, 0, 0);
   rc = sqlite3Select(pParse, pSelect, pDest);
   assert( pParse->nErr==0 || rc );
   if( pParse->db->mallocFailed && rc==SQLITE_OK ) rc = SQLITE_NOMEM;
   if( rc ) return rc;
-  sqlite3VdbeAddOp2(v, OP_Integer, 1, regEof);            /* EOF <- 1 */
-  sqlite3VdbeAddOp1(v, OP_Yield, regYield);   /* yield X */
-  sqlite3VdbeAddOp2(v, OP_Halt, SQLITE_INTERNAL, OE_Abort);
+  v.AddOp2(OP_Integer, 1, regEof);            /* EOF <- 1 */
+  v.AddOp1(OP_Yield, regYield);   /* yield X */
+  v.AddOp2(OP_Halt, SQLITE_INTERNAL, OE_Abort);
   VdbeComment((v, "End of coroutine"));
   sqlite3VdbeJumpHere(v, j1);                             /* label B: */
   return rc;
@@ -72601,13 +72572,13 @@ int xferOptimization(
       srcTab = pParse->nTab++;
       regRec = sqlite3GetTempReg(pParse);
       regTempRowid = sqlite3GetTempReg(pParse);
-      sqlite3VdbeAddOp2(v, OP_OpenEphemeral, srcTab, nColumn);
-      addrTop = sqlite3VdbeAddOp1(v, OP_Yield, dest.iSDParm);
-      addrIf = sqlite3VdbeAddOp1(v, OP_If, regEof);
-      sqlite3VdbeAddOp3(v, OP_MakeRecord, regFromSelect, nColumn, regRec);
-      sqlite3VdbeAddOp2(v, OP_NewRowid, srcTab, regTempRowid);
-      sqlite3VdbeAddOp3(v, OP_Insert, srcTab, regRec, regTempRowid);
-      sqlite3VdbeAddOp2(v, OP_Goto, 0, addrTop);
+      v.AddOp2(OP_OpenEphemeral, srcTab, nColumn);
+      addrTop = v.AddOp1(OP_Yield, dest.iSDParm);
+      addrIf = v.AddOp1(OP_If, regEof);
+      v.AddOp3(OP_MakeRecord, regFromSelect, nColumn, regRec);
+      v.AddOp2(OP_NewRowid, srcTab, regTempRowid);
+      v.AddOp3(OP_Insert, srcTab, regRec, regTempRowid);
+      v.AddOp2(OP_Goto, 0, addrTop);
       sqlite3VdbeJumpHere(v, addrIf);
       sqlite3ReleaseTempReg(pParse, regRec);
       sqlite3ReleaseTempReg(pParse, regTempRowid);
@@ -72695,7 +72666,7 @@ int xferOptimization(
   */
   if( db->flags & SQLITE_CountRows ){
     regRowCount = ++pParse->nMem;
-    sqlite3VdbeAddOp2(v, OP_Integer, 0, regRowCount);
+    v.AddOp2(OP_Integer, 0, regRowCount);
   }
 
   /* If this is not a view, open the table and and all indices */
@@ -72724,7 +72695,7 @@ int xferOptimization(
     **         end loop
     **      D: ...
     */
-    addrInsTop = sqlite3VdbeAddOp1(v, OP_Rewind, srcTab);
+    addrInsTop = v.AddOp1(OP_Rewind, srcTab);
     addrCont = sqlite3VdbeCurrentAddr(v);
   }else if( pSelect ){
     /* This block codes the top of loop only.  The complete loop is the
@@ -72736,8 +72707,8 @@ int xferOptimization(
     **         goto C
     **      D: ...
     */
-    addrCont = sqlite3VdbeAddOp1(v, OP_Yield, dest.iSDParm);
-    addrInsTop = sqlite3VdbeAddOp1(v, OP_If, regEof);
+    addrCont = v.AddOp1(OP_Yield, dest.iSDParm);
+    addrInsTop = v.AddOp1(OP_If, regEof);
   }
 
   /* Allocate registers for holding the rowid of the new row,
@@ -72764,19 +72735,19 @@ int xferOptimization(
     ** not happened yet) so we substitute a rowid of -1
     */
     if( keyColumn<0 ){
-      sqlite3VdbeAddOp2(v, OP_Integer, -1, regCols);
+      v.AddOp2(OP_Integer, -1, regCols);
     }else{
       int j1;
       if( useTempTable ){
-        sqlite3VdbeAddOp3(v, OP_Column, srcTab, keyColumn, regCols);
+        v.AddOp3(OP_Column, srcTab, keyColumn, regCols);
       }else{
         assert( pSelect==0 );  /* Otherwise useTempTable is true */
         sqlite3ExprCode(pParse, pList->a[keyColumn].pExpr, regCols);
       }
-      j1 = sqlite3VdbeAddOp1(v, OP_NotNull, regCols);
-      sqlite3VdbeAddOp2(v, OP_Integer, -1, regCols);
+      j1 = v.AddOp1(OP_NotNull, regCols);
+      v.AddOp2(OP_Integer, -1, regCols);
       sqlite3VdbeJumpHere(v, j1);
-      sqlite3VdbeAddOp1(v, OP_MustBeInt, regCols);
+      v.AddOp1(OP_MustBeInt, regCols);
     }
 
     /* Cannot have triggers on a virtual table. If it were possible,
@@ -72797,7 +72768,7 @@ int xferOptimization(
       if( (!useTempTable && !pList) || (pColumn && j>=pColumn->nId) ){
         sqlite3ExprCode(pParse, pTab->aCol[i].pDflt, regCols+i+1);
       }else if( useTempTable ){
-        sqlite3VdbeAddOp3(v, OP_Column, srcTab, j, regCols+i+1); 
+        v.AddOp3(OP_Column, srcTab, j, regCols+i+1); 
       }else{
         assert( pSelect==0 ); /* Otherwise useTempTable is true */
         sqlite3ExprCodeAndCache(pParse, pList->a[j].pExpr, regCols+i+1);
@@ -72810,7 +72781,7 @@ int xferOptimization(
     ** table column affinities.
     */
     if( !isView ){
-      sqlite3VdbeAddOp2(v, OP_Affinity, regCols+1, pTab->nCol);
+      v.AddOp2(OP_Affinity, regCols+1, pTab->nCol);
       sqlite3TableAffinityStr(v, pTab);
     }
 
@@ -72829,13 +72800,13 @@ int xferOptimization(
   if( !isView ){
     if( IsVirtual(pTab) ){
       /* The row that the VUpdate opcode will delete: none */
-      sqlite3VdbeAddOp2(v, OP_Null, 0, regIns);
+      v.AddOp2(OP_Null, 0, regIns);
     }
     if( keyColumn>=0 ){
       if( useTempTable ){
-        sqlite3VdbeAddOp3(v, OP_Column, srcTab, keyColumn, regRowid);
+        v.AddOp3(OP_Column, srcTab, keyColumn, regRowid);
       }else if( pSelect ){
-        sqlite3VdbeAddOp2(v, OP_SCopy, regFromSelect+keyColumn, regRowid);
+        v.AddOp2(OP_SCopy, regFromSelect+keyColumn, regRowid);
       }else{
         VdbeOp *pOp;
         sqlite3ExprCode(pParse, pList->a[keyColumn].pExpr, regRowid);
@@ -72854,19 +72825,19 @@ int xferOptimization(
       if( !appendFlag ){
         int j1;
         if( !IsVirtual(pTab) ){
-          j1 = sqlite3VdbeAddOp1(v, OP_NotNull, regRowid);
-          sqlite3VdbeAddOp3(v, OP_NewRowid, baseCur, regRowid, regAutoinc);
+          j1 = v.AddOp1(OP_NotNull, regRowid);
+          v.AddOp3(OP_NewRowid, baseCur, regRowid, regAutoinc);
           sqlite3VdbeJumpHere(v, j1);
         }else{
           j1 = sqlite3VdbeCurrentAddr(v);
-          sqlite3VdbeAddOp2(v, OP_IsNull, regRowid, j1+2);
+          v.AddOp2(OP_IsNull, regRowid, j1+2);
         }
-        sqlite3VdbeAddOp1(v, OP_MustBeInt, regRowid);
+        v.AddOp1(OP_MustBeInt, regRowid);
       }
     }else if( IsVirtual(pTab) ){
-      sqlite3VdbeAddOp2(v, OP_Null, 0, regRowid);
+      v.AddOp2(OP_Null, 0, regRowid);
     }else{
-      sqlite3VdbeAddOp3(v, OP_NewRowid, baseCur, regRowid, regAutoinc);
+      v.AddOp3(OP_NewRowid, baseCur, regRowid, regAutoinc);
       appendFlag = 1;
     }
     autoIncStep(pParse, regAutoinc, regRowid);
@@ -72882,7 +72853,7 @@ int xferOptimization(
         ** Whenever this column is read, the record number will be substituted
         ** in its place.  So will fill this column with a NULL to avoid
         ** taking up data space with information that will never be used. */
-        sqlite3VdbeAddOp2(v, OP_Null, 0, iRegStore);
+        v.AddOp2(OP_Null, 0, iRegStore);
         continue;
       }
       if( pColumn==0 ){
@@ -72901,9 +72872,9 @@ int xferOptimization(
       if( j<0 || nColumn==0 || (pColumn && j>=pColumn->nId) ){
         sqlite3ExprCode(pParse, pTab->aCol[i].pDflt, iRegStore);
       }else if( useTempTable ){
-        sqlite3VdbeAddOp3(v, OP_Column, srcTab, j, iRegStore); 
+        v.AddOp3(OP_Column, srcTab, j, iRegStore); 
       }else if( pSelect ){
-        sqlite3VdbeAddOp2(v, OP_SCopy, regFromSelect+j, iRegStore);
+        v.AddOp2(OP_SCopy, regFromSelect+j, iRegStore);
       }else{
         sqlite3ExprCode(pParse, pList->a[j].pExpr, iRegStore);
       }
@@ -72915,7 +72886,7 @@ int xferOptimization(
     if( IsVirtual(pTab) ){
       const char *pVTab = (const char *)sqlite3GetVTable(db, pTab);
       sqlite3VtabMakeWritable(pParse, pTab);
-      sqlite3VdbeAddOp4(v, OP_VUpdate, 1, pTab->nCol+2, regIns, pVTab, P4_VTAB);
+      v.AddOp4(OP_VUpdate, 1, pTab->nCol+2, regIns, pVTab, P4_VTAB);
       sqlite3VdbeChangeP5(v, onError==OE_Default ? OE_Abort : onError);
       sqlite3MayAbort(pParse);
     }else
@@ -72934,7 +72905,7 @@ int xferOptimization(
   /* Update the count of rows that are inserted
   */
   if( (db->flags & SQLITE_CountRows)!=0 ){
-    sqlite3VdbeAddOp2(v, OP_AddImm, regRowCount, 1);
+    v.AddOp2(OP_AddImm, regRowCount, 1);
   }
 
   if( pTrigger ){
@@ -72948,19 +72919,19 @@ int xferOptimization(
   */
   sqlite3VdbeResolveLabel(v, endOfLoop);
   if( useTempTable ){
-    sqlite3VdbeAddOp2(v, OP_Next, srcTab, addrCont);
+    v.AddOp2(OP_Next, srcTab, addrCont);
     sqlite3VdbeJumpHere(v, addrInsTop);
-    sqlite3VdbeAddOp1(v, OP_Close, srcTab);
+    v.AddOp1(OP_Close, srcTab);
   }else if( pSelect ){
-    sqlite3VdbeAddOp2(v, OP_Goto, 0, addrCont);
+    v.AddOp2(OP_Goto, 0, addrCont);
     sqlite3VdbeJumpHere(v, addrInsTop);
   }
 
   if( !IsVirtual(pTab) && !isView ){
     /* Close all tables opened */
-    sqlite3VdbeAddOp1(v, OP_Close, baseCur);
+    v.AddOp1(OP_Close, baseCur);
     for(idx=1, pIdx=pTab->pIndex; pIdx; pIdx=pIdx->pNext, idx++){
-      sqlite3VdbeAddOp1(v, OP_Close, idx+baseCur);
+      v.AddOp1(OP_Close, idx+baseCur);
     }
   }
 
@@ -72979,7 +72950,7 @@ insert_end:
   ** invoke the callback function.
   */
   if( (db->flags&SQLITE_CountRows) && !pParse->nested && !pParse->pTriggerTab ){
-    sqlite3VdbeAddOp2(v, OP_ResultRow, regRowCount, 1);
+    v.AddOp2(OP_ResultRow, regRowCount, 1);
     sqlite3VdbeSetNumCols(v, 1);
     sqlite3VdbeSetColName(v, 0, COLNAME_NAME, "rows inserted", SQLITE_STATIC);
   }
@@ -73137,7 +73108,7 @@ insert_cleanup:
       case OE_Rollback:
       case OE_Fail: {
         char *zMsg;
-        sqlite3VdbeAddOp3(v, OP_HaltIfNull,
+        v.AddOp3(OP_HaltIfNull,
                           SQLITE_CONSTRAINT_NOTNULL, onError, regData+i);
         zMsg = sqlite3MPrintf(db, "%s.%s may not be NULL",
                               pTab->zName, pTab->aCol[i].zName);
@@ -73145,12 +73116,12 @@ insert_cleanup:
         break;
       }
       case OE_Ignore: {
-        sqlite3VdbeAddOp2(v, OP_IsNull, regData+i, ignoreDest);
+        v.AddOp2(OP_IsNull, regData+i, ignoreDest);
         break;
       }
       default: {
         assert( onError==OE_Replace );
-        j1 = sqlite3VdbeAddOp1(v, OP_NotNull, regData+i);
+        j1 = v.AddOp1(OP_NotNull, regData+i);
         sqlite3ExprCode(pParse, pTab->aCol[i].pDflt, regData+i);
         sqlite3VdbeJumpHere(v, j1);
         break;
@@ -73169,7 +73140,7 @@ insert_cleanup:
       int allOk = sqlite3VdbeMakeLabel(v);
       sqlite3ExprIfTrue(pParse, pCheck->a[i].pExpr, allOk, SQLITE_JUMPIFNULL);
       if( onError==OE_Ignore ){
-        sqlite3VdbeAddOp2(v, OP_Goto, 0, ignoreDest);
+        v.AddOp2(OP_Goto, 0, ignoreDest);
       }else{
         char *zConsName = pCheck->a[i].zName;
         if( onError==OE_Replace ) onError = OE_Abort; /* IMP: R-15569-63625 */
@@ -73199,9 +73170,9 @@ insert_cleanup:
     }
     
     if( isUpdate ){
-      j2 = sqlite3VdbeAddOp3(v, OP_Eq, regRowid, 0, rowidChng);
+      j2 = v.AddOp3(OP_Eq, regRowid, 0, rowidChng);
     }
-    j3 = sqlite3VdbeAddOp3(v, OP_NotExists, baseCur, 0, regRowid);
+    j3 = v.AddOp3(OP_NotExists, baseCur, 0, regRowid);
     switch( onError ){
       default: {
         onError = OE_Abort;
@@ -73255,7 +73226,7 @@ insert_cleanup:
       }
       case OE_Ignore: {
         assert( seenReplace==0 );
-        sqlite3VdbeAddOp2(v, OP_Goto, 0, ignoreDest);
+        v.AddOp2(OP_Goto, 0, ignoreDest);
         break;
       }
     }
@@ -73280,13 +73251,13 @@ insert_cleanup:
     for(i=0; i<pIdx->nColumn; i++){
       int idx = pIdx->aiColumn[i];
       if( idx==pTab->iPKey ){
-        sqlite3VdbeAddOp2(v, OP_SCopy, regRowid, regIdx+i);
+        v.AddOp2(OP_SCopy, regRowid, regIdx+i);
       }else{
-        sqlite3VdbeAddOp2(v, OP_SCopy, regData+idx, regIdx+i);
+        v.AddOp2(OP_SCopy, regData+idx, regIdx+i);
       }
     }
-    sqlite3VdbeAddOp2(v, OP_SCopy, regRowid, regIdx+i);
-    sqlite3VdbeAddOp3(v, OP_MakeRecord, regIdx, pIdx->nColumn+1, aRegIdx[iCur]);
+    v.AddOp2(OP_SCopy, regRowid, regIdx+i);
+    v.AddOp3(OP_MakeRecord, regIdx, pIdx->nColumn+1, aRegIdx[iCur]);
     sqlite3VdbeChangeP4(v, -1, sqlite3IndexAffinityStr(v, pIdx), P4_TRANSIENT);
     sqlite3ExprCacheAffinityChange(pParse, regIdx, pIdx->nColumn+1);
 
@@ -73308,8 +73279,8 @@ insert_cleanup:
     
     /* Check to see if the new index entry will be unique */
     regR = sqlite3GetTempReg(pParse);
-    sqlite3VdbeAddOp2(v, OP_SCopy, regOldRowid, regR);
-    j3 = sqlite3VdbeAddOp4(v, OP_IsUnique, baseCur+iCur+1, 0,
+    v.AddOp2(OP_SCopy, regOldRowid, regR);
+    j3 = v.AddOp4(OP_IsUnique, baseCur+iCur+1, 0,
                            regR, SQLITE_INT_TO_PTR(regIdx),
                            P4_INT32);
     sqlite3ReleaseTempRange(pParse, regIdx, pIdx->nColumn+1);
@@ -73345,7 +73316,7 @@ insert_cleanup:
       }
       case OE_Ignore: {
         assert( seenReplace==0 );
-        sqlite3VdbeAddOp2(v, OP_Goto, 0, ignoreDest);
+        v.AddOp2(OP_Goto, 0, ignoreDest);
         break;
       }
       default: {
@@ -73404,14 +73375,14 @@ insert_cleanup:
   for(nIdx=0, pIdx=pTab->pIndex; pIdx; pIdx=pIdx->pNext, nIdx++){}
   for(i=nIdx-1; i>=0; i--){
     if( aRegIdx[i]==0 ) continue;
-    sqlite3VdbeAddOp2(v, OP_IdxInsert, baseCur+i+1, aRegIdx[i]);
+    v.AddOp2(OP_IdxInsert, baseCur+i+1, aRegIdx[i]);
     if( useSeekResult ){
       sqlite3VdbeChangeP5(v, OPFLAG_USESEEKRESULT);
     }
   }
   regData = regRowid + 1;
   regRec = sqlite3GetTempReg(pParse);
-  sqlite3VdbeAddOp3(v, OP_MakeRecord, regData, pTab->nCol, regRec);
+  v.AddOp3(OP_MakeRecord, regData, pTab->nCol, regRec);
   sqlite3TableAffinityStr(v, pTab);
   sqlite3ExprCacheAffinityChange(pParse, regData, pTab->nCol);
   if( pParse->nested ){
@@ -73426,7 +73397,7 @@ insert_cleanup:
   if( useSeekResult ){
     pik_flags |= OPFLAG_USESEEKRESULT;
   }
-  sqlite3VdbeAddOp3(v, OP_Insert, baseCur, regRec, regRowid);
+  v.AddOp3(OP_Insert, baseCur, regRec, regRowid);
   if( !pParse->nested ){
     sqlite3VdbeChangeP4(v, -1, pTab->zName, P4_TRANSIENT);
   }
@@ -73459,7 +73430,7 @@ insert_cleanup:
   for(i=1, pIdx=pTab->pIndex; pIdx; pIdx=pIdx->pNext, i++){
     KeyInfo *pKey = sqlite3IndexKeyinfo(pParse, pIdx);
     assert( pIdx->pSchema==pTab->pSchema );
-    sqlite3VdbeAddOp4(v, op, i+baseCur, pIdx->tnum, iDb,
+    v.AddOp4(op, i+baseCur, pIdx->tnum, iDb,
                       (char*)pKey, P4_KEYINFO_HANDOFF);
     VdbeComment((v, "%s", pIdx->zName));
   }
@@ -73716,64 +73687,64 @@ int xferOptimization(
     **
     ** (3) onError is something other than OE_Abort and OE_Rollback.
     */
-    addr1 = sqlite3VdbeAddOp2(v, OP_Rewind, iDest, 0);
-    emptyDestTest = sqlite3VdbeAddOp2(v, OP_Goto, 0, 0);
+    addr1 = v.AddOp2(OP_Rewind, iDest, 0);
+    emptyDestTest = v.AddOp2(OP_Goto, 0, 0);
     sqlite3VdbeJumpHere(v, addr1);
   }else{
     emptyDestTest = 0;
   }
   sqlite3OpenTable(pParse, iSrc, iDbSrc, pSrc, OP_OpenRead);
-  emptySrcTest = sqlite3VdbeAddOp2(v, OP_Rewind, iSrc, 0);
+  emptySrcTest = v.AddOp2(OP_Rewind, iSrc, 0);
   regData = sqlite3GetTempReg(pParse);
   regRowid = sqlite3GetTempReg(pParse);
   if( pDest->iPKey>=0 ){
-    addr1 = sqlite3VdbeAddOp2(v, OP_Rowid, iSrc, regRowid);
-    addr2 = sqlite3VdbeAddOp3(v, OP_NotExists, iDest, 0, regRowid);
+    addr1 = v.AddOp2(OP_Rowid, iSrc, regRowid);
+    addr2 = v.AddOp3(OP_NotExists, iDest, 0, regRowid);
     sqlite3HaltConstraint(pParse, SQLITE_CONSTRAINT_PRIMARYKEY,
         onError, "PRIMARY KEY must be unique", P4_STATIC);
     sqlite3VdbeJumpHere(v, addr2);
     autoIncStep(pParse, regAutoinc, regRowid);
   }else if( pDest->pIndex==0 ){
-    addr1 = sqlite3VdbeAddOp2(v, OP_NewRowid, iDest, regRowid);
+    addr1 = v.AddOp2(OP_NewRowid, iDest, regRowid);
   }else{
-    addr1 = sqlite3VdbeAddOp2(v, OP_Rowid, iSrc, regRowid);
+    addr1 = v.AddOp2(OP_Rowid, iSrc, regRowid);
     assert( (pDest->tabFlags & TF_Autoincrement)==0 );
   }
-  sqlite3VdbeAddOp2(v, OP_RowData, iSrc, regData);
-  sqlite3VdbeAddOp3(v, OP_Insert, iDest, regData, regRowid);
+  v.AddOp2(OP_RowData, iSrc, regData);
+  v.AddOp3(OP_Insert, iDest, regData, regRowid);
   sqlite3VdbeChangeP5(v, OPFLAG_NCHANGE|OPFLAG_LASTROWID|OPFLAG_APPEND);
   sqlite3VdbeChangeP4(v, -1, pDest->zName, 0);
-  sqlite3VdbeAddOp2(v, OP_Next, iSrc, addr1);
+  v.AddOp2(OP_Next, iSrc, addr1);
   for(pDestIdx=pDest->pIndex; pDestIdx; pDestIdx=pDestIdx->pNext){
     for(pSrcIdx=pSrc->pIndex; ALWAYS(pSrcIdx); pSrcIdx=pSrcIdx->pNext){
       if( xferCompatibleIndex(pDestIdx, pSrcIdx) ) break;
     }
     assert( pSrcIdx );
-    sqlite3VdbeAddOp2(v, OP_Close, iSrc, 0);
-    sqlite3VdbeAddOp2(v, OP_Close, iDest, 0);
+    v.AddOp2(OP_Close, iSrc, 0);
+    v.AddOp2(OP_Close, iDest, 0);
     pKey = sqlite3IndexKeyinfo(pParse, pSrcIdx);
-    sqlite3VdbeAddOp4(v, OP_OpenRead, iSrc, pSrcIdx->tnum, iDbSrc,
+    v.AddOp4(OP_OpenRead, iSrc, pSrcIdx->tnum, iDbSrc,
                       (char*)pKey, P4_KEYINFO_HANDOFF);
     VdbeComment((v, "%s", pSrcIdx->zName));
     pKey = sqlite3IndexKeyinfo(pParse, pDestIdx);
-    sqlite3VdbeAddOp4(v, OP_OpenWrite, iDest, pDestIdx->tnum, iDbDest,
+    v.AddOp4(OP_OpenWrite, iDest, pDestIdx->tnum, iDbDest,
                       (char*)pKey, P4_KEYINFO_HANDOFF);
     VdbeComment((v, "%s", pDestIdx->zName));
-    addr1 = sqlite3VdbeAddOp2(v, OP_Rewind, iSrc, 0);
-    sqlite3VdbeAddOp2(v, OP_RowKey, iSrc, regData);
-    sqlite3VdbeAddOp3(v, OP_IdxInsert, iDest, regData, 1);
-    sqlite3VdbeAddOp2(v, OP_Next, iSrc, addr1+1);
+    addr1 = v.AddOp2(OP_Rewind, iSrc, 0);
+    v.AddOp2(OP_RowKey, iSrc, regData);
+    v.AddOp3(OP_IdxInsert, iDest, regData, 1);
+    v.AddOp2(OP_Next, iSrc, addr1+1);
     sqlite3VdbeJumpHere(v, addr1);
   }
   sqlite3VdbeJumpHere(v, emptySrcTest);
   sqlite3ReleaseTempReg(pParse, regRowid);
   sqlite3ReleaseTempReg(pParse, regData);
-  sqlite3VdbeAddOp2(v, OP_Close, iSrc, 0);
-  sqlite3VdbeAddOp2(v, OP_Close, iDest, 0);
+  v.AddOp2(OP_Close, iSrc, 0);
+  v.AddOp2(OP_Close, iDest, 0);
   if( emptyDestTest ){
-    sqlite3VdbeAddOp2(v, OP_Halt, SQLITE_OK, 0);
+    v.AddOp2(OP_Halt, SQLITE_OK, 0);
     sqlite3VdbeJumpHere(v, emptyDestTest);
-    sqlite3VdbeAddOp2(v, OP_Close, iDest, 0);
+    v.AddOp2(OP_Close, iDest, 0);
     return 0;
   }else{
     return 1;
@@ -73942,8 +73913,8 @@ exec_out:
 ** libraries!
 */
 struct sqlite3_api_routines {
-  void * (*aggregate_context)(sqlite3_context*,int nBytes);
-  int  (*aggregate_count)(sqlite3_context*);
+  void * (*aggregate_context)(Context*,int nBytes);
+  int  (*aggregate_count)(Context*);
   int  (*bind_blob)(sqlite3_stmt*,int,const void*,int n,void(*)(void*));
   int  (*bind_float64)(sqlite3_stmt*,int,float64);
   int  (*bind_int)(sqlite3_stmt*,int,int);
@@ -73985,8 +73956,8 @@ struct sqlite3_api_routines {
   int  (*complete16)(const void*sql);
   int  (*create_collation)(sqlite3*,const char*,int,void*, int(*)(void*,int,const void*,int,const void*));
   int  (*create_collation16)(sqlite3*,const void*,int,void*, int(*)(void*,int,const void*,int,const void*));
-  int  (*create_function)(sqlite3*,const char*,int,int,void*, void (*xFunc)(sqlite3_context*,int,sqlite3_value**), void (*xStep)(sqlite3_context*,int,sqlite3_value**), void (*xFinal)(sqlite3_context*));
-  int  (*create_function16)(sqlite3*,const void*,int,int,void*, void (*xFunc)(sqlite3_context*,int,sqlite3_value**), void (*xStep)(sqlite3_context*,int,sqlite3_value**), void (*xFinal)(sqlite3_context*));
+  int  (*create_function)(sqlite3*,const char*,int,int,void*, void (*xFunc)(Context*,int,sqlite3_value**), void (*xStep)(Context*,int,sqlite3_value**), void (*xFinal)(Context*));
+  int  (*create_function16)(sqlite3*,const void*,int,int,void*, void (*xFunc)(Context*,int,sqlite3_value**), void (*xStep)(Context*,int,sqlite3_value**), void (*xFinal)(Context*));
   int (*create_module)(sqlite3*,const char*,const sqlite3_module*,void*);
   int  (*data_count)(sqlite3_stmt*pStmt);
   sqlite3 * (*db_handle)(sqlite3_stmt*);
@@ -74001,7 +73972,7 @@ struct sqlite3_api_routines {
   void  (*free)(void*);
   void  (*free_table)(char**result);
   int  (*get_autocommit)(sqlite3*);
-  void * (*get_auxdata)(sqlite3_context*,int);
+  void * (*get_auxdata)(Context*,int);
   int  (*get_table)(sqlite3*,const char*,char***,int*,int*,char**);
   int  (*global_recover)(void);
   void  (*interruptx)(sqlite3*);
@@ -74018,21 +73989,21 @@ struct sqlite3_api_routines {
   void  (*progress_handler)(sqlite3*,int,int(*)(void*),void*);
   void *(*realloc)(void*,int);
   int  (*reset)(sqlite3_stmt*pStmt);
-  void  (*result_blob)(sqlite3_context*,const void*,int,void(*)(void*));
-  void  (*result_float64)(sqlite3_context*,float64);
-  void  (*result_error)(sqlite3_context*,const char*,int);
-  void  (*result_error16)(sqlite3_context*,const void*,int);
-  void  (*result_int)(sqlite3_context*,int);
-  void  (*result_int64)(sqlite3_context*,sqlite_int64);
-  void  (*result_null)(sqlite3_context*);
-  void  (*result_text)(sqlite3_context*,const char*,int,void(*)(void*));
-  void  (*result_text16)(sqlite3_context*,const void*,int,void(*)(void*));
-  void  (*result_text16be)(sqlite3_context*,const void*,int,void(*)(void*));
-  void  (*result_text16le)(sqlite3_context*,const void*,int,void(*)(void*));
-  void  (*result_value)(sqlite3_context*,sqlite3_value*);
+  void  (*result_blob)(Context*,const void*,int,void(*)(void*));
+  void  (*result_float64)(Context*,float64);
+  void  (*result_error)(Context*,const char*,int);
+  void  (*result_error16)(Context*,const void*,int);
+  void  (*result_int)(Context*,int);
+  void  (*result_int64)(Context*,sqlite_int64);
+  void  (*result_null)(Context*);
+  void  (*result_text)(Context*,const char*,int,void(*)(void*));
+  void  (*result_text16)(Context*,const void*,int,void(*)(void*));
+  void  (*result_text16be)(Context*,const void*,int,void(*)(void*));
+  void  (*result_text16le)(Context*,const void*,int,void(*)(void*));
+  void  (*result_value)(Context*,sqlite3_value*);
   void * (*rollback_hook)(sqlite3*,void(*)(void*),void*);
   int  (*set_authorizer)(sqlite3*,int(*)(void*,int,const char*,const char*, const char*,const char*),void*);
-  void  (*set_auxdata)(sqlite3_context*,int,void*,void (*)(void*));
+  void  (*set_auxdata)(Context*,int,void*,void (*)(void*));
   char * (*snprintf)(int,char*,const char*,...);
   int  (*step)(sqlite3_stmt*);
   int  (*table_column_metadata)(sqlite3*,const char*,const char*,const char*, char const**,char const**,int*,int*,int*);
@@ -74041,7 +74012,7 @@ struct sqlite3_api_routines {
   void * (*trace)(sqlite3*,void(*xTrace)(void*,const char*),void*);
   int  (*transfer_bindings)(sqlite3_stmt*,sqlite3_stmt*);
   void * (*update_hook)(sqlite3*,void(*)(void*,int ,char const*,char const*, sqlite_int64),void*);
-  void * (*user_data)(sqlite3_context*);
+  void * (*user_data)(Context*);
   const void * (*value_blob)(sqlite3_value*);
   int  (*value_bytes)(sqlite3_value*);
   int  (*value_bytes16)(sqlite3_value*);
@@ -74079,19 +74050,19 @@ struct sqlite3_api_routines {
   int (*mutex_try)(sqlite3_mutex*);
   int (*open_v2)(const char*,sqlite3**,int,const char*);
   int (*release_memory)(int);
-  void (*result_error_nomem)(sqlite3_context*);
-  void (*result_error_toobig)(sqlite3_context*);
+  void (*result_error_nomem)(Context*);
+  void (*result_error_toobig)(Context*);
   int (*sleep)(int);
   void (*soft_heap_limit)(int);
   sqlite3_vfs *(*vfs_find)(const char*);
   int (*vfs_register)(sqlite3_vfs*,int);
   int (*vfs_unregister)(sqlite3_vfs*);
   int (*xthreadsafe)(void);
-  void (*result_zeroblob)(sqlite3_context*,int);
-  void (*result_error_code)(sqlite3_context*,int);
+  void (*result_zeroblob)(Context*,int);
+  void (*result_error_code)(Context*,int);
   int (*test_control)(int, ...);
   void (*randomness)(int,void*);
-  sqlite3 *(*context_db_handle)(sqlite3_context*);
+  sqlite3 *(*context_db_handle)(Context*);
   int (*extended_result_codes)(sqlite3*,int);
   int (*limit)(sqlite3*,int,int);
   sqlite3_stmt *(*next_stmt)(sqlite3*,sqlite3_stmt*);
@@ -74104,7 +74075,7 @@ struct sqlite3_api_routines {
   int (*backup_step)(sqlite3_backup*,int);
   const char *(*compileoption_get)(int);
   int (*compileoption_used)(const char*);
-  int (*create_function_v2)(sqlite3*,const char*,int,int,void*, void (*xFunc)(sqlite3_context*,int,sqlite3_value**), void (*xStep)(sqlite3_context*,int,sqlite3_value**), void (*xFinal)(sqlite3_context*), void(*xDestroy)(void*));
+  int (*create_function_v2)(sqlite3*,const char*,int,int,void*, void (*xFunc)(Context*,int,sqlite3_value**), void (*xStep)(Context*,int,sqlite3_value**), void (*xFinal)(Context*), void(*xDestroy)(void*));
   int (*db_config)(sqlite3*,int,...);
   sqlite3_mutex *(*db_mutex)(sqlite3*);
   int (*db_status)(sqlite3*,int,int*,int*,int);
@@ -74229,7 +74200,6 @@ const sqlite3_api_routines sqlite3Apis = {
   sqlite3_free,
   sqlite3_free_table,
   sqlite3_get_autocommit,
-  sqlite3_get_auxdata,
   sqlite3_get_table,
   0,
   sqlite3_interrupt,
@@ -74254,7 +74224,6 @@ const sqlite3_api_routines sqlite3Apis = {
   sqlite3_result_value,
   sqlite3_rollback_hook,
   sqlite3_set_authorizer,
-  sqlite3_set_auxdata,
   sqlite3_snprintf,
   Step,
   sqlite3_table_column_metadata,
@@ -74336,7 +74305,7 @@ const sqlite3_api_routines sqlite3Apis = {
   sqlite3_result_error_code,
   sqlite3_test_control,
   sqlite3_randomness,
-  sqlite3_context_db_handle,
+  Context_db_handle,
 
   /*
   ** Added for 3.6.0
@@ -74865,10 +74834,10 @@ void returnSingleInt(Parse *pParse, const char *zLabel, i64 value){
   if( pI64 ){
     memcpy(pI64, &value, sizeof(value));
   }
-  sqlite3VdbeAddOp4(v, OP_Int64, 0, mem, 0, (char*)pI64, P4_INT64);
+  v.AddOp4(OP_Int64, 0, mem, 0, (char*)pI64, P4_INT64);
   sqlite3VdbeSetNumCols(v, 1);
   sqlite3VdbeSetColName(v, 0, COLNAME_NAME, zLabel, SQLITE_STATIC);
-  sqlite3VdbeAddOp2(v, OP_ResultRow, mem, 1);
+  v.AddOp2(OP_ResultRow, mem, 1);
 }
 
 #ifndef SQLITE_OMIT_FLAG_PRAGMAS
@@ -74947,7 +74916,7 @@ int flagPragma(Parse *pParse, const char *zLeft, const char *zRight){
           ** compiler (eg. count_changes). So add an opcode to expire all
           ** compiled SQL statements after modifying a pragma value.
           */
-          sqlite3VdbeAddOp2(v, OP_Expire, 0, 0);
+          v.AddOp2(OP_Expire, 0, 0);
         }
       }
 
@@ -75078,10 +75047,10 @@ const char *actionName(u8 action){
   if( rc==SQLITE_OK ){
     if( aFcntl[0] ){
       int mem = ++pParse->nMem;
-      sqlite3VdbeAddOp4(v, OP_String8, 0, mem, 0, aFcntl[0], 0);
+      v.AddOp4(OP_String8, 0, mem, 0, aFcntl[0], 0);
       sqlite3VdbeSetNumCols(v, 1);
       sqlite3VdbeSetColName(v, 0, COLNAME_NAME, "result", SQLITE_STATIC);
-      sqlite3VdbeAddOp2(v, OP_ResultRow, mem, 1);
+      v.AddOp2(OP_ResultRow, mem, 1);
       sqlite3_free(aFcntl[0]);
     }
   }else if( rc!=SQLITE_NOTFOUND ){
@@ -75169,11 +75138,11 @@ const char *actionName(u8 action){
     sqlite3CodeVerifySchema(pParse, iDb);
     iReg = ++pParse->nMem;
     if strings.ToLower(zLeft[0]) == 'p' {
-      sqlite3VdbeAddOp2(v, OP_Pagecount, iDb, iReg);
+      v.AddOp2(OP_Pagecount, iDb, iReg);
     } else {
-      sqlite3VdbeAddOp3(v, OP_MaxPgcnt, iDb, iReg, sqlite3AbsInt32(sqlite3Atoi(zRight)));
+      v.AddOp3(OP_MaxPgcnt, iDb, iReg, sqlite3AbsInt32(sqlite3Atoi(zRight)));
     }
-    sqlite3VdbeAddOp2(v, OP_ResultRow, iReg, 1);
+    v.AddOp2(OP_ResultRow, iReg, 1);
     sqlite3VdbeSetNumCols(v, 1);
     sqlite3VdbeSetColName(v, 0, COLNAME_NAME, zLeft, SQLITE_TRANSIENT);
   }else
@@ -75221,8 +75190,8 @@ const char *actionName(u8 action){
     }
     sqlite3VdbeSetNumCols(v, 1);
     sqlite3VdbeSetColName(v, 0, COLNAME_NAME, "locking_mode", SQLITE_STATIC);
-    sqlite3VdbeAddOp4(v, OP_String8, 0, 1, 0, zRet, 0);
-    sqlite3VdbeAddOp2(v, OP_ResultRow, 1, 1);
+    v.AddOp4(OP_String8, 0, 1, 0, zRet, 0);
+    v.AddOp2(OP_ResultRow, 1, 1);
   }else
 
   /*
@@ -75270,11 +75239,11 @@ const char *actionName(u8 action){
     }
     for(ii=db->nDb-1; ii>=0; ii--){
       if( db->aDb[ii].pBt && (ii==iDb || pId2->n==0) ){
-        sqlite3VdbeUsesBtree(v, ii);
-        sqlite3VdbeAddOp3(v, OP_JournalMode, ii, 1, eMode);
+        v.UsesBtree(ii);
+        v.AddOp3(OP_JournalMode, ii, 1, eMode);
       }
     }
-    sqlite3VdbeAddOp2(v, OP_ResultRow, 1, 1);
+    v.AddOp2(OP_ResultRow, 1, 1);
   }else
 
   /*
@@ -75350,7 +75319,7 @@ const char *actionName(u8 action){
           sqlite3VdbeChangeP2(v, iAddr+2, iAddr+4);
           sqlite3VdbeChangeP1(v, iAddr+4, eAuto-1);
           sqlite3VdbeChangeP1(v, iAddr+5, iDb);
-          sqlite3VdbeUsesBtree(v, iDb);
+          v.UsesBtree(iDb);
         }
       }
     }
@@ -75372,11 +75341,11 @@ const char *actionName(u8 action){
       iLimit = 0x7fffffff;
     }
     sqlite3BeginWriteOperation(pParse, 0, iDb);
-    sqlite3VdbeAddOp2(v, OP_Integer, iLimit, 1);
-    addr = sqlite3VdbeAddOp1(v, OP_IncrVacuum, iDb);
-    sqlite3VdbeAddOp1(v, OP_ResultRow, 1);
-    sqlite3VdbeAddOp2(v, OP_AddImm, 1, -1);
-    sqlite3VdbeAddOp2(v, OP_IfPos, 1, addr);
+    v.AddOp2(OP_Integer, iLimit, 1);
+    addr = v.AddOp1(OP_IncrVacuum, iDb);
+    v.AddOp1(OP_ResultRow, 1);
+    v.AddOp2(OP_AddImm, 1, -1);
+    v.AddOp2(OP_IfPos, 1, addr);
     sqlite3VdbeJumpHere(v, addr);
   }else
 #endif
@@ -75477,8 +75446,8 @@ const char *actionName(u8 action){
         sqlite3VdbeSetNumCols(v, 1);
         sqlite3VdbeSetColName(v, 0, COLNAME_NAME, 
             "temp_store_directory", SQLITE_STATIC);
-        sqlite3VdbeAddOp4(v, OP_String8, 0, 1, 0, sqlite3_temp_directory, 0);
-        sqlite3VdbeAddOp2(v, OP_ResultRow, 1, 1);
+        v.AddOp4(OP_String8, 0, 1, 0, sqlite3_temp_directory, 0);
+        v.AddOp2(OP_ResultRow, 1, 1);
       }
     }else{
       if( zRight[0] ){
@@ -75528,8 +75497,8 @@ const char *actionName(u8 action){
         sqlite3VdbeSetNumCols(v, 1);
         sqlite3VdbeSetColName(v, 0, COLNAME_NAME, 
                               "lock_proxy_file", SQLITE_STATIC);
-        sqlite3VdbeAddOp4(v, OP_String8, 0, 1, 0, proxy_file_path, 0);
-        sqlite3VdbeAddOp2(v, OP_ResultRow, 1, 1);
+        v.AddOp4(OP_String8, 0, 1, 0, proxy_file_path, 0);
+        v.AddOp2(OP_ResultRow, 1, 1);
       }
     }else{
       Pager *pPager = sqlite3BtreePager(pDb->pBt);
@@ -75618,15 +75587,15 @@ const char *actionName(u8 action){
           nHidden++;
           continue;
         }
-        sqlite3VdbeAddOp2(v, OP_Integer, i-nHidden, 1);
-        sqlite3VdbeAddOp4(v, OP_String8, 0, 2, 0, pCol->zName, 0);
-        sqlite3VdbeAddOp4(v, OP_String8, 0, 3, 0,
+        v.AddOp2(OP_Integer, i-nHidden, 1);
+        v.AddOp4(OP_String8, 0, 2, 0, pCol->zName, 0);
+        v.AddOp4(OP_String8, 0, 3, 0,
            pCol->zType ? pCol->zType : "", 0);
-        sqlite3VdbeAddOp2(v, OP_Integer, (pCol->notNull ? 1 : 0), 4);
+        v.AddOp2(OP_Integer, (pCol->notNull ? 1 : 0), 4);
         if( pCol->zDflt ){
-          sqlite3VdbeAddOp4(v, OP_String8, 0, 5, 0, (char*)pCol->zDflt, 0);
+          v.AddOp4(OP_String8, 0, 5, 0, (char*)pCol->zDflt, 0);
         }else{
-          sqlite3VdbeAddOp2(v, OP_Null, 0, 5);
+          v.AddOp2(OP_Null, 0, 5);
         }
         if( (pCol->colFlags & COLFLAG_PRIMKEY)==0 ){
           k = 0;
@@ -75635,8 +75604,8 @@ const char *actionName(u8 action){
         }else{
           for(k=1; ALWAYS(k<=pTab->nCol) && pPk->aiColumn[k-1]!=i; k++){}
         }
-        sqlite3VdbeAddOp2(v, OP_Integer, k, 6);
-        sqlite3VdbeAddOp2(v, OP_ResultRow, 1, 6);
+        v.AddOp2(OP_Integer, k, 6);
+        v.AddOp2(OP_ResultRow, 1, 6);
       }
     }
   }else
@@ -75657,11 +75626,11 @@ const char *actionName(u8 action){
       sqlite3VdbeSetColName(v, 2, COLNAME_NAME, "name", SQLITE_STATIC);
       for(i=0; i<pIdx->nColumn; i++){
         int cnum = pIdx->aiColumn[i];
-        sqlite3VdbeAddOp2(v, OP_Integer, i, 1);
-        sqlite3VdbeAddOp2(v, OP_Integer, cnum, 2);
+        v.AddOp2(OP_Integer, i, 1);
+        v.AddOp2(OP_Integer, cnum, 2);
         assert( pTab->nCol>cnum );
-        sqlite3VdbeAddOp4(v, OP_String8, 0, 3, 0, pTab->aCol[cnum].zName, 0);
-        sqlite3VdbeAddOp2(v, OP_ResultRow, 1, 3);
+        v.AddOp4(OP_String8, 0, 3, 0, pTab->aCol[cnum].zName, 0);
+        v.AddOp2(OP_ResultRow, 1, 3);
       }
     }
   }else
@@ -75683,10 +75652,10 @@ const char *actionName(u8 action){
         sqlite3VdbeSetColName(v, 1, COLNAME_NAME, "name", SQLITE_STATIC);
         sqlite3VdbeSetColName(v, 2, COLNAME_NAME, "unique", SQLITE_STATIC);
         while(pIdx){
-          sqlite3VdbeAddOp2(v, OP_Integer, i, 1);
-          sqlite3VdbeAddOp4(v, OP_String8, 0, 2, 0, pIdx->zName, 0);
-          sqlite3VdbeAddOp2(v, OP_Integer, pIdx->onError!=OE_None, 3);
-          sqlite3VdbeAddOp2(v, OP_ResultRow, 1, 3);
+          v.AddOp2(OP_Integer, i, 1);
+          v.AddOp4(OP_String8, 0, 2, 0, pIdx->zName, 0);
+          v.AddOp2(OP_Integer, pIdx->onError!=OE_None, 3);
+          v.AddOp2(OP_ResultRow, 1, 3);
           ++i;
           pIdx = pIdx->pNext;
         }
@@ -75705,11 +75674,11 @@ const char *actionName(u8 action){
     for(i=0; i<db->nDb; i++){
       if( db->aDb[i].pBt==0 ) continue;
       assert( db->aDb[i].zName!=0 );
-      sqlite3VdbeAddOp2(v, OP_Integer, i, 1);
-      sqlite3VdbeAddOp4(v, OP_String8, 0, 2, 0, db->aDb[i].zName, 0);
-      sqlite3VdbeAddOp4(v, OP_String8, 0, 3, 0,
+      v.AddOp2(OP_Integer, i, 1);
+      v.AddOp4(OP_String8, 0, 2, 0, db->aDb[i].zName, 0);
+      v.AddOp4(OP_String8, 0, 3, 0,
            sqlite3BtreeGetFilename(db->aDb[i].pBt), 0);
-      sqlite3VdbeAddOp2(v, OP_ResultRow, 1, 3);
+      v.AddOp2(OP_ResultRow, 1, 3);
     }
   }else
 
@@ -75722,9 +75691,9 @@ const char *actionName(u8 action){
     sqlite3VdbeSetColName(v, 1, COLNAME_NAME, "name", SQLITE_STATIC);
 
 	for _, sequence := range db.CollationSequences {
-		sqlite3VdbeAddOp2(v, OP_Integer, i++, 1)
-		sqlite3VdbeAddOp4(v, OP_String8, 0, 2, 0, sequence.zName, 0)
-		sqlite3VdbeAddOp2(v, OP_ResultRow, 1, 2)
+		v.AddOp2(OP_Integer, i++, 1)
+		v.AddOp4(OP_String8, 0, 2, 0, sequence.zName, 0)
+		v.AddOp2(OP_ResultRow, 1, 2)
     }
   }else
 #endif /* SQLITE_OMIT_SCHEMA_PRAGMAS */
@@ -75757,16 +75726,16 @@ const char *actionName(u8 action){
             char *zCol = pFK->aCol[j].zCol;
             char *zOnDelete = (char *)actionName(pFK->aAction[0]);
             char *zOnUpdate = (char *)actionName(pFK->aAction[1]);
-            sqlite3VdbeAddOp2(v, OP_Integer, i, 1);
-            sqlite3VdbeAddOp2(v, OP_Integer, j, 2);
-            sqlite3VdbeAddOp4(v, OP_String8, 0, 3, 0, pFK->zTo, 0);
-            sqlite3VdbeAddOp4(v, OP_String8, 0, 4, 0,
+            v.AddOp2(OP_Integer, i, 1);
+            v.AddOp2(OP_Integer, j, 2);
+            v.AddOp4(OP_String8, 0, 3, 0, pFK->zTo, 0);
+            v.AddOp4(OP_String8, 0, 4, 0,
                               pTab->aCol[pFK->aCol[j].iFrom].zName, 0);
-            sqlite3VdbeAddOp4(v, zCol ? OP_String8 : OP_Null, 0, 5, 0, zCol, 0);
-            sqlite3VdbeAddOp4(v, OP_String8, 0, 6, 0, zOnUpdate, 0);
-            sqlite3VdbeAddOp4(v, OP_String8, 0, 7, 0, zOnDelete, 0);
-            sqlite3VdbeAddOp4(v, OP_String8, 0, 8, 0, "NONE", 0);
-            sqlite3VdbeAddOp2(v, OP_ResultRow, 1, 8);
+            v.AddOp4(zCol ? OP_String8 : OP_Null, 0, 5, 0, zCol, 0);
+            v.AddOp4(OP_String8, 0, 6, 0, zOnUpdate, 0);
+            v.AddOp4(OP_String8, 0, 7, 0, zOnDelete, 0);
+            v.AddOp4(OP_String8, 0, 8, 0, "NONE", 0);
+            v.AddOp2(OP_ResultRow, 1, 8);
           }
           ++i;
           pFK = pFK->pNextFrom;
@@ -75818,7 +75787,7 @@ const char *actionName(u8 action){
       sqlite3TableLock(pParse, iDb, pTab->tnum, 0, pTab->zName);
       if( pTab->nCol+regRow>pParse->nMem ) pParse->nMem = pTab->nCol + regRow;
       sqlite3OpenTable(pParse, 0, iDb, pTab, OP_OpenRead);
-      sqlite3VdbeAddOp4(v, OP_String8, 0, regResult, 0, pTab->zName,
+      v.AddOp4(OP_String8, 0, regResult, 0, pTab->zName,
                         P4_TRANSIENT);
       for(i=1, pFK=pTab->pFKey; pFK; i++, pFK=pFK->pNextFrom){
         pParent = sqlite3LocateTable(pParse, 0, pFK->zTo, zDb);
@@ -75831,7 +75800,7 @@ const char *actionName(u8 action){
             sqlite3OpenTable(pParse, i, iDb, pParent, OP_OpenRead);
           }else{
             KeyInfo *pKey = sqlite3IndexKeyinfo(pParse, pIdx);
-            sqlite3VdbeAddOp3(v, OP_OpenRead, i, pIdx->tnum, iDb);
+            v.AddOp3(OP_OpenRead, i, pIdx->tnum, iDb);
             sqlite3VdbeChangeP4(v, -1, (char*)pKey, P4_KEYINFO_HANDOFF);
           }
         }else{
@@ -75841,7 +75810,7 @@ const char *actionName(u8 action){
       }
       if( pFK ) break;
       if( pParse->nTab<i ) pParse->nTab = i;
-      addrTop = sqlite3VdbeAddOp1(v, OP_Rewind, 0);
+      addrTop = v.AddOp1(OP_Rewind, 0);
       for(i=1, pFK=pTab->pFKey; pFK; i++, pFK=pFK->pNextFrom){
         pParent = sqlite3LocateTable(pParse, 0, pFK->zTo, zDb);
         assert( pParent!=0 );
@@ -75854,37 +75823,36 @@ const char *actionName(u8 action){
           int iKey = pFK->aCol[0].iFrom;
           assert( iKey>=0 && iKey<pTab->nCol );
           if( iKey!=pTab->iPKey ){
-            sqlite3VdbeAddOp3(v, OP_Column, 0, iKey, regRow);
+            v.AddOp3(OP_Column, 0, iKey, regRow);
             sqlite3ColumnDefault(v, pTab, iKey, regRow);
-            sqlite3VdbeAddOp2(v, OP_IsNull, regRow, addrOk);
-            sqlite3VdbeAddOp2(v, OP_MustBeInt, regRow,
+            v.AddOp2(OP_IsNull, regRow, addrOk);
+            v.AddOp2(OP_MustBeInt, regRow,
                sqlite3VdbeCurrentAddr(v)+3);
           }else{
-            sqlite3VdbeAddOp2(v, OP_Rowid, 0, regRow);
+            v.AddOp2(OP_Rowid, 0, regRow);
           }
-          sqlite3VdbeAddOp3(v, OP_NotExists, i, 0, regRow);
-          sqlite3VdbeAddOp2(v, OP_Goto, 0, addrOk);
+          v.AddOp3(OP_NotExists, i, 0, regRow);
+          v.AddOp2(OP_Goto, 0, addrOk);
           sqlite3VdbeJumpHere(v, sqlite3VdbeCurrentAddr(v)-2);
         }else{
           for(j=0; j<pFK->nCol; j++){
             sqlite3ExprCodeGetColumnOfTable(v, pTab, 0,
                             aiCols ? aiCols[j] : pFK->aCol[0].iFrom, regRow+j);
-            sqlite3VdbeAddOp2(v, OP_IsNull, regRow+j, addrOk);
+            v.AddOp2(OP_IsNull, regRow+j, addrOk);
           }
-          sqlite3VdbeAddOp3(v, OP_MakeRecord, regRow, pFK->nCol, regKey);
-          sqlite3VdbeChangeP4(v, -1,
-                   sqlite3IndexAffinityStr(v,pIdx), P4_TRANSIENT);
-          sqlite3VdbeAddOp4Int(v, OP_Found, i, addrOk, regKey, 0);
+          v.AddOp3(OP_MakeRecord, regRow, pFK->nCol, regKey);
+          sqlite3VdbeChangeP4(v, -1, sqlite3IndexAffinityStr(v, pIdx), P4_TRANSIENT)
+          v.AddOp4(OP_Found, i, addrOk, regKey, 0)
         }
-        sqlite3VdbeAddOp2(v, OP_Rowid, 0, regResult+1);
-        sqlite3VdbeAddOp4(v, OP_String8, 0, regResult+2, 0, 
+        v.AddOp2(OP_Rowid, 0, regResult+1);
+        v.AddOp4(OP_String8, 0, regResult+2, 0, 
                           pFK->zTo, P4_TRANSIENT);
-        sqlite3VdbeAddOp2(v, OP_Integer, i-1, regResult+3);
-        sqlite3VdbeAddOp2(v, OP_ResultRow, regResult, 4);
+        v.AddOp2(OP_Integer, i-1, regResult+3);
+        v.AddOp2(OP_ResultRow, regResult, 4);
         sqlite3VdbeResolveLabel(v, addrOk);
         sqlite3DbFree(db, aiCols);
       }
-      sqlite3VdbeAddOp2(v, OP_Next, 0, addrTop+1);
+      v.AddOp2(OP_Next, 0, addrTop+1);
       sqlite3VdbeJumpHere(v, addrTop);
     }
   }else
@@ -75963,7 +75931,7 @@ const char *actionName(u8 action){
         mxErr = SQLITE_INTEGRITY_CHECK_ERROR_MAX;
       }
     }
-    sqlite3VdbeAddOp2(v, OP_Integer, mxErr, 1);  /* reg[1] holds errors left */
+    v.AddOp2(OP_Integer, mxErr, 1);  /* reg[1] holds errors left */
 
     /* Do an integrity check on each database file */
     for(i=0; i<db->nDb; i++){
@@ -75974,8 +75942,8 @@ const char *actionName(u8 action){
       if( iDb>=0 && i!=iDb ) continue;
 
       sqlite3CodeVerifySchema(pParse, i);
-      addr = sqlite3VdbeAddOp1(v, OP_IfPos, 1); /* Halt if out of errors */
-      sqlite3VdbeAddOp2(v, OP_Halt, 0, 0);
+      addr = v.AddOp1(OP_IfPos, 1); /* Halt if out of errors */
+      v.AddOp2(OP_Halt, 0, 0);
       sqlite3VdbeJumpHere(v, addr);
 
       /* Do an integrity check of the B-Tree
@@ -75988,10 +75956,10 @@ const char *actionName(u8 action){
       for(x=sqliteHashFirst(pTbls); x; x=sqliteHashNext(x)){
         Table *pTab = sqliteHashData(x);
         Index *pIdx;
-        sqlite3VdbeAddOp2(v, OP_Integer, pTab->tnum, 2+cnt);
+        v.AddOp2(OP_Integer, pTab->tnum, 2+cnt);
         cnt++;
         for(pIdx=pTab->pIndex; pIdx; pIdx=pIdx->pNext){
-          sqlite3VdbeAddOp2(v, OP_Integer, pIdx->tnum, 2+cnt);
+          v.AddOp2(OP_Integer, pIdx->tnum, 2+cnt);
           cnt++;
         }
       }
@@ -76002,15 +75970,15 @@ const char *actionName(u8 action){
       }
 
       /* Do the b-tree integrity checks */
-      sqlite3VdbeAddOp3(v, OP_IntegrityCk, 2, cnt, 1);
+      v.AddOp3(OP_IntegrityCk, 2, cnt, 1);
       sqlite3VdbeChangeP5(v, (u8)i);
-      addr = sqlite3VdbeAddOp1(v, OP_IsNull, 2);
-      sqlite3VdbeAddOp4(v, OP_String8, 0, 3, 0,
+      addr = v.AddOp1(OP_IsNull, 2);
+      v.AddOp4(OP_String8, 0, 3, 0,
          sqlite3MPrintf(db, "*** in database %s ***\n", db->aDb[i].zName),
          P4_DYNAMIC);
-      sqlite3VdbeAddOp2(v, OP_Move, 2, 4);
-      sqlite3VdbeAddOp3(v, OP_Concat, 4, 3, 2);
-      sqlite3VdbeAddOp2(v, OP_ResultRow, 2, 1);
+      v.AddOp2(OP_Move, 2, 4);
+      v.AddOp3(OP_Concat, 4, 3, 2);
+      v.AddOp2(OP_ResultRow, 2, 1);
       sqlite3VdbeJumpHere(v, addr);
 
       /* Make sure all the indices are constructed correctly.
@@ -76021,13 +75989,13 @@ const char *actionName(u8 action){
         int loopTop;
 
         if( pTab->pIndex==0 ) continue;
-        addr = sqlite3VdbeAddOp1(v, OP_IfPos, 1);  /* Stop if out of errors */
-        sqlite3VdbeAddOp2(v, OP_Halt, 0, 0);
+        addr = v.AddOp1(OP_IfPos, 1);  /* Stop if out of errors */
+        v.AddOp2(OP_Halt, 0, 0);
         sqlite3VdbeJumpHere(v, addr);
         sqlite3OpenTableAndIndices(pParse, pTab, 1, OP_OpenRead);
-        sqlite3VdbeAddOp2(v, OP_Integer, 0, 2);  /* reg(2) will count entries */
-        loopTop = sqlite3VdbeAddOp2(v, OP_Rewind, 1, 0);
-        sqlite3VdbeAddOp2(v, OP_AddImm, 2, 1);   /* increment entry count */
+        v.AddOp2(OP_Integer, 0, 2);  /* reg(2) will count entries */
+        loopTop = v.AddOp2(OP_Rewind, 1, 0);
+        v.AddOp2(OP_AddImm, 2, 1);   /* increment entry count */
         for(j=0, pIdx=pTab->pIndex; pIdx; pIdx=pIdx->pNext, j++){
           int jmp2;
           int r1;
@@ -76045,7 +76013,7 @@ const char *actionName(u8 action){
             { OP_Halt,        0,  0,  0},
           };
           r1 = sqlite3GenerateIndexKey(pParse, pIdx, 1, 3, 0);
-          jmp2 = sqlite3VdbeAddOp4Int(v, OP_Found, j+2, 0, r1, pIdx->nColumn+1);
+          jmp2 = v.AddOp4(OP_Found, j + 2, 0, r1, pIdx.nColumn + 1)
           addr = sqlite3VdbeAddOpList(v, ArraySize(idxErr), idxErr);
           sqlite3VdbeChangeP4(v, addr+1, "rowid ", P4_STATIC);
           sqlite3VdbeChangeP4(v, addr+3, " missing from index ", P4_STATIC);
@@ -76053,7 +76021,7 @@ const char *actionName(u8 action){
           sqlite3VdbeJumpHere(v, addr+9);
           sqlite3VdbeJumpHere(v, jmp2);
         }
-        sqlite3VdbeAddOp2(v, OP_Next, 1, loopTop+1);
+        v.AddOp2(OP_Next, 1, loopTop+1);
         sqlite3VdbeJumpHere(v, loopTop);
         for(j=0, pIdx=pTab->pIndex; pIdx; pIdx=pIdx->pNext, j++){
           const VdbeOpList cntIdx[] = {
@@ -76068,8 +76036,8 @@ const char *actionName(u8 action){
              { OP_Concat,       3,  2,  2},
              { OP_ResultRow,    2,  1,  0},
           };
-          addr = sqlite3VdbeAddOp1(v, OP_IfPos, 1);
-          sqlite3VdbeAddOp2(v, OP_Halt, 0, 0);
+          addr = v.AddOp1(OP_IfPos, 1);
+          v.AddOp2(OP_Halt, 0, 0);
           sqlite3VdbeJumpHere(v, addr);
           addr = sqlite3VdbeAddOpList(v, ArraySize(cntIdx), cntIdx);
           sqlite3VdbeChangeP1(v, addr+1, j+2);
@@ -76123,7 +76091,7 @@ const char *actionName(u8 action){
   */
   if CaseInsensitiveComparison(zLeft, "schema_version") == 0 || CaseInsensitiveComparison(zLeft, "user_version") == 0 || CaseInsensitiveComparison(zLeft, "freelist_count") == 0 || CaseInsensitiveComparison(zLeft, "application_id") == 0 {
     int iCookie;   /* Cookie index. 1 for schema-cookie, 6 for user-cookie. */
-    sqlite3VdbeUsesBtree(v, iDb);
+    v.UsesBtree(iDb);
     switch( zLeft[0] ){
       case 'a': case 'A':
         iCookie = BTREE_APPLICATION_ID;
@@ -76182,8 +76150,8 @@ const char *actionName(u8 action){
     pParse->nMem = 1;
     sqlite3VdbeSetColName(v, 0, COLNAME_NAME, "compile_option", SQLITE_STATIC);
     while( (zOpt = sqlite3_compileoption_get(i++))!=0 ){
-      sqlite3VdbeAddOp4(v, OP_String8, 0, 1, 0, zOpt, 0);
-      sqlite3VdbeAddOp2(v, OP_ResultRow, 1, 1);
+      v.AddOp4(OP_String8, 0, 1, 0, zOpt, 0);
+      v.AddOp2(OP_ResultRow, 1, 1);
     }
   }else
 #endif /* SQLITE_OMIT_COMPILEOPTION_DIAGS */
@@ -76211,8 +76179,8 @@ const char *actionName(u8 action){
     sqlite3VdbeSetColName(v, 1, COLNAME_NAME, "log", SQLITE_STATIC);
     sqlite3VdbeSetColName(v, 2, COLNAME_NAME, "checkpointed", SQLITE_STATIC);
 
-    sqlite3VdbeAddOp3(v, OP_Checkpoint, iBt, eMode, 1);
-    sqlite3VdbeAddOp2(v, OP_ResultRow, 1, 3);
+    v.AddOp3(OP_Checkpoint, iBt, eMode, 1);
+    v.AddOp2(OP_ResultRow, 1, 3);
   }else
 
   /*
@@ -76277,7 +76245,7 @@ const char *actionName(u8 action){
       const char *zState = "unknown";
       int j;
       if( db->aDb[i].zName==0 ) continue;
-      sqlite3VdbeAddOp4(v, OP_String8, 0, 1, 0, db->aDb[i].zName, P4_STATIC);
+      v.AddOp4(OP_String8, 0, 1, 0, db->aDb[i].zName, P4_STATIC);
       pBt = db->aDb[i].pBt;
       if( pBt==0 || sqlite3BtreePager(pBt)==0 ){
         zState = "closed";
@@ -76285,8 +76253,8 @@ const char *actionName(u8 action){
                                      SQLITE_FCNTL_LOCKSTATE, &j)==SQLITE_OK ){
          zState = azLockName[j];
       }
-      sqlite3VdbeAddOp4(v, OP_String8, 0, 2, 0, zState, P4_STATIC);
-      sqlite3VdbeAddOp2(v, OP_ResultRow, 1, 2);
+      v.AddOp4(OP_String8, 0, 2, 0, zState, P4_STATIC);
+      v.AddOp2(OP_ResultRow, 1, 2);
     }
 
   }else
@@ -77422,15 +77390,15 @@ void pushOntoSorter(
   int op;
   sqlite3ExprCacheClear(pParse);
   sqlite3ExprCodeExprList(pParse, pOrderBy, regBase, 0);
-  sqlite3VdbeAddOp2(v, OP_Sequence, pOrderBy->iECursor, regBase+nExpr);
+  v.AddOp2(OP_Sequence, pOrderBy->iECursor, regBase+nExpr);
   sqlite3ExprCodeMove(pParse, regData, regBase+nExpr+1, 1);
-  sqlite3VdbeAddOp3(v, OP_MakeRecord, regBase, nExpr + 2, regRecord);
+  v.AddOp3(OP_MakeRecord, regBase, nExpr + 2, regRecord);
   if( pSelect->selFlags & SF_UseSorter ){
     op = OP_SorterInsert;
   }else{
     op = OP_IdxInsert;
   }
-  sqlite3VdbeAddOp2(v, op, pOrderBy->iECursor, regRecord);
+  v.AddOp2(op, pOrderBy->iECursor, regRecord);
   sqlite3ReleaseTempReg(pParse, regRecord);
   sqlite3ReleaseTempRange(pParse, regBase, nExpr+2);
   if( pSelect->iLimit ){
@@ -77441,12 +77409,12 @@ void pushOntoSorter(
     }else{
       iLimit = pSelect->iLimit;
     }
-    addr1 = sqlite3VdbeAddOp1(v, OP_IfZero, iLimit);
-    sqlite3VdbeAddOp2(v, OP_AddImm, iLimit, -1);
-    addr2 = sqlite3VdbeAddOp0(v, OP_Goto);
+    addr1 = v.AddOp1(OP_IfZero, iLimit);
+    v.AddOp2(OP_AddImm, iLimit, -1);
+    addr2 = v.AddOp0(OP_Goto);
     sqlite3VdbeJumpHere(v, addr1);
-    sqlite3VdbeAddOp1(v, OP_Last, pOrderBy->iECursor);
-    sqlite3VdbeAddOp1(v, OP_Delete, pOrderBy->iECursor);
+    v.AddOp1(OP_Last, pOrderBy->iECursor);
+    v.AddOp1(OP_Delete, pOrderBy->iECursor);
     sqlite3VdbeJumpHere(v, addr2);
   }
 }
@@ -77461,9 +77429,9 @@ void codeOffset(
 ){
   if( p->iOffset && iContinue!=0 ){
     int addr;
-    sqlite3VdbeAddOp2(v, OP_AddImm, p->iOffset, -1);
-    addr = sqlite3VdbeAddOp1(v, OP_IfNeg, p->iOffset);
-    sqlite3VdbeAddOp2(v, OP_Goto, 0, iContinue);
+    v.AddOp2(OP_AddImm, p->iOffset, -1);
+    addr = v.AddOp1(OP_IfNeg, p->iOffset);
+    v.AddOp2(OP_Goto, 0, iContinue);
     VdbeComment((v, "skip OFFSET records"));
     sqlite3VdbeJumpHere(v, addr);
   }
@@ -77478,22 +77446,13 @@ void codeOffset(
 ** A jump to addrRepeat is made and the N+1 values are popped from the
 ** stack if the top N elements are not distinct.
 */
-void codeDistinct(
-  Parse *pParse,     /* Parsing and code generating context */
-  int iTab,          /* A sorting index used to test for distinctness */
-  int addrRepeat,    /* Jump to here if not distinct */
-  int N,             /* Number of elements */
-  int iMem           /* First element */
-){
-  Vdbe *v;
-  int r1;
-
-  v = pParse->pVdbe;
-  r1 = sqlite3GetTempReg(pParse);
-  sqlite3VdbeAddOp4Int(v, OP_Found, iTab, addrRepeat, iMem, N);
-  sqlite3VdbeAddOp3(v, OP_MakeRecord, iMem, N, r1);
-  sqlite3VdbeAddOp2(v, OP_IdxInsert, iTab, r1);
-  sqlite3ReleaseTempReg(pParse, r1);
+func (pParse *Parse) codeDistinct(iTab, addrRepeat, N, iMem int) {
+	v := pParse.pVdbe
+	r1 := sqlite3GetTempReg(pParse)
+	v.AddOp4(OP_Found, iTab, addrRepeat, iMem, N)
+	v.AddOp3(OP_MakeRecord, iMem, N, r1)
+	v.AddOp2(OP_IdxInsert, iTab, r1)
+	sqlite3ReleaseTempReg(pParse, r1)
 }
 
 #ifndef SQLITE_OMIT_SUBQUERY
@@ -77585,7 +77544,7 @@ void selectInnerLoop(
   regResult = pDest->iSdst;
   if( nColumn>0 ){
     for(i=0; i<nColumn; i++){
-      sqlite3VdbeAddOp3(v, OP_Column, srcTab, i, regResult+i);
+      v.AddOp3(OP_Column, srcTab, i, regResult+i);
     }
   }else if( eDest!=SRT_Exists ){
     /* If the destination is an EXISTS(...) expression, the actual
@@ -77629,15 +77588,15 @@ void selectInnerLoop(
         for(i=0; i<nColumn; i++){
           CollationSequence *pColl = sqlite3ExprCollSeq(pParse, pEList->a[i].pExpr);
           if( i<nColumn-1 ){
-            sqlite3VdbeAddOp3(v, OP_Ne, regResult+i, iJump, regPrev+i);
+            v.AddOp3(OP_Ne, regResult+i, iJump, regPrev+i);
           }else{
-            sqlite3VdbeAddOp3(v, OP_Eq, regResult+i, iContinue, regPrev+i);
+            v.AddOp3(OP_Eq, regResult+i, iContinue, regPrev+i);
           }
-          sqlite3VdbeChangeP4(v, -1, (const char *)pColl, P4_COLLSEQ);
-          sqlite3VdbeChangeP5(v, SQLITE_NULLEQ);
+          sqlite3VdbeChangeP4(v, -1, pColl)
+          sqlite3VdbeChangeP5(v, SQLITE_NULLEQ)
         }
         assert( sqlite3VdbeCurrentAddr(v)==iJump );
-        sqlite3VdbeAddOp3(v, OP_Copy, regResult, regPrev, nColumn-1);
+        v.AddOp3(OP_Copy, regResult, regPrev, nColumn-1);
         break;
       }
 
@@ -77648,7 +77607,7 @@ void selectInnerLoop(
 
       default: {
         assert( pDistinct->eTnctType==WHERE_DISTINCT_UNORDERED );
-        codeDistinct(pParse, pDistinct->tabTnct, iContinue, nColumn, regResult);
+        pParse.codeDistinct(pDistinct.tabTnct, iContinue, nColumn, regResult)
         break;
       }
     }
@@ -77665,8 +77624,8 @@ void selectInnerLoop(
     case SRT_Union: {
       int r1;
       r1 = sqlite3GetTempReg(pParse);
-      sqlite3VdbeAddOp3(v, OP_MakeRecord, regResult, nColumn, r1);
-      sqlite3VdbeAddOp2(v, OP_IdxInsert, iParm, r1);
+      v.AddOp3(OP_MakeRecord, regResult, nColumn, r1);
+      v.AddOp2(OP_IdxInsert, iParm, r1);
       sqlite3ReleaseTempReg(pParse, r1);
       break;
     }
@@ -77676,7 +77635,7 @@ void selectInnerLoop(
     ** the temporary table iParm.
     */
     case SRT_Except: {
-      sqlite3VdbeAddOp3(v, OP_IdxDelete, iParm, regResult, nColumn);
+      v.AddOp3(OP_IdxDelete, iParm, regResult, nColumn);
       break;
     }
 #endif
@@ -77686,13 +77645,13 @@ void selectInnerLoop(
     case SRT_Table:
     case SRT_EphemTab: {
       int r1 = sqlite3GetTempReg(pParse);
-      sqlite3VdbeAddOp3(v, OP_MakeRecord, regResult, nColumn, r1);
+      v.AddOp3(OP_MakeRecord, regResult, nColumn, r1);
       if( pOrderBy ){
         pushOntoSorter(pParse, pOrderBy, p, r1);
       }else{
         int r2 = sqlite3GetTempReg(pParse);
-        sqlite3VdbeAddOp2(v, OP_NewRowid, iParm, r2);
-        sqlite3VdbeAddOp3(v, OP_Insert, iParm, r1, r2);
+        v.AddOp2(OP_NewRowid, iParm, r2);
+        v.AddOp3(OP_Insert, iParm, r1, r2);
         sqlite3VdbeChangeP5(v, OPFLAG_APPEND);
         sqlite3ReleaseTempReg(pParse, r2);
       }
@@ -77717,9 +77676,9 @@ void selectInnerLoop(
         pushOntoSorter(pParse, pOrderBy, p, regResult);
       }else{
         int r1 = sqlite3GetTempReg(pParse);
-        sqlite3VdbeAddOp4(v, OP_MakeRecord, regResult,1,r1, &pDest->affSdst, 1);
+        v.AddOp4(OP_MakeRecord, regResult,1,r1, &pDest->affSdst, 1);
         sqlite3ExprCacheAffinityChange(pParse, regResult, 1);
-        sqlite3VdbeAddOp2(v, OP_IdxInsert, iParm, r1);
+        v.AddOp2(OP_IdxInsert, iParm, r1);
         sqlite3ReleaseTempReg(pParse, r1);
       }
       break;
@@ -77728,7 +77687,7 @@ void selectInnerLoop(
     /* If any row exist in the result set, record that fact and abort.
     */
     case SRT_Exists: {
-      sqlite3VdbeAddOp2(v, OP_Integer, 1, iParm);
+      v.AddOp2(OP_Integer, 1, iParm);
       /* The LIMIT clause will terminate the loop for us */
       break;
     }
@@ -77757,13 +77716,13 @@ void selectInnerLoop(
     case SRT_Output: {
       if( pOrderBy ){
         int r1 = sqlite3GetTempReg(pParse);
-        sqlite3VdbeAddOp3(v, OP_MakeRecord, regResult, nColumn, r1);
+        v.AddOp3(OP_MakeRecord, regResult, nColumn, r1);
         pushOntoSorter(pParse, pOrderBy, p, r1);
         sqlite3ReleaseTempReg(pParse, r1);
       }else if( eDest==SRT_Coroutine ){
-        sqlite3VdbeAddOp1(v, OP_Yield, pDest->iSDParm);
+        v.AddOp1(OP_Yield, pDest->iSDParm);
       }else{
-        sqlite3VdbeAddOp2(v, OP_ResultRow, regResult, nColumn);
+        v.AddOp2(OP_ResultRow, regResult, nColumn);
         sqlite3ExprCacheAffinityChange(pParse, regResult, nColumn);
       }
       break;
@@ -77785,7 +77744,7 @@ void selectInnerLoop(
   ** the output for us.
   */
   if( pOrderBy==0 && p->iLimit ){
-    sqlite3VdbeAddOp3(v, OP_IfZero, p->iLimit, iBreak, -1);
+    v.AddOp3(OP_IfZero, p->iLimit, iBreak, -1);
   }
 }
 
@@ -77861,7 +77820,7 @@ void explainTempTable(Parse *pParse, const char *zUsage){
   if( pParse->explain==2 ){
     Vdbe *v = pParse->pVdbe;
     char *zMsg = sqlite3MPrintf(pParse->db, "USE TEMP B-TREE FOR %s", zUsage);
-    sqlite3VdbeAddOp4(v, OP_Explain, pParse->iSelectId, 0, 0, zMsg, P4_DYNAMIC);
+    v.AddOp4(OP_Explain, pParse->iSelectId, 0, 0, zMsg, P4_DYNAMIC);
   }
 }
 
@@ -77909,7 +77868,7 @@ void explainComposite(
         pParse->db, "COMPOUND SUBQUERIES %d AND %d %s(%s)", iSub1, iSub2,
         bUseTmp?"USING TEMP B-TREE ":"", selectOpName(op)
     );
-    sqlite3VdbeAddOp4(v, OP_Explain, pParse->iSelectId, 0, 0, zMsg, P4_DYNAMIC);
+    v.AddOp4(OP_Explain, pParse->iSelectId, 0, 0, zMsg, P4_DYNAMIC);
   }
 }
 #else
@@ -77947,7 +77906,7 @@ void generateSortTail(
   regRow = sqlite3GetTempReg(pParse);
   if( eDest==SRT_Output || eDest==SRT_Coroutine ){
     pseudoTab = pParse->nTab++;
-    sqlite3VdbeAddOp3(v, OP_OpenPseudo, pseudoTab, regRow, nColumn);
+    v.AddOp3(OP_OpenPseudo, pseudoTab, regRow, nColumn);
     regRowid = 0;
   }else{
     regRowid = sqlite3GetTempReg(pParse);
@@ -77955,32 +77914,32 @@ void generateSortTail(
   if( p->selFlags & SF_UseSorter ){
     int regSortOut = ++pParse->nMem;
     int ptab2 = pParse->nTab++;
-    sqlite3VdbeAddOp3(v, OP_OpenPseudo, ptab2, regSortOut, pOrderBy->nExpr+2);
-    addr = 1 + sqlite3VdbeAddOp2(v, OP_SorterSort, iTab, addrBreak);
+    v.AddOp3(OP_OpenPseudo, ptab2, regSortOut, pOrderBy->nExpr+2);
+    addr = 1 + v.AddOp2(OP_SorterSort, iTab, addrBreak);
     codeOffset(v, p, addrContinue);
-    sqlite3VdbeAddOp2(v, OP_SorterData, iTab, regSortOut);
-    sqlite3VdbeAddOp3(v, OP_Column, ptab2, pOrderBy->nExpr+1, regRow);
+    v.AddOp2(OP_SorterData, iTab, regSortOut);
+    v.AddOp3(OP_Column, ptab2, pOrderBy->nExpr+1, regRow);
     sqlite3VdbeChangeP5(v, OPFLAG_CLEARCACHE);
   }else{
-    addr = 1 + sqlite3VdbeAddOp2(v, OP_Sort, iTab, addrBreak);
+    addr = 1 + v.AddOp2(OP_Sort, iTab, addrBreak);
     codeOffset(v, p, addrContinue);
-    sqlite3VdbeAddOp3(v, OP_Column, iTab, pOrderBy->nExpr+1, regRow);
+    v.AddOp3(OP_Column, iTab, pOrderBy->nExpr+1, regRow);
   }
   switch( eDest ){
     case SRT_Table:
     case SRT_EphemTab: {
-      sqlite3VdbeAddOp2(v, OP_NewRowid, iParm, regRowid);
-      sqlite3VdbeAddOp3(v, OP_Insert, iParm, regRow, regRowid);
+      v.AddOp2(OP_NewRowid, iParm, regRowid);
+      v.AddOp3(OP_Insert, iParm, regRow, regRowid);
       sqlite3VdbeChangeP5(v, OPFLAG_APPEND);
       break;
     }
 #ifndef SQLITE_OMIT_SUBQUERY
     case SRT_Set: {
       assert( nColumn==1 );
-      sqlite3VdbeAddOp4(v, OP_MakeRecord, regRow, 1, regRowid,
+      v.AddOp4(OP_MakeRecord, regRow, 1, regRowid,
                         &pDest->affSdst, 1);
       sqlite3ExprCacheAffinityChange(pParse, regRow, 1);
-      sqlite3VdbeAddOp2(v, OP_IdxInsert, iParm, regRowid);
+      v.AddOp2(OP_IdxInsert, iParm, regRowid);
       break;
     }
     case SRT_Mem: {
@@ -77995,16 +77954,16 @@ void generateSortTail(
       assert( eDest==SRT_Output || eDest==SRT_Coroutine ); 
       for(i=0; i<nColumn; i++){
         assert( regRow!=pDest->iSdst+i );
-        sqlite3VdbeAddOp3(v, OP_Column, pseudoTab, i, pDest->iSdst+i);
+        v.AddOp3(OP_Column, pseudoTab, i, pDest->iSdst+i);
         if( i==0 ){
           sqlite3VdbeChangeP5(v, OPFLAG_CLEARCACHE);
         }
       }
       if( eDest==SRT_Output ){
-        sqlite3VdbeAddOp2(v, OP_ResultRow, pDest->iSdst, nColumn);
+        v.AddOp2(OP_ResultRow, pDest->iSdst, nColumn);
         sqlite3ExprCacheAffinityChange(pParse, pDest->iSdst, nColumn);
       }else{
-        sqlite3VdbeAddOp1(v, OP_Yield, pDest->iSDParm);
+        v.AddOp1(OP_Yield, pDest->iSDParm);
       }
       break;
     }
@@ -78016,13 +77975,13 @@ void generateSortTail(
   */
   sqlite3VdbeResolveLabel(v, addrContinue);
   if( p->selFlags & SF_UseSorter ){
-    sqlite3VdbeAddOp2(v, OP_SorterNext, iTab, addr);
+    v.AddOp2(OP_SorterNext, iTab, addr);
   }else{
-    sqlite3VdbeAddOp2(v, OP_Next, iTab, addr);
+    v.AddOp2(OP_Next, iTab, addr);
   }
   sqlite3VdbeResolveLabel(v, addrBreak);
   if( eDest==SRT_Output || eDest==SRT_Coroutine ){
-    sqlite3VdbeAddOp2(v, OP_Close, pseudoTab, 0);
+    v.AddOp2(OP_Close, pseudoTab, 0);
   }
 }
 
@@ -78457,7 +78416,7 @@ void selectAddColumnTypeAndCollation(
   if( v==0 ){
     v = pParse->pVdbe = sqlite3VdbeCreate(pParse->db);
     if( v ){
-      sqlite3VdbeAddOp0(v, OP_Trace);
+      v.AddOp0(OP_Trace);
     }
   }
   return v;
@@ -78502,32 +78461,32 @@ void computeLimitRegisters(Parse *pParse, Select *p, int iBreak){
     v = sqlite3GetVdbe(pParse);
     if( NEVER(v==0) ) return;  /* VDBE should have already been allocated */
     if( sqlite3ExprIsInteger(p->pLimit, &n) ){
-      sqlite3VdbeAddOp2(v, OP_Integer, n, iLimit);
+      v.AddOp2(OP_Integer, n, iLimit);
       VdbeComment((v, "LIMIT counter"));
       if( n==0 ){
-        sqlite3VdbeAddOp2(v, OP_Goto, 0, iBreak);
+        v.AddOp2(OP_Goto, 0, iBreak);
       }else{
         if( p->nSelectRow > (float64)n ) p->nSelectRow = (float64)n;
       }
     }else{
       sqlite3ExprCode(pParse, p->pLimit, iLimit);
-      sqlite3VdbeAddOp1(v, OP_MustBeInt, iLimit);
+      v.AddOp1(OP_MustBeInt, iLimit);
       VdbeComment((v, "LIMIT counter"));
-      sqlite3VdbeAddOp2(v, OP_IfZero, iLimit, iBreak);
+      v.AddOp2(OP_IfZero, iLimit, iBreak);
     }
     if( p->pOffset ){
       p->iOffset = iOffset = ++pParse->nMem;
       pParse->nMem++;   /* Allocate an extra register for limit+offset */
       sqlite3ExprCode(pParse, p->pOffset, iOffset);
-      sqlite3VdbeAddOp1(v, OP_MustBeInt, iOffset);
+      v.AddOp1(OP_MustBeInt, iOffset);
       VdbeComment((v, "OFFSET counter"));
-      addr1 = sqlite3VdbeAddOp1(v, OP_IfPos, iOffset);
-      sqlite3VdbeAddOp2(v, OP_Integer, 0, iOffset);
+      addr1 = v.AddOp1(OP_IfPos, iOffset);
+      v.AddOp2(OP_Integer, 0, iOffset);
       sqlite3VdbeJumpHere(v, addr1);
-      sqlite3VdbeAddOp3(v, OP_Add, iLimit, iOffset, iOffset+1);
+      v.AddOp3(OP_Add, iLimit, iOffset, iOffset+1);
       VdbeComment((v, "LIMIT+OFFSET"));
-      addr1 = sqlite3VdbeAddOp1(v, OP_IfPos, iLimit);
-      sqlite3VdbeAddOp2(v, OP_Integer, -1, iOffset+1);
+      addr1 = v.AddOp1(OP_IfPos, iLimit);
+      v.AddOp2(OP_Integer, -1, iOffset+1);
       sqlite3VdbeJumpHere(v, addr1);
     }
   }
@@ -78640,7 +78599,7 @@ int multiSelect(
   */
   if( dest.eDest==SRT_EphemTab ){
     assert( p->pEList );
-    sqlite3VdbeAddOp2(v, OP_OpenEphemeral, dest.iSDParm, p->pEList->nExpr);
+    v.AddOp2(OP_OpenEphemeral, dest.iSDParm, p->pEList->nExpr);
     sqlite3VdbeChangeP5(v, BTREE_UNORDERED);
     dest.eDest = SRT_Table;
   }
@@ -78687,7 +78646,7 @@ int multiSelect(
       p->iLimit = pPrior->iLimit;
       p->iOffset = pPrior->iOffset;
       if( p->iLimit ){
-        addr = sqlite3VdbeAddOp1(v, OP_IfZero, p->iLimit);
+        addr = v.AddOp1(OP_IfZero, p->iLimit);
         VdbeComment((v, "Jump ahead if LIMIT reached"));
       }
       explainSetInteger(iSub2, pParse->iNextSelectId);
@@ -78731,7 +78690,7 @@ int multiSelect(
         */
         unionTab = pParse->nTab++;
         assert( p->pOrderBy==0 );
-        addr = sqlite3VdbeAddOp2(v, OP_OpenEphemeral, unionTab, 0);
+        addr = v.AddOp2(OP_OpenEphemeral, unionTab, 0);
         assert( p->addrOpenEphm[0] == -1 );
         p->addrOpenEphm[0] = addr;
         p->pRightmost->selFlags |= SF_UsesEphemeral;
@@ -78792,14 +78751,14 @@ int multiSelect(
         iBreak = sqlite3VdbeMakeLabel(v);
         iCont = sqlite3VdbeMakeLabel(v);
         computeLimitRegisters(pParse, p, iBreak);
-        sqlite3VdbeAddOp2(v, OP_Rewind, unionTab, iBreak);
+        v.AddOp2(OP_Rewind, unionTab, iBreak);
         iStart = sqlite3VdbeCurrentAddr(v);
         selectInnerLoop(pParse, p, p->pEList, unionTab, p->pEList->nExpr,
                         0, 0, &dest, iCont, iBreak);
         sqlite3VdbeResolveLabel(v, iCont);
-        sqlite3VdbeAddOp2(v, OP_Next, unionTab, iStart);
+        v.AddOp2(OP_Next, unionTab, iStart);
         sqlite3VdbeResolveLabel(v, iBreak);
-        sqlite3VdbeAddOp2(v, OP_Close, unionTab, 0);
+        v.AddOp2(OP_Close, unionTab, 0);
       }
       break;
     }
@@ -78819,7 +78778,7 @@ int multiSelect(
       tab2 = pParse->nTab++;
       assert( p->pOrderBy==0 );
 
-      addr = sqlite3VdbeAddOp2(v, OP_OpenEphemeral, tab1, 0);
+      addr = v.AddOp2(OP_OpenEphemeral, tab1, 0);
       assert( p->addrOpenEphm[0] == -1 );
       p->addrOpenEphm[0] = addr;
       p->pRightmost->selFlags |= SF_UsesEphemeral;
@@ -78836,7 +78795,7 @@ int multiSelect(
 
       /* Code the current SELECT into temporary table "tab2"
       */
-      addr = sqlite3VdbeAddOp2(v, OP_OpenEphemeral, tab2, 0);
+      addr = v.AddOp2(OP_OpenEphemeral, tab2, 0);
       assert( p->addrOpenEphm[1] == -1 );
       p->addrOpenEphm[1] = addr;
       p->pPrior = 0;
@@ -78866,18 +78825,18 @@ int multiSelect(
       iBreak = sqlite3VdbeMakeLabel(v);
       iCont = sqlite3VdbeMakeLabel(v);
       computeLimitRegisters(pParse, p, iBreak);
-      sqlite3VdbeAddOp2(v, OP_Rewind, tab1, iBreak);
+      v.AddOp2(OP_Rewind, tab1, iBreak);
       r1 = sqlite3GetTempReg(pParse);
-      iStart = sqlite3VdbeAddOp2(v, OP_RowKey, tab1, r1);
-      sqlite3VdbeAddOp4Int(v, OP_NotFound, tab2, iCont, r1, 0);
+      iStart = v.AddOp2(OP_RowKey, tab1, r1);
+      v.VdbeAddOp4(OP_NotFound, tab2, iCont, r1, 0)
       sqlite3ReleaseTempReg(pParse, r1);
       selectInnerLoop(pParse, p, p->pEList, tab1, p->pEList->nExpr,
                       0, 0, &dest, iCont, iBreak);
       sqlite3VdbeResolveLabel(v, iCont);
-      sqlite3VdbeAddOp2(v, OP_Next, tab1, iStart);
+      v.AddOp2(OP_Next, tab1, iStart);
       sqlite3VdbeResolveLabel(v, iBreak);
-      sqlite3VdbeAddOp2(v, OP_Close, tab2, 0);
-      sqlite3VdbeAddOp2(v, OP_Close, tab1, 0);
+      v.AddOp2(OP_Close, tab2, 0);
+      v.AddOp2(OP_Close, tab1, 0);
       break;
     }
   }
@@ -78986,13 +78945,13 @@ int generateOutputSubroutine(
   */
   if( regPrev ){
     int j1, j2;
-    j1 = sqlite3VdbeAddOp1(v, OP_IfNot, regPrev);
-    j2 = sqlite3VdbeAddOp4(v, OP_Compare, pIn->iSdst, regPrev+1, pIn->nSdst,
+    j1 = v.AddOp1(OP_IfNot, regPrev);
+    j2 = v.AddOp4(OP_Compare, pIn->iSdst, regPrev+1, pIn->nSdst,
                               (char*)pKeyInfo, p4type);
-    sqlite3VdbeAddOp3(v, OP_Jump, j2+2, iContinue, j2+2);
+    v.AddOp3(OP_Jump, j2+2, iContinue, j2+2);
     sqlite3VdbeJumpHere(v, j1);
-    sqlite3VdbeAddOp3(v, OP_Copy, pIn->iSdst, regPrev+1, pIn->nSdst-1);
-    sqlite3VdbeAddOp2(v, OP_Integer, 1, regPrev);
+    v.AddOp3(OP_Copy, pIn->iSdst, regPrev+1, pIn->nSdst-1);
+    v.AddOp2(OP_Integer, 1, regPrev);
   }
   if( pParse->db->mallocFailed ) return 0;
 
@@ -79007,9 +78966,9 @@ int generateOutputSubroutine(
     case SRT_EphemTab: {
       int r1 = sqlite3GetTempReg(pParse);
       int r2 = sqlite3GetTempReg(pParse);
-      sqlite3VdbeAddOp3(v, OP_MakeRecord, pIn->iSdst, pIn->nSdst, r1);
-      sqlite3VdbeAddOp2(v, OP_NewRowid, pDest->iSDParm, r2);
-      sqlite3VdbeAddOp3(v, OP_Insert, pDest->iSDParm, r1, r2);
+      v.AddOp3(OP_MakeRecord, pIn->iSdst, pIn->nSdst, r1);
+      v.AddOp2(OP_NewRowid, pDest->iSDParm, r2);
+      v.AddOp3(OP_Insert, pDest->iSDParm, r1, r2);
       sqlite3VdbeChangeP5(v, OPFLAG_APPEND);
       sqlite3ReleaseTempReg(pParse, r2);
       sqlite3ReleaseTempReg(pParse, r1);
@@ -79027,9 +78986,9 @@ int generateOutputSubroutine(
       pDest->affSdst = 
          sqlite3CompareAffinity(p->pEList->a[0].pExpr, pDest->affSdst);
       r1 = sqlite3GetTempReg(pParse);
-      sqlite3VdbeAddOp4(v, OP_MakeRecord, pIn->iSdst, 1, r1, &pDest->affSdst,1);
+      v.AddOp4(OP_MakeRecord, pIn->iSdst, 1, r1, &pDest->affSdst,1);
       sqlite3ExprCacheAffinityChange(pParse, pIn->iSdst, 1);
-      sqlite3VdbeAddOp2(v, OP_IdxInsert, pDest->iSDParm, r1);
+      v.AddOp2(OP_IdxInsert, pDest->iSDParm, r1);
       sqlite3ReleaseTempReg(pParse, r1);
       break;
     }
@@ -79055,7 +79014,7 @@ int generateOutputSubroutine(
         pDest->nSdst = pIn->nSdst;
       }
       sqlite3ExprCodeMove(pParse, pIn->iSdst, pDest->iSdst, pDest->nSdst);
-      sqlite3VdbeAddOp1(v, OP_Yield, pDest->iSDParm);
+      v.AddOp1(OP_Yield, pDest->iSDParm);
       break;
     }
 
@@ -79069,7 +79028,7 @@ int generateOutputSubroutine(
     */
     default: {
       assert( pDest->eDest==SRT_Output );
-      sqlite3VdbeAddOp2(v, OP_ResultRow, pIn->iSdst, pIn->nSdst);
+      v.AddOp2(OP_ResultRow, pIn->iSdst, pIn->nSdst);
       sqlite3ExprCacheAffinityChange(pParse, pIn->iSdst, pIn->nSdst);
       break;
     }
@@ -79078,13 +79037,13 @@ int generateOutputSubroutine(
   /* Jump to the end of the loop if the LIMIT is reached.
   */
   if( p->iLimit ){
-    sqlite3VdbeAddOp3(v, OP_IfZero, p->iLimit, iBreak, -1);
+    v.AddOp3(OP_IfZero, p->iLimit, iBreak, -1);
   }
 
   /* Generate the subroutine return
   */
   sqlite3VdbeResolveLabel(v, iContinue);
-  sqlite3VdbeAddOp1(v, OP_Return, regReturn);
+  v.AddOp1(OP_Return, regReturn);
 
   return addr;
 }
@@ -79314,7 +79273,7 @@ int multiSelectOrderBy(
     assert( nOrderBy>=nExpr || db->mallocFailed );
     regPrev = pParse->nMem+1;
     pParse->nMem += nExpr+1;
-    sqlite3VdbeAddOp2(v, OP_Integer, 0, regPrev);
+    v.AddOp2(OP_Integer, 0, regPrev);
     pKeyDup = sqlite3DbMallocZero(db,
                   sizeof(*pKeyDup) + nExpr*(sizeof(CollationSequence*)+1) );
     if( pKeyDup ){
@@ -79340,9 +79299,9 @@ int multiSelectOrderBy(
   if( p->iLimit && op==TK_ALL ){
     regLimitA = ++pParse->nMem;
     regLimitB = ++pParse->nMem;
-    sqlite3VdbeAddOp2(v, OP_Copy, p->iOffset ? p->iOffset+1 : p->iLimit,
+    v.AddOp2(OP_Copy, p->iOffset ? p->iOffset+1 : p->iLimit,
                                   regLimitA);
-    sqlite3VdbeAddOp2(v, OP_Copy, regLimitA, regLimitB);
+    v.AddOp2(OP_Copy, regLimitA, regLimitB);
   }else{
     regLimitA = regLimitB = 0;
   }
@@ -79363,7 +79322,7 @@ int multiSelectOrderBy(
   /* Jump past the various subroutines and coroutines to the main
   ** merge loop
   */
-  j1 = sqlite3VdbeAddOp0(v, OP_Goto);
+  j1 = v.AddOp0(OP_Goto);
   addrSelectA = sqlite3VdbeCurrentAddr(v);
 
 
@@ -79374,8 +79333,8 @@ int multiSelectOrderBy(
   pPrior->iLimit = regLimitA;
   explainSetInteger(iSub1, pParse->iNextSelectId);
   sqlite3Select(pParse, pPrior, &destA);
-  sqlite3VdbeAddOp2(v, OP_Integer, 1, regEofA);
-  sqlite3VdbeAddOp1(v, OP_Yield, regAddrA);
+  v.AddOp2(OP_Integer, 1, regEofA);
+  v.AddOp1(OP_Yield, regAddrA);
   VdbeNoopComment((v, "End coroutine for left SELECT"));
 
   /* Generate a coroutine to evaluate the SELECT statement on 
@@ -79391,8 +79350,8 @@ int multiSelectOrderBy(
   sqlite3Select(pParse, p, &destB);
   p->iLimit = savedLimit;
   p->iOffset = savedOffset;
-  sqlite3VdbeAddOp2(v, OP_Integer, 1, regEofB);
-  sqlite3VdbeAddOp1(v, OP_Yield, regAddrB);
+  v.AddOp2(OP_Integer, 1, regEofB);
+  v.AddOp1(OP_Yield, regAddrB);
   VdbeNoopComment((v, "End coroutine for right SELECT"));
 
   /* Generate a subroutine that outputs the current row of the A
@@ -79418,12 +79377,12 @@ int multiSelectOrderBy(
   */
   VdbeNoopComment((v, "eof-A subroutine"));
   if( op==TK_EXCEPT || op==TK_INTERSECT ){
-    addrEofA = sqlite3VdbeAddOp2(v, OP_Goto, 0, labelEnd);
+    addrEofA = v.AddOp2(OP_Goto, 0, labelEnd);
   }else{  
-    addrEofA = sqlite3VdbeAddOp2(v, OP_If, regEofB, labelEnd);
-    sqlite3VdbeAddOp2(v, OP_Gosub, regOutB, addrOutB);
-    sqlite3VdbeAddOp1(v, OP_Yield, regAddrB);
-    sqlite3VdbeAddOp2(v, OP_Goto, 0, addrEofA);
+    addrEofA = v.AddOp2(OP_If, regEofB, labelEnd);
+    v.AddOp2(OP_Gosub, regOutB, addrOutB);
+    v.AddOp1(OP_Yield, regAddrB);
+    v.AddOp2(OP_Goto, 0, addrEofA);
     p->nSelectRow += pPrior->nSelectRow;
   }
 
@@ -79435,19 +79394,19 @@ int multiSelectOrderBy(
     if( p->nSelectRow > pPrior->nSelectRow ) p->nSelectRow = pPrior->nSelectRow;
   }else{  
     VdbeNoopComment((v, "eof-B subroutine"));
-    addrEofB = sqlite3VdbeAddOp2(v, OP_If, regEofA, labelEnd);
-    sqlite3VdbeAddOp2(v, OP_Gosub, regOutA, addrOutA);
-    sqlite3VdbeAddOp1(v, OP_Yield, regAddrA);
-    sqlite3VdbeAddOp2(v, OP_Goto, 0, addrEofB);
+    addrEofB = v.AddOp2(OP_If, regEofA, labelEnd);
+    v.AddOp2(OP_Gosub, regOutA, addrOutA);
+    v.AddOp1(OP_Yield, regAddrA);
+    v.AddOp2(OP_Goto, 0, addrEofB);
   }
 
   /* Generate code to handle the case of A<B
   */
   VdbeNoopComment((v, "A-lt-B subroutine"));
-  addrAltB = sqlite3VdbeAddOp2(v, OP_Gosub, regOutA, addrOutA);
-  sqlite3VdbeAddOp1(v, OP_Yield, regAddrA);
-  sqlite3VdbeAddOp2(v, OP_If, regEofA, addrEofA);
-  sqlite3VdbeAddOp2(v, OP_Goto, 0, labelCmpr);
+  addrAltB = v.AddOp2(OP_Gosub, regOutA, addrOutA);
+  v.AddOp1(OP_Yield, regAddrA);
+  v.AddOp2(OP_If, regEofA, addrEofA);
+  v.AddOp2(OP_Goto, 0, labelCmpr);
 
   /* Generate code to handle the case of A==B
   */
@@ -79459,9 +79418,9 @@ int multiSelectOrderBy(
   }else{
     VdbeNoopComment((v, "A-eq-B subroutine"));
     addrAeqB =
-    sqlite3VdbeAddOp1(v, OP_Yield, regAddrA);
-    sqlite3VdbeAddOp2(v, OP_If, regEofA, addrEofA);
-    sqlite3VdbeAddOp2(v, OP_Goto, 0, labelCmpr);
+    v.AddOp1(OP_Yield, regAddrA);
+    v.AddOp2(OP_If, regEofA, addrEofA);
+    v.AddOp2(OP_Goto, 0, labelCmpr);
   }
 
   /* Generate code to handle the case of A>B
@@ -79469,30 +79428,30 @@ int multiSelectOrderBy(
   VdbeNoopComment((v, "A-gt-B subroutine"));
   addrAgtB = sqlite3VdbeCurrentAddr(v);
   if( op==TK_ALL || op==TK_UNION ){
-    sqlite3VdbeAddOp2(v, OP_Gosub, regOutB, addrOutB);
+    v.AddOp2(OP_Gosub, regOutB, addrOutB);
   }
-  sqlite3VdbeAddOp1(v, OP_Yield, regAddrB);
-  sqlite3VdbeAddOp2(v, OP_If, regEofB, addrEofB);
-  sqlite3VdbeAddOp2(v, OP_Goto, 0, labelCmpr);
+  v.AddOp1(OP_Yield, regAddrB);
+  v.AddOp2(OP_If, regEofB, addrEofB);
+  v.AddOp2(OP_Goto, 0, labelCmpr);
 
   /* This code runs once to initialize everything.
   */
   sqlite3VdbeJumpHere(v, j1);
-  sqlite3VdbeAddOp2(v, OP_Integer, 0, regEofA);
-  sqlite3VdbeAddOp2(v, OP_Integer, 0, regEofB);
-  sqlite3VdbeAddOp2(v, OP_Gosub, regAddrA, addrSelectA);
-  sqlite3VdbeAddOp2(v, OP_Gosub, regAddrB, addrSelectB);
-  sqlite3VdbeAddOp2(v, OP_If, regEofA, addrEofA);
-  sqlite3VdbeAddOp2(v, OP_If, regEofB, addrEofB);
+  v.AddOp2(OP_Integer, 0, regEofA);
+  v.AddOp2(OP_Integer, 0, regEofB);
+  v.AddOp2(OP_Gosub, regAddrA, addrSelectA);
+  v.AddOp2(OP_Gosub, regAddrB, addrSelectB);
+  v.AddOp2(OP_If, regEofA, addrEofA);
+  v.AddOp2(OP_If, regEofB, addrEofB);
 
   /* Implement the main merge loop
   */
   sqlite3VdbeResolveLabel(v, labelCmpr);
-  sqlite3VdbeAddOp4(v, OP_Permutation, 0, 0, 0, (char*)aPermute, P4_INTARRAY);
-  sqlite3VdbeAddOp4(v, OP_Compare, destA.iSdst, destB.iSdst, nOrderBy,
+  v.AddOp4(OP_Permutation, 0, 0, 0, (char*)aPermute, P4_INTARRAY);
+  v.AddOp4(OP_Compare, destA.iSdst, destB.iSdst, nOrderBy,
                          (char*)pKeyMerge, P4_KEYINFO_HANDOFF);
   sqlite3VdbeChangeP5(v, OPFLAG_PERMUTE);
-  sqlite3VdbeAddOp3(v, OP_Jump, addrAltB, addrAeqB, addrAgtB);
+  v.AddOp3(OP_Jump, addrAltB, addrAeqB, addrAgtB);
 
   /* Jump to the this point in order to terminate the query.
   */
@@ -80687,10 +80646,10 @@ void resetAccumulator(Parse *pParse, AggInfo *pAggInfo){
     return;
   }
   for(i=0; i<pAggInfo->nColumn; i++){
-    sqlite3VdbeAddOp2(v, OP_Null, 0, pAggInfo->aCol[i].iMem);
+    v.AddOp2(OP_Null, 0, pAggInfo->aCol[i].iMem);
   }
   for(pFunc=pAggInfo->aFunc, i=0; i<pAggInfo->nFunc; i++, pFunc++){
-    sqlite3VdbeAddOp2(v, OP_Null, 0, pFunc->iMem);
+    v.AddOp2(OP_Null, 0, pFunc->iMem);
     if( pFunc->iDistinct>=0 ){
       Expr *pE = pFunc->pExpr;
       assert( !ExprHasProperty(pE, EP_xIsSelect) );
@@ -80699,7 +80658,7 @@ void resetAccumulator(Parse *pParse, AggInfo *pAggInfo){
         pFunc->iDistinct = -1;
       }else{
         KeyInfo *pKeyInfo = keyInfoFromExprList(pParse, pE->x.pList);
-        sqlite3VdbeAddOp4(v, OP_OpenEphemeral, pFunc->iDistinct, 0, 0,
+        v.AddOp4(OP_OpenEphemeral, pFunc->iDistinct, 0, 0,
                           (char*)pKeyInfo, P4_KEYINFO_HANDOFF);
       }
     }
@@ -80717,8 +80676,11 @@ void finalizeAggFunctions(Parse *pParse, AggInfo *pAggInfo){
   for(i=0, pF=pAggInfo->aFunc; i<pAggInfo->nFunc; i++, pF++){
     ExprList *pList = pF->pExpr->x.pList;
     assert( !ExprHasProperty(pF->pExpr, EP_xIsSelect) );
-    sqlite3VdbeAddOp4(v, OP_AggFinal, pF->iMem, pList ? pList->nExpr : 0, 0,
-                      (void*)pF->pFunc, P4_FUNCDEF);
+	if pList != nil {
+	    v.AddOp4(OP_AggFinal, pF.iMem, pList.nExpr, 0, pF.pFunc)
+	} else {
+	    v.AddOp4(OP_AggFinal, pF.iMem, 0, 0, pF.pFunc)
+	}
   }
 }
 
@@ -80753,7 +80715,7 @@ void updateAccumulator(Parse *pParse, AggInfo *pAggInfo){
     if( pF->iDistinct>=0 ){
       addrNext = sqlite3VdbeMakeLabel(v);
       assert( nArg==1 );
-      codeDistinct(pParse, pF->iDistinct, addrNext, 1, regAgg);
+      pParse.codeDistinct(pF.iDistinct, addrNext, 1, regAgg)
     }
     if( pF->pFunc->flags & SQLITE_FUNC_NEEDCOLL ){
       CollationSequence *pColl = 0;
@@ -80767,10 +80729,9 @@ void updateAccumulator(Parse *pParse, AggInfo *pAggInfo){
         pColl = pParse->db->DefaultCollationSequence;
       }
       if( regHit==0 && pAggInfo->nAccumulator ) regHit = ++pParse->nMem;
-      sqlite3VdbeAddOp4(v, OP_CollSeq, regHit, 0, 0, (char *)pColl, P4_COLLSEQ);
+      v.AddOp4(OP_CollSeq, regHit, 0, 0, pColl)
     }
-    sqlite3VdbeAddOp4(v, OP_AggStep, 0, regAgg, pF->iMem,
-                      (void*)pF->pFunc, P4_FUNCDEF);
+    v.AddOp4(OP_AggStep, 0, regAgg, pF.iMem, pF.pFunc)
     sqlite3VdbeChangeP5(v, (u8)nArg);
     sqlite3ExprCacheAffinityChange(pParse, regAgg, nArg);
     sqlite3ReleaseTempRange(pParse, regAgg, nArg);
@@ -80791,7 +80752,7 @@ void updateAccumulator(Parse *pParse, AggInfo *pAggInfo){
   ** values to an OP_Copy.
   */
   if( regHit ){
-    addrHitTest = sqlite3VdbeAddOp1(v, OP_If, regHit);
+    addrHitTest = v.AddOp1(OP_If, regHit);
   }
   sqlite3ExprCacheClear(pParse);
   for(i=0, pC=pAggInfo->aCol; i<pAggInfo->nAccumulator; i++, pC++){
@@ -80821,9 +80782,7 @@ void explainSimpleCount(
         pIdx ? pIdx->zName : "",
         pTab->nRowEst
     );
-    sqlite3VdbeAddOp4(
-        pParse->pVdbe, OP_Explain, pParse->iSelectId, 0, 0, zEqp, P4_DYNAMIC
-    );
+    pParse.pVdbe.AddOp4(OP_Explain, pParse->iSelectId, 0, 0, zEqp, P4_DYNAMIC)
   }
 }
 #else
@@ -80971,7 +80930,7 @@ void explainSimpleCount(
     ** to be invoked again. */
     if( pItem->addrFillSub ){
       if( pItem->viaCoroutine==0 ){
-        sqlite3VdbeAddOp2(v, OP_Gosub, pItem->regReturn, pItem->addrFillSub);
+        v.AddOp2(OP_Gosub, pItem->regReturn, pItem->addrFillSub);
       }
       continue;
     }
@@ -81010,12 +80969,12 @@ void explainSimpleCount(
       ** be doing so without having verified the schema version and obtained 
       ** the required db locks. See ticket d6b36be38.  */
       sqlite3CodeVerifySchema(pParse, -1);
-      sqlite3VdbeAddOp0(v, OP_Goto);
-      addrTop = sqlite3VdbeAddOp1(v, OP_OpenPseudo, pItem->iCursor);
+      v.AddOp0(OP_Goto);
+      addrTop = v.AddOp1(OP_OpenPseudo, pItem->iCursor);
       sqlite3VdbeChangeP5(v, 1);
       VdbeComment((v, "coroutine for %s", pItem->pTab->zName));
       pItem->addrFillSub = addrTop;
-      sqlite3VdbeAddOp2(v, OP_Integer, 0, addrEof);
+      v.AddOp2(OP_Integer, 0, addrEof);
       sqlite3VdbeChangeP5(v, 1);
       sqlite3SelectDestInit(&dest, SRT_Coroutine, pItem->regReturn);
       explainSetInteger(pItem->iSelectId, (u8)pParse->iNextSelectId);
@@ -81024,8 +80983,8 @@ void explainSimpleCount(
       pItem->viaCoroutine = 1;
       sqlite3VdbeChangeP2(v, addrTop, dest.iSdst);
       sqlite3VdbeChangeP3(v, addrTop, dest.nSdst);
-      sqlite3VdbeAddOp2(v, OP_Integer, 1, addrEof);
-      sqlite3VdbeAddOp1(v, OP_Yield, pItem->regReturn);
+      v.AddOp2(OP_Integer, 1, addrEof);
+      v.AddOp1(OP_Yield, pItem->regReturn);
       VdbeComment((v, "end %s", pItem->pTab->zName));
       sqlite3VdbeJumpHere(v, addrTop-1);
       sqlite3ClearTempRegCache(pParse);
@@ -81040,7 +80999,7 @@ void explainSimpleCount(
       int retAddr;
       assert( pItem->addrFillSub==0 );
       pItem->regReturn = ++pParse->nMem;
-      topAddr = sqlite3VdbeAddOp2(v, OP_Integer, 0, pItem->regReturn);
+      topAddr = v.AddOp2(OP_Integer, 0, pItem->regReturn);
       pItem->addrFillSub = topAddr+1;
       VdbeNoopComment((v, "materialize %s", pItem->pTab->zName));
       if( pItem->isCorrelated==0 ){
@@ -81054,7 +81013,7 @@ void explainSimpleCount(
       sqlite3Select(pParse, pSub, &dest);
       pItem->pTab->nRowEst = (unsigned)pSub->nSelectRow;
       if( onceAddr ) sqlite3VdbeJumpHere(v, onceAddr);
-      retAddr = sqlite3VdbeAddOp1(v, OP_Return, pItem->regReturn);
+      retAddr = v.AddOp1(OP_Return, pItem->regReturn);
       VdbeComment((v, "end %s", pItem->pTab->zName));
       sqlite3VdbeChangeP1(v, topAddr, retAddr);
       sqlite3ClearTempRegCache(pParse);
@@ -81151,7 +81110,7 @@ void explainSimpleCount(
     pKeyInfo = keyInfoFromExprList(pParse, pOrderBy);
     pOrderBy->iECursor = pParse->nTab++;
     p->addrOpenEphm[2] = addrSortIndex =
-      sqlite3VdbeAddOp4(v, OP_OpenEphemeral,
+      v.AddOp4(OP_OpenEphemeral,
                            pOrderBy->iECursor, pOrderBy->nExpr+2, 0,
                            (char*)pKeyInfo, P4_KEYINFO_HANDOFF);
   }else{
@@ -81161,7 +81120,7 @@ void explainSimpleCount(
   /* If the output is destined for a temporary table, open that table.
   */
   if( pDest->eDest==SRT_EphemTab ){
-    sqlite3VdbeAddOp2(v, OP_OpenEphemeral, pDest->iSDParm, pEList->nExpr);
+    v.AddOp2(OP_OpenEphemeral, pDest->iSDParm, pEList->nExpr);
   }
 
   /* Set the limiter.
@@ -81178,7 +81137,7 @@ void explainSimpleCount(
   */
   if( p->selFlags & SF_Distinct ){
     sDistinct.tabTnct = pParse->nTab++;
-    sDistinct.addrTnct = sqlite3VdbeAddOp4(v, OP_OpenEphemeral,
+    sDistinct.addrTnct = v.AddOp4(OP_OpenEphemeral,
                                 sDistinct.tabTnct, 0, 0,
                                 (char*)keyInfoFromExprList(pParse, p->pEList),
                                 P4_KEYINFO_HANDOFF);
@@ -81297,7 +81256,7 @@ void explainSimpleCount(
       */
       sAggInfo.sortingIdx = pParse->nTab++;
       pKeyInfo = keyInfoFromExprList(pParse, pGroupBy);
-      addrSortingIdx = sqlite3VdbeAddOp4(v, OP_SorterOpen, 
+      addrSortingIdx = v.AddOp4(OP_SorterOpen, 
           sAggInfo.sortingIdx, sAggInfo.nSortingColumn, 
           0, (char*)pKeyInfo, P4_KEYINFO_HANDOFF);
 
@@ -81313,18 +81272,18 @@ void explainSimpleCount(
       pParse->nMem += pGroupBy->nExpr;
       iBMem = pParse->nMem + 1;
       pParse->nMem += pGroupBy->nExpr;
-      sqlite3VdbeAddOp2(v, OP_Integer, 0, iAbortFlag);
+      v.AddOp2(OP_Integer, 0, iAbortFlag);
       VdbeComment((v, "clear abort flag"));
-      sqlite3VdbeAddOp2(v, OP_Integer, 0, iUseFlag);
+      v.AddOp2(OP_Integer, 0, iUseFlag);
       VdbeComment((v, "indicate accumulator empty"));
-      sqlite3VdbeAddOp3(v, OP_Null, 0, iAMem, iAMem+pGroupBy->nExpr-1);
+      v.AddOp3(OP_Null, 0, iAMem, iAMem+pGroupBy->nExpr-1);
 
       /* Begin a loop that will extract all source rows in GROUP BY order.
       ** This might involve two separate loops with an OP_Sort in between, or
       ** it might be a single loop that uses an index to extract information
       ** in the right order to begin with.
       */
-      sqlite3VdbeAddOp2(v, OP_Gosub, regReset, addrReset);
+      v.AddOp2(OP_Gosub, regReset, addrReset);
       pWInfo = sqlite3WhereBegin(pParse, pTabList, pWhere, pGroupBy, 0, 0, 0);
       if( pWInfo==0 ) goto select_end;
       if( pWInfo->nOBSat==pGroupBy->nExpr ){
@@ -81361,7 +81320,7 @@ void explainSimpleCount(
         regBase = sqlite3GetTempRange(pParse, nCol);
         sqlite3ExprCacheClear(pParse);
         sqlite3ExprCodeExprList(pParse, pGroupBy, regBase, 0);
-        sqlite3VdbeAddOp2(v, OP_Sequence, sAggInfo.sortingIdx,regBase+nGroupBy);
+        v.AddOp2(OP_Sequence, sAggInfo.sortingIdx,regBase+nGroupBy);
         j = nGroupBy+1;
         for(i=0; i<sAggInfo.nColumn; i++){
           struct AggInfo_col *pCol = &sAggInfo.aCol[i];
@@ -81372,21 +81331,21 @@ void explainSimpleCount(
             r2 = sqlite3ExprCodeGetColumn(pParse, 
                                pCol->pTab, pCol->iColumn, pCol->iTable, r1, 0);
             if( r1!=r2 ){
-              sqlite3VdbeAddOp2(v, OP_SCopy, r2, r1);
+              v.AddOp2(OP_SCopy, r2, r1);
             }
             j++;
           }
         }
         regRecord = sqlite3GetTempReg(pParse);
-        sqlite3VdbeAddOp3(v, OP_MakeRecord, regBase, nCol, regRecord);
-        sqlite3VdbeAddOp2(v, OP_SorterInsert, sAggInfo.sortingIdx, regRecord);
+        v.AddOp3(OP_MakeRecord, regBase, nCol, regRecord);
+        v.AddOp2(OP_SorterInsert, sAggInfo.sortingIdx, regRecord);
         sqlite3ReleaseTempReg(pParse, regRecord);
         sqlite3ReleaseTempRange(pParse, regBase, nCol);
         sqlite3WhereEnd(pWInfo);
         sAggInfo.sortingIdxPTab = sortPTab = pParse->nTab++;
         sortOut = sqlite3GetTempReg(pParse);
-        sqlite3VdbeAddOp3(v, OP_OpenPseudo, sortPTab, sortOut, nCol);
-        sqlite3VdbeAddOp2(v, OP_SorterSort, sAggInfo.sortingIdx, addrEnd);
+        v.AddOp3(OP_OpenPseudo, sortPTab, sortOut, nCol);
+        v.AddOp2(OP_SorterSort, sAggInfo.sortingIdx, addrEnd);
         VdbeComment((v, "GROUP BY sort"));
         sAggInfo.useSortingIdx = 1;
         sqlite3ExprCacheClear(pParse);
@@ -81400,21 +81359,21 @@ void explainSimpleCount(
       addrTopOfLoop = sqlite3VdbeCurrentAddr(v);
       sqlite3ExprCacheClear(pParse);
       if( groupBySort ){
-        sqlite3VdbeAddOp2(v, OP_SorterData, sAggInfo.sortingIdx, sortOut);
+        v.AddOp2(OP_SorterData, sAggInfo.sortingIdx, sortOut);
       }
       for(j=0; j<pGroupBy->nExpr; j++){
         if( groupBySort ){
-          sqlite3VdbeAddOp3(v, OP_Column, sortPTab, j, iBMem+j);
+          v.AddOp3(OP_Column, sortPTab, j, iBMem+j);
           if( j==0 ) sqlite3VdbeChangeP5(v, OPFLAG_CLEARCACHE);
         }else{
           sAggInfo.directMode = 1;
           sqlite3ExprCode(pParse, pGroupBy->a[j].pExpr, iBMem+j);
         }
       }
-      sqlite3VdbeAddOp4(v, OP_Compare, iAMem, iBMem, pGroupBy->nExpr,
+      v.AddOp4(OP_Compare, iAMem, iBMem, pGroupBy->nExpr,
                           (char*)pKeyInfo, P4_KEYINFO);
       j1 = sqlite3VdbeCurrentAddr(v);
-      sqlite3VdbeAddOp3(v, OP_Jump, j1+1, 0, j1+1);
+      v.AddOp3(OP_Jump, j1+1, 0, j1+1);
 
       /* Generate code that runs whenever the GROUP BY changes.
       ** Changes in the GROUP BY are detected by the previous code
@@ -81426,11 +81385,11 @@ void explainSimpleCount(
       ** for the next GROUP BY batch.
       */
       sqlite3ExprCodeMove(pParse, iBMem, iAMem, pGroupBy->nExpr);
-      sqlite3VdbeAddOp2(v, OP_Gosub, regOutputRow, addrOutputRow);
+      v.AddOp2(OP_Gosub, regOutputRow, addrOutputRow);
       VdbeComment((v, "output one row"));
-      sqlite3VdbeAddOp2(v, OP_IfPos, iAbortFlag, addrEnd);
+      v.AddOp2(OP_IfPos, iAbortFlag, addrEnd);
       VdbeComment((v, "check abort flag"));
-      sqlite3VdbeAddOp2(v, OP_Gosub, regReset, addrReset);
+      v.AddOp2(OP_Gosub, regReset, addrReset);
       VdbeComment((v, "reset accumulator"));
 
       /* Update the aggregate accumulators based on the content of
@@ -81438,13 +81397,13 @@ void explainSimpleCount(
       */
       sqlite3VdbeJumpHere(v, j1);
       updateAccumulator(pParse, &sAggInfo);
-      sqlite3VdbeAddOp2(v, OP_Integer, 1, iUseFlag);
+      v.AddOp2(OP_Integer, 1, iUseFlag);
       VdbeComment((v, "indicate data in accumulator"));
 
       /* End of the loop
       */
       if( groupBySort ){
-        sqlite3VdbeAddOp2(v, OP_SorterNext, sAggInfo.sortingIdx, addrTopOfLoop);
+        v.AddOp2(OP_SorterNext, sAggInfo.sortingIdx, addrTopOfLoop);
       }else{
         sqlite3WhereEnd(pWInfo);
         sqlite3VdbeChangeToNoop(v, addrSortingIdx);
@@ -81452,12 +81411,12 @@ void explainSimpleCount(
 
       /* Output the final row of result
       */
-      sqlite3VdbeAddOp2(v, OP_Gosub, regOutputRow, addrOutputRow);
+      v.AddOp2(OP_Gosub, regOutputRow, addrOutputRow);
       VdbeComment((v, "output final row"));
 
       /* Jump over the subroutines
       */
-      sqlite3VdbeAddOp2(v, OP_Goto, 0, addrEnd);
+      v.AddOp2(OP_Goto, 0, addrEnd);
 
       /* Generate a subroutine that outputs a single row of the result
       ** set.  This subroutine first looks at the iUseFlag.  If iUseFlag
@@ -81467,27 +81426,27 @@ void explainSimpleCount(
       ** order to signal the caller to abort.
       */
       addrSetAbort = sqlite3VdbeCurrentAddr(v);
-      sqlite3VdbeAddOp2(v, OP_Integer, 1, iAbortFlag);
+      v.AddOp2(OP_Integer, 1, iAbortFlag);
       VdbeComment((v, "set abort flag"));
-      sqlite3VdbeAddOp1(v, OP_Return, regOutputRow);
+      v.AddOp1(OP_Return, regOutputRow);
       sqlite3VdbeResolveLabel(v, addrOutputRow);
       addrOutputRow = sqlite3VdbeCurrentAddr(v);
-      sqlite3VdbeAddOp2(v, OP_IfPos, iUseFlag, addrOutputRow+2);
+      v.AddOp2(OP_IfPos, iUseFlag, addrOutputRow+2);
       VdbeComment((v, "Groupby result generator entry point"));
-      sqlite3VdbeAddOp1(v, OP_Return, regOutputRow);
+      v.AddOp1(OP_Return, regOutputRow);
       finalizeAggFunctions(pParse, &sAggInfo);
       sqlite3ExprIfFalse(pParse, pHaving, addrOutputRow+1, SQLITE_JUMPIFNULL);
       selectInnerLoop(pParse, p, p->pEList, 0, 0, pOrderBy,
                       &sDistinct, pDest,
                       addrOutputRow+1, addrSetAbort);
-      sqlite3VdbeAddOp1(v, OP_Return, regOutputRow);
+      v.AddOp1(OP_Return, regOutputRow);
       VdbeComment((v, "end groupby result generator"));
 
       /* Generate a subroutine that will reset the group-by accumulator
       */
       sqlite3VdbeResolveLabel(v, addrReset);
       resetAccumulator(pParse, &sAggInfo);
-      sqlite3VdbeAddOp1(v, OP_Return, regReset);
+      v.AddOp1(OP_Return, regReset);
      
     } /* endif pGroupBy.  Begin aggregate queries without GROUP BY: */
     else {
@@ -81542,12 +81501,12 @@ void explainSimpleCount(
         }
 
         /* Open a read-only cursor, execute the OP_Count, close the cursor. */
-        sqlite3VdbeAddOp3(v, OP_OpenRead, iCsr, iRoot, iDb);
+        v.AddOp3(OP_OpenRead, iCsr, iRoot, iDb);
         if( pKeyInfo ){
           sqlite3VdbeChangeP4(v, -1, (char *)pKeyInfo, P4_KEYINFO_HANDOFF);
         }
-        sqlite3VdbeAddOp2(v, OP_Count, iCsr, sAggInfo.aFunc[0].iMem);
-        sqlite3VdbeAddOp1(v, OP_Close, iCsr);
+        v.AddOp2(OP_Count, iCsr, sAggInfo.aFunc[0].iMem);
+        v.AddOp1(OP_Close, iCsr);
         explainSimpleCount(pParse, pTab, pBest);
       }else
 #endif /* SQLITE_OMIT_BTREECOUNT */
@@ -81609,7 +81568,7 @@ void explainSimpleCount(
         updateAccumulator(pParse, &sAggInfo);
         assert( pMinMax==0 || pMinMax->nExpr==1 );
         if( pWInfo->nOBSat>0 ){
-          sqlite3VdbeAddOp2(v, OP_Goto, 0, pWInfo->iBreak);
+          v.AddOp2(OP_Goto, 0, pWInfo->iBreak);
           VdbeComment((v, "%s() by index",
                 (flag==WHERE_ORDERBY_MIN?"min":"max")));
         }
@@ -82246,7 +82205,7 @@ trigger_cleanup:
        pTrig->table, z);
     sqlite3DbFree(db, z);
     sqlite3ChangeCookie(pParse, iDb);
-    sqlite3VdbeAddParseSchemaOp(v, iDb,
+    v.AddParseSchemaOp(iDb,
         sqlite3MPrintf(db, "type='trigger' AND name='%q'", zName));
   }
 
@@ -82505,8 +82464,8 @@ drop_trigger_cleanup:
     sqlite3VdbeChangeP4(v, base+1, pTrigger->zName, P4_TRANSIENT);
     sqlite3VdbeChangeP4(v, base+4, "trigger", P4_STATIC);
     sqlite3ChangeCookie(pParse, iDb);
-    sqlite3VdbeAddOp2(v, OP_Close, 0, 0);
-    sqlite3VdbeAddOp4(v, OP_DropTrigger, iDb, 0, 0, pTrigger->zName, 0);
+    v.AddOp2(OP_Close, 0, 0);
+    v.AddOp4(OP_DropTrigger, iDb, 0, 0, pTrigger->zName, 0);
     if( pParse->nMem<3 ){
       pParse->nMem = 3;
     }
@@ -82690,7 +82649,7 @@ int codeTriggerProgram(
       }
     } 
     if( pStep->op!=TK_SELECT ){
-      sqlite3VdbeAddOp0(v, OP_ResetCount);
+      v.AddOp0(OP_ResetCount);
     }
   }
 
@@ -82817,7 +82776,7 @@ TriggerPrg *codeRowTrigger(
     if( iEndTrigger ){
       sqlite3VdbeResolveLabel(v, iEndTrigger);
     }
-    sqlite3VdbeAddOp0(v, OP_Halt);
+    v.AddOp0(OP_Halt);
     VdbeComment((v, "End: %s.%s", pTrigger->zName, onErrorText(orconf)));
 
     transferParseError(pParse, pSubParse);
@@ -82898,7 +82857,7 @@ TriggerPrg *getRowTrigger(
   if( pPrg ){
     int bRecursive = (p->zName && 0==(pParse->db->flags&SQLITE_RecTriggers));
 
-    sqlite3VdbeAddOp3(v, OP_Program, reg, ignoreJump, ++pParse->nMem);
+    v.AddOp3(OP_Program, reg, ignoreJump, ++pParse->nMem);
     sqlite3VdbeChangeP4(v, -1, (const char *)pPrg->pProgram, P4_SUBPROGRAM);
     VdbeComment(
         (v, "Call: %s.%s", (p->zName?p->zName:"fkey"), onErrorText(orconf)));
@@ -83104,7 +83063,7 @@ void updateVirtualTable(
       sqlite3VdbeChangeP4(v, -1, (const char *)pValue, P4_MEM);
     }
     if( iReg>=0 && pTab->aCol[i].affinity==SQLITE_AFF_REAL ){
-      sqlite3VdbeAddOp1(v, OP_RealAffinity, iReg);
+      v.AddOp1(OP_RealAffinity, iReg);
     }
   }
 }
@@ -83327,7 +83286,7 @@ void updateVirtualTable(
 
   /* Begin the database scan
   */
-  sqlite3VdbeAddOp3(v, OP_Null, 0, regRowSet, regOldRowid);
+  v.AddOp3(OP_Null, 0, regRowSet, regOldRowid);
   pWInfo = sqlite3WhereBegin(
       pParse, pTabList, pWhere, 0, 0, WHERE_ONEPASS_DESIRED, 0
   );
@@ -83336,9 +83295,9 @@ void updateVirtualTable(
 
   /* Remember the rowid of every item to be updated.
   */
-  sqlite3VdbeAddOp2(v, OP_Rowid, iCur, regOldRowid);
+  v.AddOp2(OP_Rowid, iCur, regOldRowid);
   if( !okOnePass ){
-    sqlite3VdbeAddOp2(v, OP_RowSetAdd, regRowSet, regOldRowid);
+    v.AddOp2(OP_RowSetAdd, regRowSet, regOldRowid);
   }
 
   /* End the database scan loop.
@@ -83349,7 +83308,7 @@ void updateVirtualTable(
   */
   if( (db->flags & SQLITE_CountRows) && !pParse->pTriggerTab ){
     regRowCount = ++pParse->nMem;
-    sqlite3VdbeAddOp2(v, OP_Integer, 0, regRowCount);
+    v.AddOp2(OP_Integer, 0, regRowCount);
   }
 
   if( !isView ){
@@ -83375,7 +83334,7 @@ void updateVirtualTable(
       assert( aRegIdx );
       if( openAll || aRegIdx[i]>0 ){
         KeyInfo *pKey = sqlite3IndexKeyinfo(pParse, pIdx);
-        sqlite3VdbeAddOp4(v, OP_OpenWrite, iCur+i+1, pIdx->tnum, iDb,
+        v.AddOp4(OP_OpenWrite, iCur+i+1, pIdx->tnum, iDb,
                        (char*)pKey, P4_KEYINFO_HANDOFF);
         assert( pParse->nTab>iCur+i+1 );
       }
@@ -83384,17 +83343,17 @@ void updateVirtualTable(
 
   /* Top of the update loop */
   if( okOnePass ){
-    int a1 = sqlite3VdbeAddOp1(v, OP_NotNull, regOldRowid);
-    addr = sqlite3VdbeAddOp0(v, OP_Goto);
+    int a1 = v.AddOp1(OP_NotNull, regOldRowid);
+    addr = v.AddOp0(OP_Goto);
     sqlite3VdbeJumpHere(v, a1);
   }else{
-    addr = sqlite3VdbeAddOp3(v, OP_RowSetRead, regRowSet, 0, regOldRowid);
+    addr = v.AddOp3(OP_RowSetRead, regRowSet, 0, regOldRowid);
   }
 
   /* Make cursor iCur point to the record that is being updated. If
   ** this record does not exist for some reason (deleted by a trigger,
   ** for example, then jump to the next iteration of the RowSet loop.  */
-  sqlite3VdbeAddOp3(v, OP_NotExists, iCur, addr, regOldRowid);
+  v.AddOp3(OP_NotExists, iCur, addr, regOldRowid);
 
   /* If the record number will change, set register regNewRowid to
   ** contain the new value. If the record number is not being modified,
@@ -83403,7 +83362,7 @@ void updateVirtualTable(
   assert( chngRowid || pTrigger || hasFK || regOldRowid==regNewRowid );
   if( chngRowid ){
     sqlite3ExprCode(pParse, pRowidExpr, regNewRowid);
-    sqlite3VdbeAddOp1(v, OP_MustBeInt, regNewRowid);
+    v.AddOp1(OP_MustBeInt, regNewRowid);
   }
 
   /* If there are triggers on this table, populate an array of registers 
@@ -83417,11 +83376,11 @@ void updateVirtualTable(
       if( aXRef[i]<0 || oldmask==0xffffffff || (i<32 && (oldmask & (1<<i))) ){
         sqlite3ExprCodeGetColumnOfTable(v, pTab, iCur, i, regOld+i);
       }else{
-        sqlite3VdbeAddOp2(v, OP_Null, 0, regOld+i);
+        v.AddOp2(OP_Null, 0, regOld+i);
       }
     }
     if( chngRowid==0 ){
-      sqlite3VdbeAddOp2(v, OP_Copy, regOldRowid, regNewRowid);
+      v.AddOp2(OP_Copy, regOldRowid, regNewRowid);
     }
   }
 
@@ -83441,10 +83400,10 @@ void updateVirtualTable(
   newmask = sqlite3TriggerColmask(
       pParse, pTrigger, pChanges, 1, TRIGGER_BEFORE, pTab, onError
   );
-  sqlite3VdbeAddOp3(v, OP_Null, 0, regNew, regNew+pTab->nCol-1);
+  v.AddOp3(OP_Null, 0, regNew, regNew+pTab->nCol-1);
   for(i=0; i<pTab->nCol; i++){
     if( i==pTab->iPKey ){
-      /*sqlite3VdbeAddOp2(v, OP_Null, 0, regNew+i);*/
+      /*v.AddOp2(OP_Null, 0, regNew+i);*/
     }else{
       j = aXRef[i];
       if( j>=0 ){
@@ -83455,7 +83414,7 @@ void updateVirtualTable(
         ** if there are one or more BEFORE triggers that use this value via
         ** a new.* reference in a trigger program.
         */
-        sqlite3VdbeAddOp3(v, OP_Column, iCur, i, regNew+i);
+        v.AddOp3(OP_Column, iCur, i, regNew+i);
         sqlite3ColumnDefault(v, pTab, i, regNew+i);
       }
     }
@@ -83465,7 +83424,7 @@ void updateVirtualTable(
   ** verified. One could argue that this is wrong.
   */
   if( tmask&TRIGGER_BEFORE ){
-    sqlite3VdbeAddOp2(v, OP_Affinity, regNew, pTab->nCol);
+    v.AddOp2(OP_Affinity, regNew, pTab->nCol);
     sqlite3TableAffinityStr(v, pTab);
     sqlite3CodeRowTrigger(pParse, pTrigger, TK_UPDATE, pChanges, 
         TRIGGER_BEFORE, pTab, regOldRowid, onError, addr);
@@ -83476,7 +83435,7 @@ void updateVirtualTable(
     ** is deleted or renamed by a BEFORE trigger - is left undefined in the
     ** documentation.
     */
-    sqlite3VdbeAddOp3(v, OP_NotExists, iCur, addr, regOldRowid);
+    v.AddOp3(OP_NotExists, iCur, addr, regOldRowid);
 
     /* If it did not delete it, the row-trigger may still have modified 
     ** some of the columns of the row being updated. Load the values for 
@@ -83485,7 +83444,7 @@ void updateVirtualTable(
     */
     for(i=0; i<pTab->nCol; i++){
       if( aXRef[i]<0 && i!=pTab->iPKey ){
-        sqlite3VdbeAddOp3(v, OP_Column, iCur, i, regNew+i);
+        v.AddOp3(OP_Column, iCur, i, regNew+i);
         sqlite3ColumnDefault(v, pTab, i, regNew+i);
       }
     }
@@ -83504,12 +83463,12 @@ void updateVirtualTable(
     }
 
     /* Delete the index entries associated with the current record.  */
-    j1 = sqlite3VdbeAddOp3(v, OP_NotExists, iCur, 0, regOldRowid);
+    j1 = v.AddOp3(OP_NotExists, iCur, 0, regOldRowid);
     sqlite3GenerateRowIndexDelete(pParse, pTab, iCur, aRegIdx);
   
     /* If changing the record number, delete the old record.  */
     if( hasFK || chngRowid ){
-      sqlite3VdbeAddOp2(v, OP_Delete, iCur, 0);
+      v.AddOp2(OP_Delete, iCur, 0);
     }
     sqlite3VdbeJumpHere(v, j1);
 
@@ -83531,7 +83490,7 @@ void updateVirtualTable(
   /* Increment the row counter 
   */
   if( (db->flags & SQLITE_CountRows) && !pParse->pTriggerTab){
-    sqlite3VdbeAddOp2(v, OP_AddImm, regRowCount, 1);
+    v.AddOp2(OP_AddImm, regRowCount, 1);
   }
 
   sqlite3CodeRowTrigger(pParse, pTrigger, TK_UPDATE, pChanges, 
@@ -83540,17 +83499,17 @@ void updateVirtualTable(
   /* Repeat the above with the next record to be updated, until
   ** all record selected by the WHERE clause have been updated.
   */
-  sqlite3VdbeAddOp2(v, OP_Goto, 0, addr);
+  v.AddOp2(OP_Goto, 0, addr);
   sqlite3VdbeJumpHere(v, addr);
 
   /* Close all tables */
   for(i=0, pIdx=pTab->pIndex; pIdx; pIdx=pIdx->pNext, i++){
     assert( aRegIdx );
     if( openAll || aRegIdx[i]>0 ){
-      sqlite3VdbeAddOp2(v, OP_Close, iCur+i+1, 0);
+      v.AddOp2(OP_Close, iCur+i+1, 0);
     }
   }
-  sqlite3VdbeAddOp2(v, OP_Close, iCur, 0);
+  v.AddOp2(OP_Close, iCur, 0);
 
   /* Update the sqlite_sequence table by storing the content of the
   ** maximum rowid counter values recorded while inserting into
@@ -83566,7 +83525,7 @@ void updateVirtualTable(
   ** invoke the callback function.
   */
   if( (db->flags&SQLITE_CountRows) && !pParse->pTriggerTab && !pParse->nested ){
-    sqlite3VdbeAddOp2(v, OP_ResultRow, regRowCount, 1);
+    v.AddOp2(OP_ResultRow, regRowCount, 1);
     sqlite3VdbeSetNumCols(v, 1);
     sqlite3VdbeSetColName(v, 0, COLNAME_NAME, "rows updated", SQLITE_STATIC);
   }
@@ -83655,7 +83614,7 @@ void updateVirtualTable(
   */
   assert( v );
   ephemTab = pParse->nTab++;
-  sqlite3VdbeAddOp2(v, OP_OpenEphemeral, ephemTab, pTab->nCol+1+(pRowid!=0));
+  v.AddOp2(OP_OpenEphemeral, ephemTab, pTab->nCol+1+(pRowid!=0));
   sqlite3VdbeChangeP5(v, BTREE_UNORDERED);
 
   /* fill the ephemeral table 
@@ -83666,19 +83625,19 @@ void updateVirtualTable(
   /* Generate code to scan the ephemeral table and call VUpdate. */
   iReg = ++pParse->nMem;
   pParse->nMem += pTab->nCol+1;
-  addr = sqlite3VdbeAddOp2(v, OP_Rewind, ephemTab, 0);
-  sqlite3VdbeAddOp3(v, OP_Column,  ephemTab, 0, iReg);
-  sqlite3VdbeAddOp3(v, OP_Column, ephemTab, (pRowid?1:0), iReg+1);
+  addr = v.AddOp2(OP_Rewind, ephemTab, 0);
+  v.AddOp3(OP_Column,  ephemTab, 0, iReg);
+  v.AddOp3(OP_Column, ephemTab, (pRowid?1:0), iReg+1);
   for(i=0; i<pTab->nCol; i++){
-    sqlite3VdbeAddOp3(v, OP_Column, ephemTab, i+1+(pRowid!=0), iReg+2+i);
+    v.AddOp3(OP_Column, ephemTab, i+1+(pRowid!=0), iReg+2+i);
   }
   sqlite3VtabMakeWritable(pParse, pTab);
-  sqlite3VdbeAddOp4(v, OP_VUpdate, 0, pTab->nCol+2, iReg, pVTab, P4_VTAB);
+  v.AddOp4(OP_VUpdate, 0, pTab->nCol+2, iReg, pVTab, P4_VTAB);
   sqlite3VdbeChangeP5(v, onError==OE_Default ? OE_Abort : onError);
   sqlite3MayAbort(pParse);
-  sqlite3VdbeAddOp2(v, OP_Next, ephemTab, addr+1);
+  v.AddOp2(OP_Next, ephemTab, addr+1);
   sqlite3VdbeJumpHere(v, addr);
-  sqlite3VdbeAddOp2(v, OP_Close, ephemTab, 0);
+  v.AddOp2(OP_Close, ephemTab, 0);
 
   /* Cleanup */
   sqlite3SelectDelete(db, pSelect);  
@@ -83760,8 +83719,8 @@ int execExecSql(sqlite3 *db, char **pzErrMsg, const char *zSql){
  void sqlite3Vacuum(Parse *pParse){
   Vdbe *v = sqlite3GetVdbe(pParse);
   if( v ){
-    sqlite3VdbeAddOp2(v, OP_Vacuum, 0, 0);
-    sqlite3VdbeUsesBtree(v, 0);
+    v.AddOp2(OP_Vacuum, 0, 0);
+    v.UsesBtree(0);
   }
   return;
 }
@@ -84416,10 +84375,10 @@ void addArgumentToVtab(Parse *pParse){
     v = sqlite3GetVdbe(pParse);
     sqlite3ChangeCookie(pParse, iDb);
 
-    sqlite3VdbeAddOp2(v, OP_Expire, 0, 0);
+    v.AddOp2(OP_Expire, 0, 0);
     zWhere = sqlite3MPrintf(db, "name='%q' AND type='table'", pTab->zName);
-    sqlite3VdbeAddParseSchemaOp(v, iDb, zWhere);
-    sqlite3VdbeAddOp4(v, OP_VCreate, iDb, 0, 0, pTab->zName, len(pTab->zName) + 1)
+    v.AddParseSchemaOp(iDb, zWhere);
+    v.AddOp4(OP_VCreate, iDb, 0, 0, pTab->zName, len(pTab->zName) + 1)
   }
 
   /* If we are rereading the sqlite_master table create the in-memory
@@ -84966,7 +84925,7 @@ func (db *sqlite3) VtabOverloadFunction(pDef *Function, nArg int, pExpr *Expr) (
  
 	//	Call the xFindFunction method on the virtual table implementation to see if the implementation wants to overload this function
 	var user_data	interface{}
-	var function	func(*sqlite3_context, int, []*sqlite3_value)
+	var function	func(*Context, int, []*sqlite3_value)
 
 	zLowerName := string.ToLower(pDef.zName)
 	if rc := pMod.xFindFunction(pVtab, nArg, zLowerName, &function, &UserData); rc == 0 {
@@ -85070,18 +85029,6 @@ func (db *sqlite3) VtabOverloadFunction(pDef *Function, nArg int, pExpr *Expr) (
 ** indices, you might also think of this module as the "query optimizer".
 */
 
-
-/*
-** Trace output macros
-*/
-#if defined(SQLITE_DEBUG)
-/***/ int sqlite3WhereTrace = 0;
-#endif
-#if defined(SQLITE_DEBUG) || defined(SQLITE_ENABLE_WHERETRACE))
-# define WHERETRACE(X)  if(sqlite3WhereTrace) sqlite3DebugPrintf X
-#else
-# define WHERETRACE(X)
-#endif
 
 /*
 ** The query generator uses an array of instances of this structure to
@@ -85327,7 +85274,7 @@ struct WhereBestIdx {
   Bitmask notValid;               /* Cursors not available for any purpose */
   ExprList *pOrderBy;             /* The ORDER BY clause */
   ExprList *pDistinct;            /* The select-list if query is DISTINCT */
-  sqlite3_index_info **ppIdxInfo; /* Index information passed to xBestIndex */
+  var ppIdxInfo	**IndexInfo			//	Index information passed to xBestIndex
   int i, n;                       /* Which loop is being coded; # of loops */
   WhereLevel *aLevel;             /* Info about outer loops */
   WhereCost cost;                 /* Lowest cost query plan */
@@ -86710,50 +86657,6 @@ float64 estLog(float64 N){
   return logN;
 }
 
-/*
-** Two routines for printing the content of an sqlite3_index_info
-** structure.  Used for testing and debugging only.  If
-** SQLITE_DEBUG is not defined, then these routines
-** are no-ops.
-*/
-#if defined(SQLITE_DEBUG)
-void TRACE_IDX_INPUTS(sqlite3_index_info *p){
-  int i;
-  if( !sqlite3WhereTrace ) return;
-  for(i=0; i<p->nConstraint; i++){
-    sqlite3DebugPrintf("  constraint[%d]: col=%d termid=%d op=%d usabled=%d\n",
-       i,
-       p->aConstraint[i].iColumn,
-       p->aConstraint[i].iTermOffset,
-       p->aConstraint[i].op,
-       p->aConstraint[i].usable);
-  }
-  for(i=0; i<p->nOrderBy; i++){
-    sqlite3DebugPrintf("  orderby[%d]: col=%d desc=%d\n",
-       i,
-       p->aOrderBy[i].iColumn,
-       p->aOrderBy[i].desc);
-  }
-}
-void TRACE_IDX_OUTPUTS(sqlite3_index_info *p){
-  int i;
-  if( !sqlite3WhereTrace ) return;
-  for(i=0; i<p->nConstraint; i++){
-    sqlite3DebugPrintf("  usage[%d]: argvIdx=%d omit=%d\n",
-       i,
-       p->aConstraintUsage[i].argvIndex,
-       p->aConstraintUsage[i].omit);
-  }
-  sqlite3DebugPrintf("  idxNum=%d\n", p->idxNum);
-  sqlite3DebugPrintf("  idxStr=%s\n", p->idxStr);
-  sqlite3DebugPrintf("  orderByConsumed=%d\n", p->orderByConsumed);
-  sqlite3DebugPrintf("  estimatedCost=%g\n", p->estimatedCost);
-}
-#else
-#define TRACE_IDX_INPUTS(A)
-#define TRACE_IDX_OUTPUTS(A)
-#endif
-
 /* 
 ** Required because bestIndex() is called by bestOrClauseIndex() 
 */
@@ -86804,9 +86707,6 @@ void bestOrClauseIndex(WhereBestIdx *p){
       sBOI.pDistinct = 0;
       sBOI.ppIdxInfo = 0;
       for(pOrTerm=pOrWC->a; pOrTerm<pOrWCEnd; pOrTerm++){
-        WHERETRACE(("... Multi-index OR testing for term %d of %d....\n", 
-          (pOrTerm - pOrWC->a), (pTerm - pWC->a)
-        ));
         if( (pOrTerm->eOperator& WO_AND)!=0 ){
           sBOI.pWC = &pOrTerm->u.pAndInfo->wc;
           bestIndex(&sBOI);
@@ -86833,15 +86733,12 @@ void bestOrClauseIndex(WhereBestIdx *p){
       /* If there is an ORDER BY clause, increase the scan cost to account 
       ** for the cost of the sort. */
       if( p->pOrderBy!=0 ){
-        WHERETRACE(("... sorting increases OR cost %.9g to %.9g\n",
-                    rTotal, rTotal+nRow*estLog(nRow)));
         rTotal += nRow*estLog(nRow);
       }
 
       /* If the cost of scanning using this OR term for optimization is
       ** less than the current cost stored in pCost, replace the contents
       ** of pCost. */
-      WHERETRACE(("... multi-index OR cost=%.9g nrow=%.9g\n", rTotal, nRow));
       if( rTotal<p->cost.rCost ){
         p->cost.rCost = rTotal;
         p->cost.used = used;
@@ -86938,8 +86835,6 @@ void bestAutomaticIndex(WhereBestIdx *p){
   pWCEnd = &pWC->a[pWC->nTerm];
   for(pTerm=pWC->a; pTerm<pWCEnd; pTerm++){
     if( termCanDriveIndex(pTerm, pSrc, p->notReady) ){
-      WHERETRACE(("auto-index reduces cost from %.1f to %.1f\n",
-                    p->cost.rCost, costTempIdx));
       p->cost.rCost = costTempIdx;
       p->cost.plan.nRow = logN + 1;
       p->cost.plan.wsFlags = WHERE_TEMP_INDEX;
@@ -87080,17 +86975,17 @@ void constructAutomaticIndex(
   /* Create the automatic index */
   pKeyinfo = sqlite3IndexKeyinfo(pParse, pIdx);
   assert( pLevel->iIdxCur>=0 );
-  sqlite3VdbeAddOp4(v, OP_OpenAutoindex, pLevel->iIdxCur, nColumn+1, 0,
+  v.AddOp4(OP_OpenAutoindex, pLevel->iIdxCur, nColumn+1, 0,
                     (char*)pKeyinfo, P4_KEYINFO_HANDOFF);
   VdbeComment((v, "for %s", pTable->zName));
 
   /* Fill the automatic index with content */
-  addrTop = sqlite3VdbeAddOp1(v, OP_Rewind, pLevel->iTabCur);
+  addrTop = v.AddOp1(OP_Rewind, pLevel->iTabCur);
   regRecord = sqlite3GetTempReg(pParse);
   sqlite3GenerateIndexKey(pParse, pIdx, pLevel->iTabCur, regRecord, 1);
-  sqlite3VdbeAddOp2(v, OP_IdxInsert, pLevel->iIdxCur, regRecord);
+  v.AddOp2(OP_IdxInsert, pLevel->iIdxCur, regRecord);
   sqlite3VdbeChangeP5(v, OPFLAG_USESEEKRESULT);
-  sqlite3VdbeAddOp2(v, OP_Next, pLevel->iTabCur, addrTop+1);
+  v.AddOp2(OP_Next, pLevel->iTabCur, addrTop+1);
   sqlite3VdbeChangeP5(v, SQLITE_STMTSTATUS_AUTOINDEX);
   sqlite3VdbeJumpHere(v, addrTop);
   sqlite3ReleaseTempReg(pParse, regRecord);
@@ -87100,133 +86995,61 @@ void constructAutomaticIndex(
 }
 #endif /* SQLITE_OMIT_AUTOMATIC_INDEX */
 
-/*
-** Allocate and populate an sqlite3_index_info structure. It is the 
-** responsibility of the caller to eventually release the structure
-** by passing the pointer returned by this function to sqlite3_free().
-*/
-sqlite3_index_info *allocateIndexInfo(WhereBestIdx *p){
-  Parse *pParse = p->pParse; 
-  WhereClause *pWC = p->pWC;
-  struct SrcList_item *pSrc = p->pSrc;
-  ExprList *pOrderBy = p->pOrderBy;
-  int i, j;
-  int nTerm;
-  struct sqlite3_index_constraint *pIdxCons;
-  struct sqlite3_index_orderby *pIdxOrderBy;
-  struct sqlite3_index_constraint_usage *pUsage;
-  WhereTerm *pTerm;
-  int nOrderBy;
-  sqlite3_index_info *pIdxInfo;
+//	Allocate and populate an IndexInfo structure. It is the responsibility of the caller to eventually release the structure
+//	by passing the pointer returned by this function to sqlite3_free().
+func (p *WhereBestIdx) allocateIndexInfo() (index_info *IndexInfo) {
+	index_info = new(IndexInfo)
 
-  WHERETRACE(("Recomputing index info for %s...\n", pSrc->pTab->zName));
-
-  /* Count the number of possible WHERE clause constraints referring
-  ** to this virtual table */
-  for(i=nTerm=0, pTerm=pWC->a; i<pWC->nTerm; i++, pTerm++){
-    if( pTerm->leftCursor != pSrc->iCursor ) continue;
-    assert( IsPowerOfTwo(pTerm->eOperator & ~WO_EQUIV) );
-    if( pTerm->eOperator & (WO_ISNULL) ) continue;
-    if( pTerm->wtFlags & TERM_VNULL ) continue;
-    nTerm++;
-  }
-
-  /* If the ORDER BY clause contains only columns in the current 
-  ** virtual table then allocate space for the aOrderBy part of
-  ** the sqlite3_index_info structure.
-  */
-  nOrderBy = 0;
-  if( pOrderBy ){
-    int n = pOrderBy->nExpr;
-    for(i=0; i<n; i++){
-      Expr *pExpr = pOrderBy->a[i].pExpr;
-      if( pExpr->op!=TK_COLUMN || pExpr->iTable!=pSrc->iCursor ) break;
-    }
-    if( i==n){
-      nOrderBy = n;
-    }
-  }
-
-  /* Allocate the sqlite3_index_info structure
-  */
-  pIdxInfo = sqlite3DbMallocZero(pParse->db, sizeof(*pIdxInfo)
-                           + (sizeof(*pIdxCons) + sizeof(*pUsage))*nTerm
-                           + sizeof(*pIdxOrderBy)*nOrderBy );
-  if( pIdxInfo==0 ){
-    pParse.ErrorMessage("out of memory")
-    return 0
-  }
-
-  /* Initialize the structure.  The sqlite3_index_info structure contains
-  ** many fields that are declared "const" to prevent xBestIndex from
-  ** changing them.  We have to do some funky casting in order to
-  ** initialize those fields.
-  */
-  pIdxCons = (struct sqlite3_index_constraint*)&pIdxInfo[1];
-  pIdxOrderBy = (struct sqlite3_index_orderby*)&pIdxCons[nTerm];
-  pUsage = (struct sqlite3_index_constraint_usage*)&pIdxOrderBy[nOrderBy];
-  *(int*)&pIdxInfo->nConstraint = nTerm;
-  *(int*)&pIdxInfo->nOrderBy = nOrderBy;
-  *(struct sqlite3_index_constraint**)&pIdxInfo->aConstraint = pIdxCons;
-  *(struct sqlite3_index_orderby**)&pIdxInfo->aOrderBy = pIdxOrderBy;
-  *(struct sqlite3_index_constraint_usage**)&pIdxInfo->aConstraintUsage =
-                                                                   pUsage;
-
-  for(i=j=0, pTerm=pWC->a; i<pWC->nTerm; i++, pTerm++){
-    u8 op;
-    if( pTerm->leftCursor != pSrc->iCursor ) continue;
-    assert( IsPowerOfTwo(pTerm->eOperator & ~WO_EQUIV) );
-    if( pTerm->eOperator & (WO_ISNULL) ) continue;
-    if( pTerm->wtFlags & TERM_VNULL ) continue;
-    pIdxCons[j].iColumn = pTerm->u.leftColumn;
-    pIdxCons[j].iTermOffset = i;
-    op = (u8)pTerm->eOperator & WO_ALL;
-    if( op==WO_IN ) op = WO_EQ;
-    pIdxCons[j].op = op;
-    /* The direct assignment in the previous line is possible only because
-    ** the WO_ and SQLITE_INDEX_CONSTRAINT_ codes are identical.  The
-    ** following asserts verify this fact. */
-    assert( WO_EQ==SQLITE_INDEX_CONSTRAINT_EQ );
-    assert( WO_LT==SQLITE_INDEX_CONSTRAINT_LT );
-    assert( WO_LE==SQLITE_INDEX_CONSTRAINT_LE );
-    assert( WO_GT==SQLITE_INDEX_CONSTRAINT_GT );
-    assert( WO_GE==SQLITE_INDEX_CONSTRAINT_GE );
-    assert( WO_MATCH==SQLITE_INDEX_CONSTRAINT_MATCH );
-    assert( pTerm->eOperator & (WO_IN|WO_EQ|WO_LT|WO_LE|WO_GT|WO_GE|WO_MATCH) );
-    j++;
-  }
-  for(i=0; i<nOrderBy; i++){
-    Expr *pExpr = pOrderBy->a[i].pExpr;
-    pIdxOrderBy[i].iColumn = pExpr->iColumn;
-    pIdxOrderBy[i].desc = pOrderBy->a[i].sortOrder;
-  }
-
-  return pIdxInfo;
+	//	TODO: The IndexInfo structure contains many fields that are declared "const" to prevent xBestIndex from
+	//	changing them.  We have to do some funky casting in order to initialize those fields.
+	for i, term := range p.pWC.a {
+		if term.leftCursor != source_list.iCursor {
+			continue
+		}
+		assert( IsPowerOfTwo(term.eOperator & ~WO_EQUIV) )
+		if term.eOperator & WO_ISNULL != 0 {
+			continue
+		}
+		if term.wtFlags & TERM_VNULL != 0 {
+			continue
+		}
+		op := byte(term.eOperator) & WO_ALL
+		if op == WO_IN {
+			op = WO_EQ
+		}
+		index_info.Constraint = append(index_info.Constraint, &IndexConstraint{ iColumn: term.u.leftColumn, iTermOffset: i, op: op })
+		//	The direct assignment in the previous line is possible only because the WO_ and SQLITE_INDEX_CONSTRAINT_ codes are identical.  The
+		//	following asserts verify this fact.
+		assert( WO_EQ == SQLITE_INDEX_CONSTRAINT_EQ )
+		assert( WO_LT == SQLITE_INDEX_CONSTRAINT_LT )
+		assert( WO_LE == SQLITE_INDEX_CONSTRAINT_LE )
+		assert( WO_GT == SQLITE_INDEX_CONSTRAINT_GT )
+		assert( WO_GE == SQLITE_INDEX_CONSTRAINT_GE )
+		assert( WO_MATCH == SQLITE_INDEX_CONSTRAINT_MATCH )
+		assert( term.eOperator & (WO_IN | WO_EQ | WO_LT | WO_LE | WO_GT | WO_GE | WO_MATCH) )
+	}
+	for i, o := range p.pOrderBy.a {
+		index_info.OrderBy = append(index_info.OrderBy, &IndexOrderBy{ iColumn: o.pExpr.iColumn, desc: o.sortOrder })
+	}
+	return
 }
 
 /*
 ** The table object reference passed as the second argument to this function
 ** must represent a virtual table. This function invokes the xBestIndex()
-** method of the virtual table with the sqlite3_index_info pointer passed
+** method of the virtual table with the IndexInfo pointer passed
 ** as the argument.
 **
 ** If an error occurs, pParse is populated with an error message and a
 ** non-zero value is returned. Otherwise, 0 is returned and the output
-** part of the sqlite3_index_info structure is left populated.
-**
-** Whether or not an error is returned, it is the responsibility of the
-** caller to eventually free p->idxStr if p->needToFreeIdxStr indicates
-** that this is required.
+** part of the IndexInfo structure is left populated.
 */
-int vtabBestIndex(Parse *pParse, Table *pTab, sqlite3_index_info *p){
+int vtabBestIndex(pParse *Parse, pTab *Table, p *IndexInfo) {
   sqlite3_vtab *pVtab = sqlite3GetVTable(pParse->db, pTab)->pVtab;
   int i;
   int rc;
 
-  WHERETRACE(("xBestIndex for %s\n", pTab->zName));
-  TRACE_IDX_INPUTS(p);
   rc = pVtab->pModule->xBestIndex(pVtab, p);
-  TRACE_IDX_OUTPUTS(p);
 
   if( rc!=SQLITE_OK ){
     if( rc==SQLITE_NOMEM ){
@@ -87241,7 +87064,7 @@ int vtabBestIndex(Parse *pParse, Table *pTab, sqlite3_index_info *p){
   pVtab->zErrMsg = 0;
 
   for(i=0; i<p->nConstraint; i++){
-    if( !p->aConstraint[i].usable && p->aConstraintUsage[i].argvIndex>0 ){
+    if !p.Constraint[i].usable && p.Usage[i].argvIndex >0  {
       pParse.ErrorMessage("table %s: xBestIndex returned an invalid plan", pTab.zName)
     }
   }
@@ -87250,199 +87073,136 @@ int vtabBestIndex(Parse *pParse, Table *pTab, sqlite3_index_info *p){
 }
 
 
-/*
-** Compute the best index for a virtual table.
-**
-** The best index is computed by the xBestIndex method of the virtual
-** table module.  This routine is really just a wrapper that sets up
-** the sqlite3_index_info structure that is used to communicate with
-** xBestIndex.
-**
-** In a join, this routine might be called multiple times for the
-** same virtual table.  The sqlite3_index_info structure is created
-** and initialized on the first invocation and reused on all subsequent
-** invocations.  The sqlite3_index_info structure is also used when
-** code is generated to access the virtual table.  The whereInfoDelete() 
-** routine takes care of freeing the sqlite3_index_info structure after
-** everybody has finished with it.
-*/
-void bestVirtualIndex(WhereBestIdx *p){
-  Parse *pParse = p->pParse;      /* The parsing context */
-  WhereClause *pWC = p->pWC;      /* The WHERE clause */
-  struct SrcList_item *pSrc = p->pSrc; /* The FROM clause term to search */
-  Table *pTab = pSrc->pTab;
-  sqlite3_index_info *pIdxInfo;
-  struct sqlite3_index_constraint *pIdxCons;
-  struct sqlite3_index_constraint_usage *pUsage;
-  WhereTerm *pTerm;
-  int i, j;
-  int nOrderBy;
-  int bAllowIN;                   /* Allow IN optimizations */
-  float64 rCost;
+// Compute the best index for a virtual table.
+//
+// The best index is computed by the xBestIndex method of the virtual table module. This routine is really just a wrapper that sets up
+// the IndexInfo structure that is used to communicate with xBestIndex.
+//
+// In a join, this routine might be called multiple times for the same virtual table. The IndexInfo structure is created
+// and initialized on the first invocation and reused on all subsequent invocations. The IndexInfo structure is also used when
+// code is generated to access the virtual table. The whereInfoDelete() routine takes care of freeing the IndexInfo structure after
+// everybody has finished with it.
+func (p *WhereBestIdx) BestVirtualIndex() {
+	parse_context := p.pParse
+	where_clause := p.pWC
+	from_clause := p.pSrc
+	table := from_clause.pTab
 
-  /* Make sure wsFlags is initialized to some sane value. Otherwise, if the 
-  ** malloc in allocateIndexInfo() fails and this function returns leaving
-  ** wsFlags in an uninitialized state, the caller may behave unpredictably.
-  */
-  memset(&p->cost, 0, sizeof(p->cost));
-  p->cost.plan.wsFlags = WHERE_VIRTUALTABLE;
+	//	Make sure wsFlags is initialized to some sane value.
+	p.cost = &WhereCost{ plan: &WherePlan{ wsFlags: WHERE_VIRTUALTABLE } }
 
-  /* If the sqlite3_index_info structure has not been previously
-  ** allocated and initialized, then allocate and initialize it now.
-  */
-  pIdxInfo = *p->ppIdxInfo;
-  if( pIdxInfo==0 ){
-    *p->ppIdxInfo = pIdxInfo = allocateIndexInfo(p);
-  }
-  if( pIdxInfo==0 ){
-    return;
-  }
+	//	If the IndexInfo structure has not been previously allocated and initialized, then allocate and initialize it now.
+	index_info := *p.ppIdxInfo
+	if index_info == nil {
+		*p.ppIdxInfo = index_info = p.allocateIndexInfo()
+	}
 
-  /* At this point, the sqlite3_index_info structure that pIdxInfo points
-  ** to will have been initialized, either during the current invocation or
-  ** during some prior invocation.  Now we just have to customize the
-  ** details of pIdxInfo for the current invocation and pass it to
-  ** xBestIndex.
-  */
+	//	The module name must be defined. Also, by this point there must be a pointer to an sqlite3_vtab structure. Otherwise sqlite3ViewGetColumnNames() would have picked up the error. 
+	assert( from_clause.pTab.azModuleArg && from_clause.pTab.azModuleArg[0] )
+	assert( sqlite3GetVTable(parse_context.db, from_clause.pTab) )
 
-  /* The module name must be defined. Also, by this point there must
-  ** be a pointer to an sqlite3_vtab structure. Otherwise
-  ** sqlite3ViewGetColumnNames() would have picked up the error. 
-  */
-  assert( pTab->azModuleArg && pTab->azModuleArg[0] );
-  assert( sqlite3GetVTable(pParse->db, pTab) );
+	//	Try once or twice.  On the first attempt, allow IN optimizations. If an IN optimization is accepted by the virtual table xBestIndex
+	//	method, but the  pInfo->aConstrainUsage.omit flag is not set, then the query will not work because it might allow duplicate rows in
+	//	output.  In that case, run the xBestIndex method a second time without the IN constraints.  Usually this loop only runs once.
+	//	The loop will exit using a "break" statement.
+	for AllowIN := true; true; AllowIN = false {
+		//	Set the Constraint[].usable fields and initialize all output variables to zero.
+		//	Constraint[].usable is true for constraints where the right-hand side contains only references to tables to the left of the current
+		//	table. In other words, if the constraint is of the form:
+		//
+		//			column = expr
+		//
+		//	and we are evaluating a join, then the constraint on column is only valid if all tables referenced in expr occur to the left
+		//	of the table containing column.
+		//
+		//	The Constraint[] array contains entries for all constraints on the current table. That way we only have to compute it once
+		//	even though we might try to pick the best index multiple times. For each attempt at picking an index, the order of tables in the
+		//	join might be different so we have to recompute the usable flag each time.
 
-  /* Try once or twice.  On the first attempt, allow IN optimizations.
-  ** If an IN optimization is accepted by the virtual table xBestIndex
-  ** method, but the  pInfo->aConstrainUsage.omit flag is not set, then
-  ** the query will not work because it might allow duplicate rows in
-  ** output.  In that case, run the xBestIndex method a second time
-  ** without the IN constraints.  Usually this loop only runs once.
-  ** The loop will exit using a "break" statement.
-  */
-  for(bAllowIN=1; 1; bAllowIN--){
-    assert( bAllowIN==0 || bAllowIN==1 );
+		constraint := index_info.Constraint
+		pUsage := index_info.Usage
+		for _, c = range index_info.Constraint {
+			where_term := where_clause.a[c.iTermOffset]
+			if !(where_term.prereqRight & p.notReady) && (bAllowIN || where_term.eOperator & WO_IN == 0) {
+				constraint.usable = true
+			} else {
+				constraint.usable = false
+			}
+		}
+		index_info.pUsage = make([]*Usage, 0)
+		index_info.idxStr = ""
+		index_info.idxNum = 0
+		index_info.orderByConsumed = false
+		index_info.estimatedCost = BIG_FLOAT / 2
+		nOrderBy = index_info.nOrderBy
+		if !p.pOrderBy {
+			index_info.nOrderBy = 0
+		}
 
-    /* Set the aConstraint[].usable fields and initialize all 
-    ** output variables to zero.
-    **
-    ** aConstraint[].usable is true for constraints where the right-hand
-    ** side contains only references to tables to the left of the current
-    ** table.  In other words, if the constraint is of the form:
-    **
-    **           column = expr
-    **
-    ** and we are evaluating a join, then the constraint on column is 
-    ** only valid if all tables referenced in expr occur to the left
-    ** of the table containing column.
-    **
-    ** The aConstraints[] array contains entries for all constraints
-    ** on the current table.  That way we only have to compute it once
-    ** even though we might try to pick the best index multiple times.
-    ** For each attempt at picking an index, the order of tables in the
-    ** join might be different so we have to recompute the usable flag
-    ** each time.
-    */
-    pIdxCons = *(struct sqlite3_index_constraint**)&pIdxInfo->aConstraint;
-    pUsage = pIdxInfo->aConstraintUsage;
-    for(i=0; i<pIdxInfo->nConstraint; i++, pIdxCons++){
-      j = pIdxCons->iTermOffset;
-      pTerm = &pWC->a[j];
-      if( (pTerm->prereqRight&p->notReady)==0
-       && (bAllowIN || (pTerm->eOperator & WO_IN)==0)
-      ){
-        pIdxCons->usable = 1;
-      }else{
-        pIdxCons->usable = 0;
-      }
-    }
-    memset(pUsage, 0, sizeof(pUsage[0])*pIdxInfo->nConstraint);
-    if( pIdxInfo->needToFreeIdxStr ){
-      sqlite3_free(pIdxInfo->idxStr);
-    }
-    pIdxInfo->idxStr = 0;
-    pIdxInfo->idxNum = 0;
-    pIdxInfo->needToFreeIdxStr = 0;
-    pIdxInfo->orderByConsumed = 0;
-    pIdxInfo->estimatedCost = BIG_FLOAT / 2
-    nOrderBy = pIdxInfo->nOrderBy;
-    if( !p->pOrderBy ){
-      pIdxInfo->nOrderBy = 0;
-    }
+		if vtabBestIndex(parse_context, from_clause.pTab, index_info) {
+			return
+		}
   
-    if( vtabBestIndex(pParse, pTab, pIdxInfo) ){
-      return;
-    }
+		for i, c := range index_info.Constraint {
+			if pUsage[i].argvIndex > 0 {
+				where_term := where_clause.a[c.iTermOffset]
+				p.cost.used |= where_term.prereqRight
+				if where_term.eOperator & WO_IN != 0 {
+					if pUsage[i].omit == 0 {
+						//	Do not attempt to use an IN constraint if the virtual table says that the equivalent EQ constraint cannot be safely omitted.
+						//	If we do attempt to use such a constraint, some rows might be repeated in the output.
+						break
+					}
+					//	A virtual table that is constrained by an IN clause may not consume the ORDER BY clause because (1) the order of IN terms
+					//	is not necessarily related to the order of output terms and (2) Multiple outputs from a single IN value will not merge together.
+					index_info.orderByConsumed = false
+				}
+			}
+		}
+		if i >= len(index_info.Constraint) {
+			break
+		}
+	}
+
+	//	The orderByConsumed signal is only valid if all outer loops collectively generate just a single row of output.
+	if index_info.orderByConsumed {
+		for i := 0; i < p.i; i++ {
+			if p.aLevel[i].plan.wsFlags & WHERE_UNIQUE == 0 {
+				index_info.orderByConsumed = false
+			}
+		}
+	}
   
-    pIdxCons = *(struct sqlite3_index_constraint**)&pIdxInfo->aConstraint;
-    for(i=0; i<pIdxInfo->nConstraint; i++, pIdxCons++){
-      if( pUsage[i].argvIndex>0 ){
-        j = pIdxCons->iTermOffset;
-        pTerm = &pWC->a[j];
-        p->cost.used |= pTerm->prereqRight;
-        if( (pTerm->eOperator & WO_IN)!=0 ){
-          if( pUsage[i].omit==0 ){
-            /* Do not attempt to use an IN constraint if the virtual table
-            ** says that the equivalent EQ constraint cannot be safely omitted.
-            ** If we do attempt to use such a constraint, some rows might be
-            ** repeated in the output. */
-            break;
-          }
-          /* A virtual table that is constrained by an IN clause may not
-          ** consume the ORDER BY clause because (1) the order of IN terms
-          ** is not necessarily related to the order of output terms and
-          ** (2) Multiple outputs from a single IN value will not merge
-          ** together.  */
-          pIdxInfo->orderByConsumed = 0;
-        }
-      }
-    }
-    if( i>=pIdxInfo->nConstraint ) break;
-  }
+	//	If there is an ORDER BY clause, and the selected virtual table index does not satisfy it, increase the cost of the scan accordingly. This
+	//	matches the processing for non-virtual tables in bestBtreeIndex().
+	rCost := index_info.estimatedCost
+	if p.pOrderBy && !index_info.orderByConsumed {
+		rCost += estLog(rCost) * rCost
+	}
 
-  /* The orderByConsumed signal is only valid if all outer loops collectively
-  ** generate just a single row of output.
-  */
-  if( pIdxInfo->orderByConsumed ){
-    for(i=0; i<p->i; i++){
-      if( (p->aLevel[i].plan.wsFlags & WHERE_UNIQUE)==0 ){
-        pIdxInfo->orderByConsumed = 0;
-      }
-    }
-  }
-  
-  /* If there is an ORDER BY clause, and the selected virtual table index
-  ** does not satisfy it, increase the cost of the scan accordingly. This
-  ** matches the processing for non-virtual tables in bestBtreeIndex().
-  */
-  rCost = pIdxInfo->estimatedCost;
-  if( p->pOrderBy && pIdxInfo->orderByConsumed==0 ){
-    rCost += estLog(rCost)*rCost;
-  }
+	//	The cost is not allowed to be larger than BIG_FLOAT (the inital value of lowestCost in this loop. If it is, then the
+	//	(cost < lowestCost) test below will never be true.
+	if BIG_FLOAT / 2 < rCost {
+		p.cost.rCost = BIG_FLOAT / 2
+	} else {
+		p.cost.rCost = rCost
+	}
+	p.cost.plan.u.pVtabIdx = index_info
+	if index_info.orderByConsumed {
+		p.cost.plan.wsFlags |= WHERE_ORDERED
+		p.cost.plan.nOBSat = nOrderBy
+	} else {
+		if p.i != 0 {
+			p.cost.plan.nOBSat = p.aLevel[p.i - 1].plan.nOBSat
+		} else {
+			p.cost.plan.nOBSat = 0
+		}
+	}
+	p.cost.plan.nEq = 0
+	index_info.nOrderBy = nOrderBy
 
-  /* The cost is not allowed to be larger than BIG_FLOAT (the
-  ** inital value of lowestCost in this loop. If it is, then the
-  ** (cost<lowestCost) test below will never be true.
-  */
-  if BIG_FLOAT / 2 < rCost {
-    p->cost.rCost = BIG_FLOAT / 2
-  }else{
-    p->cost.rCost = rCost;
-  }
-  p->cost.plan.u.pVtabIdx = pIdxInfo;
-  if( pIdxInfo->orderByConsumed ){
-    p->cost.plan.wsFlags |= WHERE_ORDERED;
-    p->cost.plan.nOBSat = nOrderBy;
-  }else{
-    p->cost.plan.nOBSat = p->i ? p->aLevel[p->i-1].plan.nOBSat : 0;
-  }
-  p->cost.plan.nEq = 0;
-  pIdxInfo->nOrderBy = nOrderBy;
-
-  /* Try to find a more efficient access pattern by using multiple indexes
-  ** to optimize an OR expression within the WHERE clause. 
-  */
-  bestOrClauseIndex(p);
+	//	Try to find a more efficient access pattern by using multiple indexes to optimize an OR expression within the WHERE clause. 
+	bestOrClauseIndex(p)
 }
 
 #ifdef SQLITE_ENABLE_STAT3
@@ -87700,8 +87460,6 @@ int whereRangeScanEst(
       }else{
         *pRangeDiv = (float64)p->aiRowEst[0]/(float64)(iUpper - iLower);
       }
-      WHERETRACE(("range scan regions: %u..%u  div=%g\n",
-                  (u32)iLower, (u32)iUpper, *pRangeDiv));
       return SQLITE_OK;
     }
   }
@@ -87758,7 +87516,6 @@ int whereEqualScanEst(
   if( pRhs==0 ) return SQLITE_NOTFOUND;
   rc = whereKeyStats(pParse, p, pRhs, 0, a);
   if( rc==SQLITE_OK ){
-    WHERETRACE(("equality scan regions: %d\n", (int)a[1]));
     *pnRow = a[1];
   }
 whereEqualScanEst_cancel:
@@ -87804,7 +87561,6 @@ int whereInScanEst(
   if( rc==SQLITE_OK ){
     if( nRowEst > p->aiRowEst[0] ) nRowEst = p->aiRowEst[0];
     *pnRow = nRowEst;
-    WHERETRACE(("IN row estimate: est=%g\n", nRowEst));
   }
   return rc;
 }
@@ -88005,10 +87761,7 @@ int isSortingIndex(
     }else{
       Expr *pRight = pConstraint->pExpr->pRight;
       if( pRight->op==TK_COLUMN ){
-        WHERETRACE(("       .. isOrderedColumn(tab=%d,col=%d)",
-                    pRight->iTable, pRight->iColumn));
         isEq = isOrderedColumn(p, pRight->iTable, pRight->iColumn);
-        WHERETRACE((" -> isEq=%d\n", isEq));
 
         /* If the constraint is of the form X=Y where Y is an ordered value
         ** in an outer loop, then make sure the sort order of Y matches the
@@ -88270,10 +88023,6 @@ void bestBtreeIndex(WhereBestIdx *p){
     WhereTerm *pFirstTerm = 0;    /* First term matching the index */
 #endif
 
-    WHERETRACE((
-      "   %s(%s):\n",
-      pSrc->pTab->zName, (pIdx ? pIdx->zName : "ipk")
-    ));
     memset(&pc, 0, sizeof(pc));
     pc.plan.nOBSat = nPriorSat;
 
@@ -88349,10 +88098,7 @@ void bestBtreeIndex(WhereBestIdx *p){
     if( bSort && (pSrc->jointype & JT_LEFT)==0 ){
       int bRev = 2;
       int bObUnique = 0;
-      WHERETRACE(("      --> before isSortIndex: nPriorSat=%d\n",nPriorSat));
       pc.plan.nOBSat = isSortingIndex(p, pProbe, iCur, &bRev, &bObUnique);
-      WHERETRACE(("      --> after  isSortIndex: bRev=%d bObU=%d nOBSat=%d\n",
-                  bRev, bObUnique, pc.plan.nOBSat));
       if( nPriorSat<pc.plan.nOBSat || (pc.plan.wsFlags & WHERE_ALL_UNIQUE)!=0 ){
         pc.plan.wsFlags |= WHERE_ORDERED;
         if( bObUnique ) pc.plan.wsFlags |= WHERE_OB_UNIQUE;
@@ -88576,15 +88322,6 @@ void bestBtreeIndex(WhereBestIdx *p){
     }
 
 
-    WHERETRACE((
-      "      nEq=%d nInMul=%d rangeDiv=%d bSort=%d bLookup=%d wsFlags=0x%08x\n"
-      "      notReady=0x%llx log10N=%.1f nRow=%.1f cost=%.1f\n"
-      "      used=0x%llx nOBSat=%d\n",
-      pc.plan.nEq, nInMul, (int)rangeDiv, bSort, bLookup, pc.plan.wsFlags,
-      p->notReady, log10N, pc.plan.nRow, pc.rCost, pc.used,
-      pc.plan.nOBSat
-    ));
-
     /* If this index is the best we have seen so far, then record this
     ** index and its cost in the p->cost structure.
     */
@@ -88618,18 +88355,13 @@ void bestBtreeIndex(WhereBestIdx *p){
        || p->cost.plan.u.pIdx==0 
        || p->cost.plan.u.pIdx==pSrc->pIndex 
   );
-
-  WHERETRACE(("   best index is %s cost=%.1f\n",
-         p->cost.plan.u.pIdx ? p->cost.plan.u.pIdx->zName : "ipk",
-         p->cost.rCost));
-  
   bestOrClauseIndex(p);
   bestAutomaticIndex(p);
   p->cost.plan.wsFlags |= eqTermMask;
 }
 
 /*
-** Find the query plan for accessing table pSrc->pTab. Write the
+** Find the query plan for accessing table pSrc.pTab. Write the
 ** best query plan and its cost into the WhereCost object supplied 
 ** as the last parameter. This function may calculate the cost of
 ** both real and virtual table scans.
@@ -88640,20 +88372,16 @@ void bestBtreeIndex(WhereBestIdx *p){
 ** details will be reconsidered later if the optimization is found to be
 ** applicable.
 */
-void bestIndex(WhereBestIdx *p){
-  if( IsVirtual(p->pSrc->pTab) ){
-    sqlite3_index_info *pIdxInfo = 0;
-    p->ppIdxInfo = &pIdxInfo;
-    bestVirtualIndex(p);
-    assert( pIdxInfo!=0 || p->pParse->db->mallocFailed );
-    if( pIdxInfo && pIdxInfo->needToFreeIdxStr ){
-      sqlite3_free(pIdxInfo->idxStr);
-    }
-    sqlite3DbFree(p->pParse->db, pIdxInfo);
-  }else
-  {
-    bestBtreeIndex(p);
-  }
+void bestIndex(p *WhereBestIdx) {
+	if IsVirtual(p.pSrc.pTab) {
+		var index_info	*IndexInfo
+		p.ppIdxInfo = &index_info
+		p.BestVirtualIndex()
+		assert( index_info != 0 || p.pParse.db.mallocFailed )
+		sqlite3DbFree(p.pParse.db, index_info)
+	} else {
+		bestBtreeIndex(p)
+	}
 }
 
 /*
@@ -88730,7 +88458,7 @@ void codeApplyAffinity(Parse *pParse, int base, int n, char *zAff){
 
   /* Code the OP_Affinity opcode if there is anything left to do. */
   if( n>0 ){
-    sqlite3VdbeAddOp2(v, OP_Affinity, base, n);
+    v.AddOp2(OP_Affinity, base, n);
     sqlite3VdbeChangeP4(v, -1, zAff, n);
     sqlite3ExprCacheAffinityChange(pParse, base, n);
   }
@@ -88764,7 +88492,7 @@ int codeEqualityTerm(
     iReg = sqlite3ExprCodeTarget(pParse, pX->pRight, iTarget);
   }else if( pX->op==TK_ISNULL ){
     iReg = iTarget;
-    sqlite3VdbeAddOp2(v, OP_Null, 0, iReg);
+    v.AddOp2(OP_Null, 0, iReg);
 #ifndef SQLITE_OMIT_SUBQUERY
   }else{
     int eType;
@@ -88784,7 +88512,7 @@ int codeEqualityTerm(
       bRev = !bRev;
     }
     iTab = pX->iTable;
-    sqlite3VdbeAddOp2(v, bRev ? OP_Last : OP_Rewind, iTab, 0);
+    v.AddOp2(bRev ? OP_Last : OP_Rewind, iTab, 0);
     assert( pLevel->plan.wsFlags & WHERE_IN_ABLE );
     if( pLevel->u.in.nIn==0 ){
       pLevel->addrNxt = sqlite3VdbeMakeLabel(v);
@@ -88798,12 +88526,12 @@ int codeEqualityTerm(
       pIn += pLevel->u.in.nIn - 1;
       pIn->iCur = iTab;
       if( eType==IN_INDEX_ROWID ){
-        pIn->addrInTop = sqlite3VdbeAddOp2(v, OP_Rowid, iTab, iReg);
+        pIn->addrInTop = v.AddOp2(OP_Rowid, iTab, iReg);
       }else{
-        pIn->addrInTop = sqlite3VdbeAddOp3(v, OP_Column, iTab, 0, iReg);
+        pIn->addrInTop = v.AddOp3(OP_Column, iTab, 0, iReg);
       }
       pIn->eEndLoopOp = bRev ? OP_Prev : OP_Next;
-      sqlite3VdbeAddOp1(v, OP_IsNull, iReg);
+      v.AddOp1(OP_IsNull, iReg);
     }else{
       pLevel->u.in.nIn = 0;
     }
@@ -88901,7 +88629,7 @@ int codeAllEqualityTerms(
         sqlite3ReleaseTempReg(pParse, regBase);
         regBase = r1;
       }else{
-        sqlite3VdbeAddOp2(v, OP_SCopy, r1, regBase+j);
+        v.AddOp2(OP_SCopy, r1, regBase+j);
       }
     }
     if( (pTerm->eOperator & (WO_ISNULL|WO_IN))==0 ){
@@ -89057,9 +88785,8 @@ void explainOneScan(
       }
     }
     else if( (flags & WHERE_VIRTUALTABLE)!=0 ){
-      sqlite3_index_info *pVtabIdx = pLevel->plan.u.pVtabIdx;
-      zMsg = sqlite3MAppendf(db, zMsg, "%s VIRTUAL TABLE INDEX %d:%s", zMsg,
-                  pVtabIdx->idxNum, pVtabIdx->idxStr);
+		pVtabIdx := pLevel.plan.u.pVtabIdx
+		zMsg = sqlite3MAppendf(db, zMsg, "%s VIRTUAL TABLE INDEX %d:%s", zMsg, pVtabIdx.idxNum, pVtabIdx.idxStr)
     }
     if( wctrlFlags&(WHERE_ORDERBY_MIN|WHERE_ORDERBY_MAX) ){
       nRow = 1;
@@ -89067,7 +88794,7 @@ void explainOneScan(
       nRow = (sqlite3_int64)pLevel->plan.nRow;
     }
     zMsg = sqlite3MAppendf(db, zMsg, "%s (~%lld rows)", zMsg, nRow);
-    sqlite3VdbeAddOp4(v, OP_Explain, iId, iLevel, iFrom, zMsg, P4_DYNAMIC);
+    v.AddOp4(OP_Explain, iId, iLevel, iFrom, zMsg, P4_DYNAMIC);
   }
 }
 #else
@@ -89132,17 +88859,17 @@ Bitmask codeOneLoopStart(
   */
   if( pLevel->iFrom>0 && (pTabItem[0].jointype & JT_LEFT)!=0 ){
     pLevel->iLeftJoin = ++pParse->nMem;
-    sqlite3VdbeAddOp2(v, OP_Integer, 0, pLevel->iLeftJoin);
+    v.AddOp2(OP_Integer, 0, pLevel->iLeftJoin);
     VdbeComment((v, "init LEFT JOIN no-match flag"));
   }
 
   /* Special case of a FROM clause subquery implemented as a co-routine */
   if( pTabItem->viaCoroutine ){
     int regYield = pTabItem->regReturn;
-    sqlite3VdbeAddOp2(v, OP_Integer, pTabItem->addrFillSub-1, regYield);
-    pLevel->p2 =  sqlite3VdbeAddOp1(v, OP_Yield, regYield);
+    v.AddOp2(OP_Integer, pTabItem->addrFillSub-1, regYield);
+    pLevel->p2 =  v.AddOp1(OP_Yield, regYield);
     VdbeComment((v, "next row of co-routine %s", pTabItem->pTab->zName));
-    sqlite3VdbeAddOp2(v, OP_If, regYield+1, addrBrk);
+    v.AddOp2(OP_If, regYield+1, addrBrk);
     pLevel->op = OP_Goto;
   }else
   if(  (pLevel->plan.wsFlags & WHERE_VIRTUALTABLE)!=0 ){
@@ -89151,15 +88878,13 @@ Bitmask codeOneLoopStart(
     */
     int iReg;   /* P3 Value for OP_VFilter */
     int addrNotFound;
-    sqlite3_index_info *pVtabIdx = pLevel->plan.u.pVtabIdx;
-    int nConstraint = pVtabIdx->nConstraint;
-    struct sqlite3_index_constraint_usage *aUsage =
-                                                pVtabIdx->aConstraintUsage;
-    const struct sqlite3_index_constraint *aConstraint =
-                                                pVtabIdx->aConstraint;
+    pVtabIdx := pLevel.plan.u.pVtabIdx
+    aUsage := pVtabIdx.Usage
+    aConstraint := pVtabIdx.Constraint
+	nConstraint := len(pVtabIdx.Constraint)
 
     sqlite3ExprCachePush(pParse);
-    iReg = sqlite3GetTempRange(pParse, nConstraint+2);
+    iReg = sqlite3GetTempRange(pParse, nConstraint + 2)
     addrNotFound = pLevel->addrBrk;
     for(j=1; j<=nConstraint; j++){
       for(k=0; k<nConstraint; k++){
@@ -89177,11 +88902,9 @@ Bitmask codeOneLoopStart(
       }
       if( k==nConstraint ) break;
     }
-    sqlite3VdbeAddOp2(v, OP_Integer, pVtabIdx->idxNum, iReg);
-    sqlite3VdbeAddOp2(v, OP_Integer, j-1, iReg+1);
-    sqlite3VdbeAddOp4(v, OP_VFilter, iCur, addrNotFound, iReg, pVtabIdx->idxStr,
-                      pVtabIdx->needToFreeIdxStr ? P4_MPRINTF : P4_STATIC);
-    pVtabIdx->needToFreeIdxStr = 0;
+    v.AddOp2(OP_Integer, pVtabIdx->idxNum, iReg);
+    v.AddOp2(OP_Integer, j-1, iReg+1);
+	v.AddOp4(OP_VFilter, iCur, addrNotFound, iReg, pVtabIdx.idxStr, P4_STATIC)
     for(j=0; j<nConstraint; j++){
       if( aUsage[j].omit ){
         int iTerm = aConstraint[j].iTermOffset;
@@ -89207,8 +88930,8 @@ Bitmask codeOneLoopStart(
     assert( omitTable==0 );
     iRowidReg = codeEqualityTerm(pParse, pTerm, pLevel, 0, iReleaseReg);
     addrNxt = pLevel->addrNxt;
-    sqlite3VdbeAddOp2(v, OP_MustBeInt, iRowidReg, addrNxt);
-    sqlite3VdbeAddOp3(v, OP_NotExists, iCur, addrNxt, iRowidReg);
+    v.AddOp2(OP_MustBeInt, iRowidReg, addrNxt);
+    v.AddOp3(OP_NotExists, iCur, addrNxt, iRowidReg);
     sqlite3ExprCacheAffinityChange(pParse, iRowidReg, 1);
     sqlite3ExprCacheStore(pParse, iCur, -1, iRowidReg);
     VdbeComment((v, "pk"));
@@ -89250,13 +88973,13 @@ Bitmask codeOneLoopStart(
       assert( pX!=0 );
       assert( pStart->leftCursor==iCur );
       r1 = sqlite3ExprCodeTemp(pParse, pX->pRight, &rTemp);
-      sqlite3VdbeAddOp3(v, aMoveOp[pX->op-TK_GT], iCur, addrBrk, r1);
+      v.AddOp3(aMoveOp[pX->op-TK_GT], iCur, addrBrk, r1);
       VdbeComment((v, "pk"));
       sqlite3ExprCacheAffinityChange(pParse, r1, 1);
       sqlite3ReleaseTempReg(pParse, rTemp);
       disableTerm(pLevel, pStart);
     }else{
-      sqlite3VdbeAddOp2(v, bRev ? OP_Last : OP_Rewind, iCur, addrBrk);
+      v.AddOp2(bRev ? OP_Last : OP_Rewind, iCur, addrBrk);
     }
     if( pEnd ){
       Expr *pX;
@@ -89283,9 +89006,9 @@ Bitmask codeOneLoopStart(
     }
     if( testOp!=OP_Noop ){
       iRowidReg = iReleaseReg = sqlite3GetTempReg(pParse);
-      sqlite3VdbeAddOp2(v, OP_Rowid, iCur, iRowidReg);
+      v.AddOp2(OP_Rowid, iCur, iRowidReg);
       sqlite3ExprCacheStore(pParse, iCur, -1, iRowidReg);
-      sqlite3VdbeAddOp3(v, testOp, memEndValue, addrBrk, iRowidReg);
+      v.AddOp3(testOp, memEndValue, addrBrk, iRowidReg);
       sqlite3VdbeChangeP5(v, SQLITE_AFF_NUMERIC | SQLITE_JUMPIFNULL);
     }
   }else if( pLevel->plan.wsFlags & (WHERE_COLUMN_RANGE|WHERE_COLUMN_EQ) ){
@@ -89431,7 +89154,7 @@ Bitmask codeOneLoopStart(
       }  
       nConstraint++;
     }else if( isMinQuery ){
-      sqlite3VdbeAddOp2(v, OP_Null, 0, regBase+nEq);
+      v.AddOp2(OP_Null, 0, regBase+nEq);
       nConstraint++;
       startEq = 0;
       start_constraints = 1;
@@ -89439,7 +89162,7 @@ Bitmask codeOneLoopStart(
     codeApplyAffinity(pParse, regBase, nConstraint, zStartAff);
     op = aStartOp[(start_constraints<<2) + (startEq<<1) + bRev];
     assert( op!=0 );
-    sqlite3VdbeAddOp4Int(v, op, iIdxCur, addrNxt, regBase, nConstraint);
+    v.AddOp4(op, iIdxCur, addrNxt, regBase, nConstraint)
 
     /* Load the value for the inequality constraint at the end of the
     ** range (if any).
@@ -89475,7 +89198,7 @@ Bitmask codeOneLoopStart(
     /* Check if the index cursor is past the end of the range. */
     op = aEndOp[(pRangeEnd || nEq) * (1 + bRev)];
     if( op!=OP_Noop ){
-      sqlite3VdbeAddOp4Int(v, op, iIdxCur, addrNxt, regBase, nConstraint);
+      v.AddOp4(op, iIdxCur, addrNxt, regBase, nConstraint)
       sqlite3VdbeChangeP5(v, endEq!=bRev ?1:0);
     }
 
@@ -89485,8 +89208,8 @@ Bitmask codeOneLoopStart(
     */
     r1 = sqlite3GetTempReg(pParse);
     if( (pLevel->plan.wsFlags & (WHERE_BTM_LIMIT|WHERE_TOP_LIMIT))!=0 ){
-      sqlite3VdbeAddOp3(v, OP_Column, iIdxCur, nEq, r1);
-      sqlite3VdbeAddOp2(v, OP_IsNull, r1, addrCont);
+      v.AddOp3(OP_Column, iIdxCur, nEq, r1);
+      v.AddOp2(OP_IsNull, r1, addrCont);
     }
     sqlite3ReleaseTempReg(pParse, r1);
 
@@ -89495,9 +89218,9 @@ Bitmask codeOneLoopStart(
     disableTerm(pLevel, pRangeEnd);
     if( !omitTable ){
       iRowidReg = iReleaseReg = sqlite3GetTempReg(pParse);
-      sqlite3VdbeAddOp2(v, OP_IdxRowid, iIdxCur, iRowidReg);
+      v.AddOp2(OP_IdxRowid, iIdxCur, iRowidReg);
       sqlite3ExprCacheStore(pParse, iCur, -1, iRowidReg);
-      sqlite3VdbeAddOp2(v, OP_Seek, iCur, iRowidReg);  /* Deferred seek */
+      v.AddOp2(OP_Seek, iCur, iRowidReg);  /* Deferred seek */
     }
 
     /* Record the instruction used to terminate the loop. Disable 
@@ -89617,9 +89340,9 @@ Bitmask codeOneLoopStart(
     if( (wctrlFlags & WHERE_DUPLICATES_OK)==0 ){
       regRowset = ++pParse->nMem;
       regRowid = ++pParse->nMem;
-      sqlite3VdbeAddOp2(v, OP_Null, 0, regRowset);
+      v.AddOp2(OP_Null, 0, regRowset);
     }
-    iRetInit = sqlite3VdbeAddOp2(v, OP_Integer, 0, regReturn);
+    iRetInit = v.AddOp2(OP_Integer, 0, regReturn);
 
     /* If the original WHERE clause is z of the form:  (x1 OR x2 OR ...) AND y
     ** Then for every term xN, evaluate as the subexpression: xN AND z
@@ -89672,12 +89395,10 @@ Bitmask codeOneLoopStart(
           if( (wctrlFlags & WHERE_DUPLICATES_OK)==0 ){
             int iSet = ((ii==pOrWc->nTerm-1)?-1:ii);
             int r;
-            r = sqlite3ExprCodeGetColumn(pParse, pTabItem->pTab, -1, iCur, 
-                                         regRowid, 0);
-            sqlite3VdbeAddOp4Int(v, OP_RowSetTest, regRowset,
-                                 sqlite3VdbeCurrentAddr(v)+2, r, iSet);
+            r = sqlite3ExprCodeGetColumn(pParse, pTabItem->pTab, -1, iCur, regRowid, 0);
+            v.AddOp4(OP_RowSetTest, regRowset, sqlite3VdbeCurrentAddr(v)+2, r, iSet)
           }
-          sqlite3VdbeAddOp2(v, OP_Gosub, regReturn, iLoopBody);
+          v.AddOp2(OP_Gosub, regReturn, iLoopBody);
 
           /* The pSubWInfo->untestedTerms flag means that this OR term
           ** contained one or more AND term from a notReady table.  The
@@ -89721,7 +89442,7 @@ Bitmask codeOneLoopStart(
       sqlite3ExprDelete(pParse->db, pAndExpr);
     }
     sqlite3VdbeChangeP1(v, iRetInit, sqlite3VdbeCurrentAddr(v));
-    sqlite3VdbeAddOp2(v, OP_Goto, 0, pLevel->addrBrk);
+    v.AddOp2(OP_Goto, 0, pLevel->addrBrk);
     sqlite3VdbeResolveLabel(v, iLoopBody);
 
     if( pWInfo->nLevel>1 ) sqlite3StackFree(pParse->db, pOrTab);
@@ -89739,7 +89460,7 @@ Bitmask codeOneLoopStart(
     assert( omitTable==0 );
     pLevel->op = aStep[bRev];
     pLevel->p1 = iCur;
-    pLevel->p2 = 1 + sqlite3VdbeAddOp2(v, aStart[bRev], iCur, addrBrk);
+    pLevel->p2 = 1 + v.AddOp2(aStart[bRev], iCur, addrBrk);
     pLevel->p5 = SQLITE_STMTSTATUS_FULLSCAN_STEP;
   }
   newNotReady = notReady & ~getMask(pWC->pMaskSet, iCur);
@@ -89799,7 +89520,7 @@ Bitmask codeOneLoopStart(
   */
   if( pLevel->iLeftJoin ){
     pLevel->addrFirst = sqlite3VdbeCurrentAddr(v);
-    sqlite3VdbeAddOp2(v, OP_Integer, 1, pLevel->iLeftJoin);
+    v.AddOp2(OP_Integer, 1, pLevel->iLeftJoin);
     VdbeComment((v, "record LEFT JOIN hit"));
     sqlite3ExprCacheClear(pParse);
     for(pTerm=pWC->a, j=0; j<pWC->nTerm; j++, pTerm++){
@@ -89818,32 +89539,25 @@ Bitmask codeOneLoopStart(
   return newNotReady;
 }
 
-/*
-** Free a WhereInfo structure
-*/
-void whereInfoFree(sqlite3 *db, WhereInfo *pWInfo){
-  if( ALWAYS(pWInfo) ){
-    int i;
-    for(i=0; i<pWInfo->nLevel; i++){
-      sqlite3_index_info *pInfo = pWInfo->a[i].pIdxInfo;
-      if( pInfo ){
-        /* assert( pInfo->needToFreeIdxStr==0 || db->mallocFailed ); */
-        if( pInfo->needToFreeIdxStr ){
-          sqlite3_free(pInfo->idxStr);
-        }
-        sqlite3DbFree(db, pInfo);
-      }
-      if( pWInfo->a[i].plan.wsFlags & WHERE_TEMP_INDEX ){
-        Index *pIdx = pWInfo->a[i].plan.u.pIdx;
-        if( pIdx ){
-          sqlite3DbFree(db, pIdx->zColAff);
-          sqlite3DbFree(db, pIdx);
-        }
-      }
-    }
-    whereClauseClear(pWInfo->pWC);
-    sqlite3DbFree(db, pWInfo);
-  }
+//	Free a WhereInfo structure
+func (db *sqlite3) whereInfoFree(where_info *WhereInfo) {
+	if ALWAYS(where_info != nil) {
+		for _, nested_loop := range where_info.a {
+			index_info := nested_loop.pIdxInfo
+			if index_info != nil {
+				sqlite3DbFree(db, index_info)
+			}
+			if nested_loop.plan.wsFlags & WHERE_TEMP_INDEX != 0 {
+				index := nested_loop.plan.u.pIdx
+				if index != nil {
+					sqlite3DbFree(db, index.zColAff)
+					sqlite3DbFree(db, index)
+				}
+			}
+		}
+		whereClauseClear(where_info.pWC)
+		sqlite3DbFree(db, where_info)
+	}
 }
 
 
@@ -90091,7 +89805,6 @@ void whereInfoFree(sqlite3 *db, WhereInfo *pWInfo){
   sWBI.n = nTabList;
   sWBI.pDistinct = pDistinct;
   andFlags = ~0;
-  WHERETRACE(("*** Optimizer Start ***\n"));
   for(sWBI.i=iFrom=0, pLevel=pWInfo->a; sWBI.i<nTabList; sWBI.i++, pLevel++){
     WhereCost bestPlan;         /* Most efficient plan seen so far */
     Index *pIdx;                /* Index for FROM table at pTabItem */
@@ -90105,7 +89818,6 @@ void whereInfoFree(sqlite3 *db, WhereInfo *pWInfo){
 
     memset(&bestPlan, 0, sizeof(bestPlan));
     bestPlan.rCost = BIG_FLOAT
-    WHERETRACE(("*** Begin search for loop %d ***\n", sWBI.i));
 
     /* Loop through the remaining entries in the FROM clause to find the
     ** next nested loop. The loop tests all FROM clause entries
@@ -90188,12 +89900,10 @@ void whereInfoFree(sqlite3 *db, WhereInfo *pWInfo){
         sWBI.notReady = (isOptimal ? m : sWBI.notValid);
         if( sWBI.pSrc->pIndex==0 ) nUnconstrained++;
   
-        WHERETRACE(("   === trying table %d (%s) with isOptimal=%d ===\n",
-                    j, sWBI.pSrc->pTab->zName, isOptimal));
         assert( sWBI.pSrc->pTab );
         if( IsVirtual(sWBI.pSrc->pTab) ){
           sWBI.ppIdxInfo = &pWInfo->a[j].pIdxInfo;
-          bestVirtualIndex(&sWBI);
+          sWBI.BestVirtualIndex()
         }else 
         {
           bestBtreeIndex(&sWBI);
@@ -90217,9 +89927,6 @@ void whereInfoFree(sqlite3 *db, WhereInfo *pWInfo){
           ** for the outer loop that table which benefits the least from
           ** being in the inner loop.  The following code scales the 
           ** outer loop cost estimate to accomplish that. */
-          WHERETRACE(("   scaling cost from %.1f to %.1f\n",
-                      sWBI.cost.rCost,
-                      sWBI.cost.rCost/pWInfo->a[j].rOptCost));
           sWBI.cost.rCost /= pWInfo->a[j].rOptCost;
         }
 
@@ -90249,11 +89956,6 @@ void whereInfoFree(sqlite3 *db, WhereInfo *pWInfo){
                 || NEVER((sWBI.cost.plan.wsFlags & WHERE_NOT_FULLSCAN)!=0))
             && (bestJ<0 || compareCost(&sWBI.cost, &bestPlan))   /* (4) */
         ){
-          WHERETRACE(("   === table %d (%s) is best so far\n"
-                      "       cost=%.1f, nRow=%.1f, nOBSat=%d, wsFlags=%08x\n",
-                      j, sWBI.pSrc->pTab->zName,
-                      sWBI.cost.rCost, sWBI.cost.plan.nRow,
-                      sWBI.cost.plan.nOBSat, sWBI.cost.plan.wsFlags));
           bestPlan = sWBI.cost;
           bestJ = j;
         }
@@ -90267,11 +89969,6 @@ void whereInfoFree(sqlite3 *db, WhereInfo *pWInfo){
     assert( bestJ>=0 );
     assert( sWBI.notValid & getMask(pMaskSet, pTabList->a[bestJ].iCursor) );
     assert( bestJ==iFrom || (pTabList->a[iFrom].jointype & JT_LEFT)==0 );
-    WHERETRACE(("*** Optimizer selects table %d (%s) for loop %d with:\n"
-                "    cost=%.1f, nRow=%.1f, nOBSat=%d, wsFlags=0x%08x\n",
-                bestJ, pTabList->a[bestJ].pTab->zName,
-                pLevel-pWInfo->a, bestPlan.rCost, bestPlan.plan.nRow,
-                bestPlan.plan.nOBSat, bestPlan.plan.wsFlags));
     if( (bestPlan.plan.wsFlags & WHERE_DISTINCT)!=0 ){
       assert( pWInfo->eDistinct==0 );
       pWInfo->eDistinct = WHERE_DISTINCT_ORDERED;
@@ -90314,7 +90011,6 @@ void whereInfoFree(sqlite3 *db, WhereInfo *pWInfo){
       }
     }
   }
-  WHERETRACE(("*** Optimizer Finished ***\n"));
   if( pParse->nErr || db->mallocFailed ){
     goto whereBeginError;
   }
@@ -90365,7 +90061,7 @@ void whereInfoFree(sqlite3 *db, WhereInfo *pWInfo){
     if( (pLevel->plan.wsFlags & WHERE_VIRTUALTABLE)!=0 ){
       const char *pVTab = (const char *)sqlite3GetVTable(db, pTab);
       int iCur = pTabItem->iCursor;
-      sqlite3VdbeAddOp4(v, OP_VOpen, iCur, 0, 0, pVTab, P4_VTAB);
+      v.AddOp4(OP_VOpen, iCur, 0, 0, pVTab, P4_VTAB);
     }else if( IsVirtual(pTab) ){
       /* noop */
     }else
@@ -90395,7 +90091,7 @@ void whereInfoFree(sqlite3 *db, WhereInfo *pWInfo){
       int iIndexCur = pLevel->iIdxCur;
       assert( pIx->pSchema==pTab->pSchema );
       assert( iIndexCur>=0 );
-      sqlite3VdbeAddOp4(v, OP_OpenRead, iIndexCur, pIx->tnum, iDb,
+      v.AddOp4(OP_OpenRead, iIndexCur, pIx->tnum, iDb,
                         (char*)pKey, P4_KEYINFO_HANDOFF);
       VdbeComment((v, "%s", pIx->zName));
     }
@@ -90426,7 +90122,7 @@ void whereInfoFree(sqlite3 *db, WhereInfo *pWInfo){
 whereBeginError:
   if( pWInfo ){
     pParse->nQueryLoop = pWInfo->savedNQueryLoop;
-    whereInfoFree(db, pWInfo);
+    db.whereInfoFree(pWInfo)
   }
   return 0;
 }
@@ -90450,7 +90146,7 @@ whereBeginError:
     pLevel = &pWInfo->a[i];
     sqlite3VdbeResolveLabel(v, pLevel->addrCont);
     if( pLevel->op!=OP_Noop ){
-      sqlite3VdbeAddOp2(v, pLevel->op, pLevel->p1, pLevel->p2);
+      v.AddOp2(pLevel->op, pLevel->p1, pLevel->p2);
       sqlite3VdbeChangeP5(v, pLevel->p5);
     }
     if( pLevel->plan.wsFlags & WHERE_IN_ABLE && pLevel->u.in.nIn>0 ){
@@ -90459,7 +90155,7 @@ whereBeginError:
       sqlite3VdbeResolveLabel(v, pLevel->addrNxt);
       for(j=pLevel->u.in.nIn, pIn=&pLevel->u.in.aInLoop[j-1]; j>0; j--, pIn--){
         sqlite3VdbeJumpHere(v, pIn->addrInTop+1);
-        sqlite3VdbeAddOp2(v, pIn->eEndLoopOp, pIn->iCur, pIn->addrInTop);
+        v.AddOp2(pIn->eEndLoopOp, pIn->iCur, pIn->addrInTop);
         sqlite3VdbeJumpHere(v, pIn->addrInTop-1);
       }
       sqlite3DbFree(db, pLevel->u.in.aInLoop);
@@ -90467,19 +90163,19 @@ whereBeginError:
     sqlite3VdbeResolveLabel(v, pLevel->addrBrk);
     if( pLevel->iLeftJoin ){
       int addr;
-      addr = sqlite3VdbeAddOp1(v, OP_IfPos, pLevel->iLeftJoin);
+      addr = v.AddOp1(OP_IfPos, pLevel->iLeftJoin);
       assert( (pLevel->plan.wsFlags & WHERE_IDX_ONLY)==0
            || (pLevel->plan.wsFlags & WHERE_INDEXED)!=0 );
       if( (pLevel->plan.wsFlags & WHERE_IDX_ONLY)==0 ){
-        sqlite3VdbeAddOp1(v, OP_NullRow, pTabList->a[i].iCursor);
+        v.AddOp1(OP_NullRow, pTabList->a[i].iCursor);
       }
       if( pLevel->iIdxCur>=0 ){
-        sqlite3VdbeAddOp1(v, OP_NullRow, pLevel->iIdxCur);
+        v.AddOp1(OP_NullRow, pLevel->iIdxCur);
       }
       if( pLevel->op==OP_Return ){
-        sqlite3VdbeAddOp2(v, OP_Gosub, pLevel->p1, pLevel->addrFirst);
+        v.AddOp2(OP_Gosub, pLevel->p1, pLevel->addrFirst);
       }else{
-        sqlite3VdbeAddOp2(v, OP_Goto, 0, pLevel->addrFirst);
+        v.AddOp2(OP_Goto, 0, pLevel->addrFirst);
       }
       sqlite3VdbeJumpHere(v, addr);
     }
@@ -90504,10 +90200,10 @@ whereBeginError:
     ){
       int ws = pLevel->plan.wsFlags;
       if( !pWInfo->okOnePass && (ws & WHERE_IDX_ONLY)==0 ){
-        sqlite3VdbeAddOp1(v, OP_Close, pTabItem->iCursor);
+        v.AddOp1(OP_Close, pTabItem->iCursor);
       }
       if( (ws & WHERE_INDEXED)!=0 && (ws & WHERE_TEMP_INDEX)==0 ){
-        sqlite3VdbeAddOp1(v, OP_Close, pLevel->iIdxCur);
+        v.AddOp1(OP_Close, pLevel->iIdxCur);
       }
     }
 
@@ -90558,7 +90254,7 @@ whereBeginError:
   /* Final cleanup
   */
   pParse->nQueryLoop = pWInfo->savedNQueryLoop;
-  whereInfoFree(db, pWInfo);
+  db.whereInfoFree(pWInfo)
   return;
 }
 
@@ -95505,7 +95201,7 @@ int sqliteDefaultBusyCallback(
 ** that if a malloc() fails in sqlite3.CreateFunction(), an error code
 ** is returned and the mallocFailed flag cleared. 
 */
-func (db *sqlite3) CreateFunc(name string, args int, user_data interface{}, xFunc func(*sqlite3_context, []*sqlite3_value), xStep func(*sqlite3_context, int) *sqlite3_value), xFinal func(*sqlite3_context), destructor *FuncDestructor) (rc int) {
+func (db *sqlite3) CreateFunc(name string, args int, user_data interface{}, xFunc func(*Context, []*sqlite3_value), xStep func(*Context, int) *sqlite3_value), xFinal func(*Context), destructor *FuncDestructor) (rc int) {
 	assert( sqlite3_mutex_held(db.mutex) )
 	switch {
 	case len(name) == 0:
@@ -95635,9 +95331,9 @@ func (db *sqlite3) CreateFunc(name string, args int, user_data interface{}, xFun
 func (db *sqlite3) CreateFunction(	name string,
 									args int,
 									p interface{},
-									xFunc(*sqlite3_context, int, []*sqlite3_value) interface{},
-									xStep(*sqlite3_context, int, []*sqlite3_value) interface{},
-									xFinal(*sqlite3_context) interface{},
+									xFunc(*Context, int, []*sqlite3_value) interface{},
+									xStep(*Context, int, []*sqlite3_value) interface{},
+									xFinal(*Context) interface{},
 									xDestroy(interface{}) interface{}) (rc int) {
 	var destructor	*FuncDestructor
 	sqlite3_mutex_enter(db.mutex)
