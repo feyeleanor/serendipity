@@ -130,13 +130,6 @@ func mallocWithAlarm(int n, void **pp) (nFull int) {
 }
 
 
-//	Each thread may only have a single outstanding allocation from xScratchMalloc().  We verify this constraint in the single-threaded
-//	case by setting scratchAllocOut to 1 when an allocation is outstanding clearing it when the allocation is freed.
-#if SQLITE_THREADSAFE==0 && !defined(NDEBUG)
-int scratchAllocOut = 0;
-#endif
-
-
 //	Allocate memory that is to be used and released right away.
 //	This routine is similar to alloca() in that it is not intended for situations where the memory might be held long-term.  This
 //	routine is intended to get memory to old large transient data structures that would not normally fit on the stack of an
@@ -164,26 +157,11 @@ func sqlite3ScratchMalloc(int n) (p []byte) {
 		}
 	}
 	assert( sqlite3_mutex_notheld(mem0.mutex) );
-
-#if SQLITE_THREADSAFE==0 && !defined(NDEBUG)
-	//	Verify that no more than two scratch allocations per thread are outstanding at one time.  (This is only checked in the
-	//	single-threaded case since checking in the multi-threaded case would be much more complicated.)
-	assert( scratchAllocOut<=1 );
-	if( p ) scratchAllocOut++;
-#endif
-
 	return p;
 }
 
 func sqlite3ScratchFree(void *p) {
-	if p {
-#if SQLITE_THREADSAFE==0 && !defined(NDEBUG)
-		//	Verify that no more than two scratch allocation per thread is outstanding at one time.  (This is only checked in the
-		//	single-threaded case since checking in the multi-threaded case would be much more complicated.)
-		assert( scratchAllocOut>=1 && scratchAllocOut<=2 );
-		scratchAllocOut--;
-#endif
-
+	if p != nil {
 		if p >= sqlite3Config.pScratch && p < mem0.pScratchEnd {
 			//	Release memory from the SQLITE_CONFIG_SCRATCH allocation
 			ScratchFreeslot *pSlot;

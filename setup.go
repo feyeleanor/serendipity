@@ -4,7 +4,7 @@ package serendipity
 //
 //	This routine must be called to initialize the memory allocation, VFS, and mutex subsystems prior to doing any serious work with
 //	SQLite.  But as long as you do not compile with SQLITE_OMIT_AUTOINIT this routine will be called automatically by key routines such as
-//	sqlite3_open().
+//	Open().
 //
 //	This routine is a no-op except on its very first call for the process, or for the first call after a call to sqlite3_shutdown.
 //
@@ -22,8 +22,6 @@ package serendipity
 //		*	Recursive calls to this routine from thread X return immediately without blocking.
 
 func sqlite3_initialize() (rc int) {
-	MUTEX_LOGIC( sqlite3_mutex *pMaster; )       /* The main mutex */
-
 	//	If SQLite is already completely initialized, then this call to sqlite3_initialize() should be a no-op.  But the initialization
 	//	must be complete.  So isInit must not be set until the very end of this routine.
 	if sqlite3Config.isInit {
@@ -46,25 +44,25 @@ func sqlite3_initialize() (rc int) {
 	//	Initialize the malloc() system and the recursive pInitMutex mutex.
 	//	This operation is protected by the STATIC_MASTER mutex.  Note that MutexAlloc() is called for a mutex prior to initializing the
 	//	malloc subsystem - this implies that the allocation of a mutex must not require support from the malloc subsystem.
-	MUTEX_LOGIC( pMaster = sqlite3MutexAlloc(SQLITE_MUTEX_STATIC_MASTER); )
-	sqlite3_mutex_enter(pMaster)
-	sqlite3Config.isMutexInit = 1
-	if !sqlite3Config.isMallocInit {
-		rc = sqlite3MallocInit()
-	}
-	if rc == SQLITE_OK {
-		sqlite3Config.isMallocInit = 1
-		if !sqlite3Config.pInitMutex {
-			sqlite3Config.pInitMutex = sqlite3MutexAlloc(SQLITE_MUTEX_RECURSIVE)
-			if sqlite3Config.bCoreMutex && !sqlite3Config.pInitMutex {
-				rc = SQLITE_NOMEM
+	MasterMutex := NewMutex(SQLITE_MUTEX_STATIC_MASTER)
+	MasterMutex.CriticalSection(func() {
+		sqlite3Config.isMutexInit = 1
+		if !sqlite3Config.isMallocInit {
+			rc = sqlite3MallocInit()
+		}
+		if rc == SQLITE_OK {
+			sqlite3Config.isMallocInit = 1
+			if !sqlite3Config.pInitMutex {
+				sqlite3Config.pInitMutex = NewMutex(SQLITE_MUTEX_RECURSIVE)
+				if sqlite3Config.bCoreMutex && !sqlite3Config.pInitMutex {
+					rc = SQLITE_NOMEM
+				}
 			}
 		}
-	}
-	if rc == SQLITE_OK {
-		sqlite3Config.nRefInitMutex++
-	}
-	sqlite3_mutex_leave(pMaster)
+		if rc == SQLITE_OK {
+			sqlite3Config.nRefInitMutex++
+		}
+	})
 
 	//	If rc is not SQLITE_OK at this point, then either the malloc subsystem could not be initialized or the system failed to allocate
 	//	the pInitMutex mutex. Return an error in either case.
@@ -81,36 +79,36 @@ func sqlite3_initialize() (rc int) {
 	//	The following mutex is what serializes access to the appdef pcache xInit methods.  The sqlite3_pcache_methods.xInit() all is embedded in the
 	//	call to sqlite3PcacheInitialize().
 
-	sqlite3_mutex_enter(sqlite3Config.pInitMutex)
-	if sqlite3Config.isInit == 0 && sqlite3Config.inProgress == 0 {
-		pHash := sqlite3GlobalFunctions
-		sqlite3Config.inProgress = 1
-		memset(pHash, 0, sizeof(sqlite3GlobalFunctions))
-		sqlite3RegisterGlobalFunctions();
-		if sqlite3Config.isPCacheInit == 0 {
-			rc = sqlite3PcacheInitialize()
+	sqlite3Config.pInitMutex.CriticalSection(func() {
+		if sqlite3Config.isInit == 0 && sqlite3Config.inProgress == 0 {
+			pHash := sqlite3GlobalFunctions
+			sqlite3Config.inProgress = 1
+			memset(pHash, 0, sizeof(sqlite3GlobalFunctions))
+			sqlite3RegisterGlobalFunctions();
+			if sqlite3Config.isPCacheInit == 0 {
+				rc = sqlite3PcacheInitialize()
+			}
+			if rc == SQLITE_OK {
+				sqlite3Config.isPCacheInit = 1
+				rc = sqlite3OsInit()
+			}
+			if rc == SQLITE_OK {
+				sqlite3PCacheBufferSetup(sqlite3Config.pPage, sqlite3Config.szPage, sqlite3Config.nPage)
+				sqlite3Config.isInit = 1
+			}
+			sqlite3Config.inProgress = 0
 		}
-		if rc == SQLITE_OK {
-			sqlite3Config.isPCacheInit = 1
-			rc = sqlite3OsInit()
-		}
-		if rc == SQLITE_OK {
-			sqlite3PCacheBufferSetup(sqlite3Config.pPage, sqlite3Config.szPage, sqlite3Config.nPage)
-			sqlite3Config.isInit = 1
-		}
-		sqlite3Config.inProgress = 0
-	}
-	sqlite3_mutex_leave(sqlite3Config.pInitMutex)
+	})
 
 	//	Go back under the mutex and clean up the recursive mutex to prevent a resource leak.
-	sqlite3_mutex_enter(pMaster)
-	sqlite3Config.nRefInitMutex--
-	if sqlite3Config.nRefInitMutex <= 0 {
-		assert( sqlite3Config.nRefInitMutex == 0 )
-		sqlite3_mutex_free(sqlite3Config.pInitMutex)
-		sqlite3Config.pInitMutex = 0
-	}
-	sqlite3_mutex_leave(pMaster)
+	MasterMutex.CriticalSection(func() {
+		sqlite3Config.nRefInitMutex--
+		if sqlite3Config.nRefInitMutex <= 0 {
+			assert( sqlite3Config.nRefInitMutex == 0 )
+			sqlite3_mutex_free(sqlite3Config.pInitMutex)
+			sqlite3Config.pInitMutex = 0
+		}
+	})
 
 	//	The following is just a sanity check to make sure SQLite has been compiled correctly.  It is important to run this code, but
 	//	we don't want to run it too often and soak up CPU cycles for no reason.  So we run it once during initialization.
@@ -190,7 +188,6 @@ func sqlite3_config(op int, ap ...interface{}) (rc int) {
 	va_start(ap, op)
 	switch op {
 		//	Mutex configuration options are only available in a threadsafe compile. 
-#if defined(SQLITE_THREADSAFE) && SQLITE_THREADSAFE > 0
 	case SQLITE_CONFIG_SINGLETHREAD:
 		//	Disable all mutexing
 		sqlite3Config.bCoreMutex = 0
@@ -209,7 +206,6 @@ func sqlite3_config(op int, ap ...interface{}) (rc int) {
 	case SQLITE_CONFIG_GETMUTEX:
 		//	Retrieve the current mutex implementation
 		*va_arg(ap, sqlite3_mutex_methods*) = sqlite3Config.mutex
-#endif
 	case SQLITE_CONFIG_MALLOC:
 		//	Specify an alternative malloc implementation
 		sqlite3Config.m = *va_arg(ap, sqlite3_mem_methods*)

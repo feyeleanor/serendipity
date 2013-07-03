@@ -2063,12 +2063,12 @@ func (tree *Rtree) getNodeSize(db *sqlite3, isCreate bool) (Err string, rc int) 
 				tree.iNodeSize = 4 + tree.nBytesPerCell * RTREE_MAXCELLS
 			}
 		} else {
-			return sqlite3_mprintf("%s", sqlite3_errmsg(db)), rc
+			return sqlite3_mprintf("%s", db.errmsg()), rc
 		}
 	} else {
 		sql := sqlite3_mprintf("SELECT length(data) FROM '%q'.'%q_node' WHERE nodeno = 1", tree.zDb, tree.zName)
 		if pRtree.iNodeSize, rc = db.GetIntFromStmt(sql); rc != SQLITE_OK {
-			Err = sqlite3_mprintf("%s", sqlite3_errmsg(db))
+			Err = sqlite3_mprintf("%s", db.errmsg())
 		}
 	}
 	return
@@ -2125,7 +2125,7 @@ func rtreeInit(db *sqlite3, aux interface{}, args []string, isCreate bool) (tabl
 	//	Create/Connect to the underlying relational database schema. If that is successful, call sqlite3_declare_vtab() to configure the r-tree table schema.
 	if rc == SQLITE_OK {
 		if rc = tree.SqlInit(db, args[1], args[2], isCreate); rc != SQLITE_OK {
-			Err = sqlite3_mprintf("%s", sqlite3_errmsg(db))
+			Err = sqlite3_mprintf("%s", db.errmsg())
 		} else {
 			sql := sqlite3_mprintf("CREATE TABLE x(%s", args[3])
 			for _, v := range args[4:] {
@@ -2133,7 +2133,7 @@ func rtreeInit(db *sqlite3, aux interface{}, args []string, isCreate bool) (tabl
 			}
 			sql = sqlite3_mprintf("%s);", sql)
 			if rc = sqlite3_declare_vtab(db, sql); rc != SQLITE_OK {
-				Err = sqlite3_mprintf("%s", sqlite3_errmsg(db))
+				Err = sqlite3_mprintf("%s", db.errmsg())
 			}
 		}
 	}

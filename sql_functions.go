@@ -567,7 +567,7 @@ void randomFunc(
 ){
   sqlite_int64 r;
   UNUSED_PARAMETER2(NotUsed, NotUsed2);
-  sqlite3_randomness(sizeof(r), &r);
+  r = Randomness(sizeof(r))
   if( r<0 ){
     /* We need to prevent a random number of 0x8000000000000000 
     ** (or -9223372036854775808) since when you do abs() of that
@@ -601,7 +601,7 @@ void randomBlob(
   }
   p = contextMalloc(context, n);
   if( p ){
-    sqlite3_randomness(n, p);
+    p = Randomness(n)
     context.sqlite3_result_blob((char*)p, sqlite3_free)
   }
 }

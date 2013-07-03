@@ -809,7 +809,7 @@ int run_table_dump_query(
   const char *z;
   rc = sqlite3_prepare(p->db, zSelect, -1, &pSelect, 0);
   if( rc!=SQLITE_OK || !pSelect ){
-    fprintf(p->out, "/**** ERROR: (%d) %s *****/\n", rc, sqlite3_errmsg(p->db));
+    fprintf(p->out, "/**** ERROR: (%d) %s *****/\n", rc, p.db.errmsg())
     p->nErr++;
     return rc;
   }
@@ -836,7 +836,7 @@ int run_table_dump_query(
   }
   rc = pSelect.Finalize()
   if( rc!=SQLITE_OK ){
-    fprintf(p->out, "/**** ERROR: (%d) %s *****/\n", rc, sqlite3_errmsg(p->db));
+    fprintf(p->out, "/**** ERROR: (%d) %s *****/\n", rc, p.db.errmsg())
     p->nErr++;
   }
   return rc;
@@ -844,7 +844,7 @@ int run_table_dump_query(
 
 //	Allocate space and save off current error string.
 func save_err_msg(db *sqlite3) string {
-	return CopyString(sqlite3_errmsg(db))
+	return CopyString(db.errmsg())
 }
 
 /*
@@ -1262,14 +1262,14 @@ int process_input(struct callback_data *p, FILE *in);
 */
 void open_db(struct callback_data *p){
 	if p.db == nil {
-		sqlite3_initialize();
-		sqlite3_open(p.zDbFilename, &p.db)
+		sqlite3_initialize()
+		p.db, _ = serendipity.Open(p.zDbFilename)
 		db = p.db
 		if db != nil && sqlite3_errcode(db) == SQLITE_OK {
 			db.CreateFunction("shellstatic", 0, 0, shellstaticFunc, nil, nil, nil)
 		}
 		if db == nil || sqlite3_errcode(db) != SQLITE_OK {
-			fprintf(stderr,"Error: unable to open database \"%s\": %s\n", p.zDbFilename, sqlite3_errmsg(db))
+			fprintf(stderr,"Error: unable to open database \"%s\": %s\n", p.zDbFilename, db.errmsg())
 			exit(1)
 		}
 #ifndef SQLITE_OMIT_LOAD_EXTENSION
@@ -1489,7 +1489,7 @@ int do_meta_command(char *zLine, struct callback_data *p){
       return 1;
     }
     if( zDb==0 ) zDb = "main";
-    rc = sqlite3_open(zDestFile, &pDest);
+    pDest, rc = serendipity.Open(zDestFile)
     if( rc!=SQLITE_OK ){
       fprintf(stderr, "Error: cannot open \"%s\"\n", zDestFile);
       sqlite3_close(pDest);
@@ -1503,7 +1503,7 @@ int do_meta_command(char *zLine, struct callback_data *p){
     open_db(p);
     pBackup = sqlite3_backup_init(pDest, "main", p->db, zDb);
     if( pBackup==0 ){
-      fprintf(stderr, "Error: %s\n", sqlite3_errmsg(pDest));
+      fprintf(stderr, "Error: %s\n", pDest.errmsg());
       sqlite3_close(pDest);
       return 1;
     }
@@ -1512,7 +1512,7 @@ int do_meta_command(char *zLine, struct callback_data *p){
     if( rc==SQLITE_DONE ){
       rc = 0;
     }else{
-      fprintf(stderr, "Error: %s\n", sqlite3_errmsg(pDest));
+      fprintf(stderr, "Error: %s\n", pDest.errmsg());
       rc = 1;
     }
     sqlite3_close(pDest);
@@ -1683,7 +1683,7 @@ int do_meta_command(char *zLine, struct callback_data *p){
     sqlite3_free(zSql);
     if( rc ){
       pStmt.Finalize()
-      fprintf(stderr,"Error: %s\n", sqlite3_errmsg(db));
+      fprintf(stderr,"Error: %s\n", db.errmsg());
       return 1;
     }
     nCol = sqlite3_column_count(pStmt);
@@ -1706,7 +1706,7 @@ int do_meta_command(char *zLine, struct callback_data *p){
     rc = sqlite3_prepare(p->db, zSql, -1, &pStmt, 0);
     free(zSql);
     if( rc ){
-      fprintf(stderr, "Error: %s\n", sqlite3_errmsg(db));
+      fprintf(stderr, "Error: %s\n", db.errmsg());
 	  pStmt.Finalize()
       return 1;
     }
@@ -1767,7 +1767,7 @@ int do_meta_command(char *zLine, struct callback_data *p){
       rc = pStmt.Reset()
       free(zLine);
       if( rc!=SQLITE_OK ){
-        fprintf(stderr,"Error: %s\n", sqlite3_errmsg(db));
+        fprintf(stderr,"Error: %s\n", db.errmsg());
         zCommit = "ROLLBACK";
         rc = 1;
         break; /* from while */
@@ -1963,7 +1963,7 @@ int do_meta_command(char *zLine, struct callback_data *p){
       zSrcFile = azArg[2];
       zDb = azArg[1];
     }
-    rc = sqlite3_open(zSrcFile, &pSrc);
+    pSrc, rc = serendipity.Open(zSrcFile)
     if( rc!=SQLITE_OK ){
       fprintf(stderr, "Error: cannot open \"%s\"\n", zSrcFile);
       sqlite3_close(pSrc);
@@ -1972,7 +1972,7 @@ int do_meta_command(char *zLine, struct callback_data *p){
     open_db(p);
     pBackup = sqlite3_backup_init(p->db, zDb, pSrc, "main");
     if( pBackup==0 ){
-      fprintf(stderr, "Error: %s\n", sqlite3_errmsg(p->db));
+      fprintf(stderr, "Error: %s\n", p.db.errmsg());
       sqlite3_close(pSrc);
       return 1;
     }
@@ -1990,7 +1990,7 @@ int do_meta_command(char *zLine, struct callback_data *p){
       fprintf(stderr, "Error: source database is busy\n");
       rc = 1;
     }else{
-      fprintf(stderr, "Error: %s\n", sqlite3_errmsg(p->db));
+      fprintf(stderr, "Error: %s\n", p.db.errmsg());
       rc = 1;
     }
     sqlite3_close(pSrc);
@@ -2485,7 +2485,7 @@ int process_input(struct callback_data *p, FILE *in){
           sqlite3_free(zErrMsg);
           zErrMsg = 0;
         }else{
-          fprintf(stderr, "%s %s\n", zPrefix, sqlite3_errmsg(p->db));
+          fprintf(stderr, "%s %s\n", zPrefix, p.db.errmsg());
         }
         errCnt++;
       }

@@ -185,8 +185,8 @@
 **
 ** Each open SQLite database is represented by a pointer to an instance of
 ** the opaque structure named "sqlite3".  It is useful to think of an sqlite3
-** pointer as an object.  The [sqlite3_open()] and
-** [sqlite3_open_v2()] interfaces are its constructors, and [sqlite3_close()]
+** pointer as an object.  The [Open()] and
+** [OpenDatabase()] interfaces are its constructors, and [sqlite3_close()]
 ** and [sqlite3_close_v2()] are its destructors.  There are many other
 ** interfaces (such as [sqlite3.Prepare_v2()], [sqlite3.CreateFunction()], and
 ** [sqlite3_busy_timeout()] to name but three) that are methods on an
@@ -255,7 +255,7 @@ typedef sqlite_uint64 sqlite3_uint64;
 **
 ** The C parameter to [sqlite3_close(C)] and [sqlite3_close_v2(C)]
 ** must be either a NULL pointer or an [sqlite3] object pointer obtained
-** from [sqlite3_open()] or [sqlite3_open_v2()], and not previously closed.
+** from [Open()] or [OpenDatabase()], and not previously closed.
 ** ^Calling sqlite3_close() or sqlite3_close_v2() with a NULL pointer
 ** argument is a harmless no-op.
 */
@@ -398,7 +398,7 @@ typedef int (*sqlite3_callback)(void*,int,char**, char**);
 ** support for additional result codes that provide more detailed information
 ** about errors. The extended result codes are enabled or disabled
 ** on a per database connection basis using the
-** [sqlite3_extended_result_codes()] API.
+** [ExtendedResultCodes()] API.
 **
 ** Some of the available extended result codes are listed here.
 ** One may expect the number of extended result codes will be expand
@@ -458,17 +458,17 @@ typedef int (*sqlite3_callback)(void*,int,char**, char**);
 ** CAPI3REF: Flags For File Open Operations
 **
 ** These bit values are intended for use in the
-** 3rd parameter to the [sqlite3_open_v2()] interface and
+** 3rd parameter to the [OpenDatabase()] interface and
 ** in the 4th parameter to the [sqlite3_vfs.xOpen] method.
 */
-#define SQLITE_OPEN_READONLY         0x00000001  /* Ok for sqlite3_open_v2() */
-#define SQLITE_OPEN_READWRITE        0x00000002  /* Ok for sqlite3_open_v2() */
-#define SQLITE_OPEN_CREATE           0x00000004  /* Ok for sqlite3_open_v2() */
+#define SQLITE_OPEN_READONLY         0x00000001  /* Ok for OpenDatabase() */
+#define SQLITE_OPEN_READWRITE        0x00000002  /* Ok for OpenDatabase() */
+#define SQLITE_OPEN_CREATE           0x00000004  /* Ok for OpenDatabase() */
 #define SQLITE_OPEN_DELETEONCLOSE    0x00000008  /* VFS only */
 #define SQLITE_OPEN_EXCLUSIVE        0x00000010  /* VFS only */
 #define SQLITE_OPEN_AUTOPROXY        0x00000020  /* VFS only */
-#define SQLITE_OPEN_URI              0x00000040  /* Ok for sqlite3_open_v2() */
-#define SQLITE_OPEN_MEMORY           0x00000080  /* Ok for sqlite3_open_v2() */
+#define SQLITE_OPEN_URI              0x00000040  /* Ok for OpenDatabase() */
+#define SQLITE_OPEN_MEMORY           0x00000080  /* Ok for OpenDatabase() */
 #define SQLITE_OPEN_MAIN_DB          0x00000100  /* VFS only */
 #define SQLITE_OPEN_TEMP_DB          0x00000200  /* VFS only */
 #define SQLITE_OPEN_TRANSIENT_DB     0x00000400  /* VFS only */
@@ -476,10 +476,10 @@ typedef int (*sqlite3_callback)(void*,int,char**, char**);
 #define SQLITE_OPEN_TEMP_JOURNAL     0x00001000  /* VFS only */
 #define SQLITE_OPEN_SUBJOURNAL       0x00002000  /* VFS only */
 #define SQLITE_OPEN_MASTER_JOURNAL   0x00004000  /* VFS only */
-#define SQLITE_OPEN_NOMUTEX          0x00008000  /* Ok for sqlite3_open_v2() */
-#define SQLITE_OPEN_FULLMUTEX        0x00010000  /* Ok for sqlite3_open_v2() */
-#define SQLITE_OPEN_SHAREDCACHE      0x00020000  /* Ok for sqlite3_open_v2() */
-#define SQLITE_OPEN_PRIVATECACHE     0x00040000  /* Ok for sqlite3_open_v2() */
+#define SQLITE_OPEN_NOMUTEX          0x00008000  /* Ok for OpenDatabase() */
+#define SQLITE_OPEN_FULLMUTEX        0x00010000  /* Ok for OpenDatabase() */
+#define SQLITE_OPEN_SHAREDCACHE      0x00020000  /* Ok for OpenDatabase() */
+#define SQLITE_OPEN_PRIVATECACHE     0x00040000  /* Ok for OpenDatabase() */
 #define SQLITE_OPEN_WAL              0x00080000  /* VFS only */
 
 /* Reserved:                         0x00F00000 */
@@ -928,7 +928,7 @@ typedef struct sqlite3_mutex sqlite3_mutex;
 ** flags parameter will include [SQLITE_OPEN_DELETEONCLOSE].
 **
 ** The flags argument to xOpen() includes all bits set in
-** the flags argument to [sqlite3_open_v2()].  Or if [sqlite3_open()]
+** the flags argument to [OpenDatabase()].  Or if [Open()]
 ** is used, then flags includes at least
 ** [SQLITE_OPEN_READWRITE] | [SQLITE_OPEN_CREATE]. 
 ** If xOpen() opens a file read-only then it sets *pOutFlags to
@@ -1174,9 +1174,9 @@ struct sqlite3_vfs {
 **
 ** ^The sqlite3_initialize() routine is called internally by many other
 ** SQLite interfaces so that an application usually does not need to
-** invoke sqlite3_initialize() directly.  For example, [sqlite3_open()]
+** invoke sqlite3_initialize() directly.  For example, [Open()]
 ** calls sqlite3_initialize() so the SQLite library will be automatically
-** initialized when [sqlite3_open()] is called if it has not be initialized
+** initialized when [Open()] is called if it has not be initialized
 ** already.  ^However, if SQLite is compiled with the [SQLITE_OMIT_AUTOINIT]
 ** compile-time option, then the automatic calls to sqlite3_initialize()
 ** are omitted and the application must call sqlite3_initialize() directly
@@ -1357,12 +1357,7 @@ struct sqlite3_mem_methods {
 ** <dd>There are no arguments to this option.  ^This option sets the
 ** [threading mode] to Single-thread.  In other words, it disables
 ** all mutexing and puts SQLite into a mode where it can only be used
-** by a single thread.   ^If SQLite is compiled with
-** the [SQLITE_THREADSAFE | SQLITE_THREADSAFE=0] compile-time option then
-** it is not possible to change the [threading mode] from its default
-** value of Single-thread and so [sqlite3_config()] will return 
-** [SQLITE_ERROR] if called with the SQLITE_CONFIG_SINGLETHREAD
-** configuration option.</dd>
+** by a single thread.</dd>
 **
 ** [[SQLITE_CONFIG_MULTITHREAD]] <dt>SQLITE_CONFIG_MULTITHREAD</dt>
 ** <dd>There are no arguments to this option.  ^This option sets the
@@ -1372,27 +1367,17 @@ struct sqlite3_mem_methods {
 ** [database connections] and [prepared statements].  But other mutexes
 ** are enabled so that SQLite will be safe to use in a multi-threaded
 ** environment as long as no two threads attempt to use the same
-** [database connection] at the same time.  ^If SQLite is compiled with
-** the [SQLITE_THREADSAFE | SQLITE_THREADSAFE=0] compile-time option then
-** it is not possible to set the Multi-thread [threading mode] and
-** [sqlite3_config()] will return [SQLITE_ERROR] if called with the
-** SQLITE_CONFIG_MULTITHREAD configuration option.</dd>
+** [database connection] at the same time.</dd>
 **
 ** [[SQLITE_CONFIG_SERIALIZED]] <dt>SQLITE_CONFIG_SERIALIZED</dt>
 ** <dd>There are no arguments to this option.  ^This option sets the
 ** [threading mode] to Serialized. In other words, this option enables
 ** all mutexes including the recursive
 ** mutexes on [database connection] and [prepared statement] objects.
-** In this mode (which is the default when SQLite is compiled with
-** [SQLITE_THREADSAFE=1]) the SQLite library will itself serialize access
+** In this mode (which is the default) the SQLite library will itself serialize access
 ** to [database connections] and [prepared statements] so that the
 ** application is free to use the same [database connection] or the
-** same [prepared statement] in different threads at the same time.
-** ^If SQLite is compiled with
-** the [SQLITE_THREADSAFE | SQLITE_THREADSAFE=0] compile-time option then
-** it is not possible to set the Serialized [threading mode] and
-** [sqlite3_config()] will return [SQLITE_ERROR] if called with the
-** SQLITE_CONFIG_SERIALIZED configuration option.</dd>
+** same [prepared statement] in different threads at the same time.</dd>
 **
 ** [[SQLITE_CONFIG_MALLOC]] <dt>SQLITE_CONFIG_MALLOC</dt>
 ** <dd> ^(This option takes a single argument which is a pointer to an
@@ -1486,11 +1471,7 @@ struct sqlite3_mem_methods {
 ** alternative low-level mutex routines to be used in place
 ** the mutex routines built into SQLite.)^  ^SQLite makes a copy of the
 ** content of the [sqlite3_mutex_methods] structure before the call to
-** [sqlite3_config()] returns. ^If SQLite is compiled with
-** the [SQLITE_THREADSAFE | SQLITE_THREADSAFE=0] compile-time option then
-** the entire mutexing subsystem is omitted from the build and hence calls to
-** [sqlite3_config()] with the SQLITE_CONFIG_MUTEX configuration option will
-** return [SQLITE_ERROR].</dd>
+** [sqlite3_config()] returns.</dd>
 **
 ** [[SQLITE_CONFIG_GETMUTEX]] <dt>SQLITE_CONFIG_GETMUTEX</dt>
 ** <dd> ^(This option takes a single argument which is a pointer to an
@@ -1499,11 +1480,7 @@ struct sqlite3_mem_methods {
 ** structure is filled with the currently defined mutex routines.)^
 ** This option can be used to overload the default mutex allocation
 ** routines with a wrapper used to track mutex usage for performance
-** profiling or testing, for example.   ^If SQLite is compiled with
-** the [SQLITE_THREADSAFE | SQLITE_THREADSAFE=0] compile-time option then
-** the entire mutexing subsystem is omitted from the build and hence calls to
-** [sqlite3_config()] with the SQLITE_CONFIG_GETMUTEX configuration option will
-** return [SQLITE_ERROR].</dd>
+** profiling or testing, for example.</dd>
 **
 ** [[SQLITE_CONFIG_PCACHE2]] <dt>SQLITE_CONFIG_PCACHE2</dt>
 ** <dd> ^(This option takes a single argument which is a pointer to
@@ -1540,7 +1517,7 @@ struct sqlite3_mem_methods {
 ** <dd> This option takes a single argument of type int. If non-zero, then
 ** URI handling is globally enabled. If the parameter is zero, then URI handling
 ** is globally disabled. If URI handling is globally enabled, all filenames
-** passed to [sqlite3_open()] or [sqlite3_open_v2()] or
+** passed to [Open()] or [OpenDatabase()] or
 ** specified as part of [ATTACH] commands are interpreted as URIs, regardless
 ** of whether or not the [SQLITE_OPEN_URI] flag is set when the database
 ** connection is opened. If it is globally disabled, filenames are
@@ -1665,11 +1642,10 @@ struct sqlite3_mem_methods {
 /*
 ** CAPI3REF: Enable Or Disable Extended Result Codes
 **
-** ^The sqlite3_extended_result_codes() routine enables or disables the
+** ^The ExtendedResultCodes() routine enables or disables the
 ** [extended result codes] feature of SQLite. ^The extended result
 ** codes are disabled by default for historical compatibility.
 */
- int sqlite3_extended_result_codes(sqlite3*, int onoff);
 
 /*
 ** CAPI3REF: Last Insert Rowid
@@ -2021,7 +1997,7 @@ struct sqlite3_mem_methods {
 ** interface defined here.  As a consequence, errors that occur in the
 ** wrapper layer outside of the internal [sqlite3_exec()] call are not
 ** reflected in subsequent calls to [sqlite3_errcode()] or
-** [sqlite3_errmsg()].
+** [sqlite3.errmsg()].
 */
  int sqlite3_get_table(
   sqlite3 *db,          /* An open database */
@@ -2241,7 +2217,6 @@ struct sqlite3_mem_methods {
 ** internally and without recourse to the [sqlite3_vfs] xRandomness
 ** method.
 */
- void sqlite3_randomness(int N, void *P);
 
 /*
 ** CAPI3REF: Compile-Time Authorization Callbacks
@@ -2466,27 +2441,27 @@ struct sqlite3_mem_methods {
 **
 ** ^These routines open an SQLite database file as specified by the 
 ** filename argument. ^The filename argument is interpreted as UTF-8 for
-** sqlite3_open() and sqlite3_open_v2(). ^(A [database connection] handle is usually
+** Open() and OpenDatabase(). ^(A [database connection] handle is usually
 ** returned in *ppDb, even if an error occurs.  The only exception is that
 ** if SQLite is unable to allocate memory to hold the [sqlite3] object,
 ** a NULL will be written into *ppDb instead of a pointer to the [sqlite3]
 ** object.)^ ^(If the database is opened (and/or created) successfully, then
 ** [SQLITE_OK] is returned.  Otherwise an [error code] is returned.)^ ^The
-** [sqlite3_errmsg()] routine can be used to obtain
+** [sqlite3.errmsg()] routine can be used to obtain
 ** an English language description of the error following a failure of any
-** of the sqlite3_open() routines.
+** of the Open() routines.
 **
 ** ^The default encoding for the database will be UTF-8 if
-** sqlite3_open() or sqlite3_open_v2() is called.
+** Open() or OpenDatabase() is called.
 **
 ** Whether or not an error occurs when it is opened, resources
 ** associated with the [database connection] handle should be released by
 ** passing it to [sqlite3_close()] when it is no longer required.
 **
-** The sqlite3_open_v2() interface works like sqlite3_open()
+** The OpenDatabase() interface works like Open()
 ** except that it accepts two additional parameters for additional control
 ** over the new database connection.  ^(The flags parameter to
-** sqlite3_open_v2() can take one of
+** OpenDatabase() can take one of
 ** the following three values, optionally combined with the 
 ** [SQLITE_OPEN_NOMUTEX], [SQLITE_OPEN_FULLMUTEX], [SQLITE_OPEN_SHAREDCACHE],
 ** [SQLITE_OPEN_PRIVATECACHE], and/or [SQLITE_OPEN_URI] flags:)^
@@ -2504,10 +2479,10 @@ struct sqlite3_mem_methods {
 ** ^(<dt>[SQLITE_OPEN_READWRITE] | [SQLITE_OPEN_CREATE]</dt>
 ** <dd>The database is opened for reading and writing, and is created if
 ** it does not already exist. This is the behavior that is always used for
-** sqlite3_open().</dd>)^
+** Open().</dd>)^
 ** </dl>
 **
-** If the 3rd parameter to sqlite3_open_v2() is not one of the
+** If the 3rd parameter to OpenDatabase() is not one of the
 ** combinations shown above optionally combined with other
 ** [SQLITE_OPEN_READONLY | SQLITE_OPEN_* bits]
 ** then the behavior is undefined.
@@ -2524,7 +2499,7 @@ struct sqlite3_mem_methods {
 ** [SQLITE_OPEN_PRIVATECACHE] flag causes the database connection to not
 ** participate in [shared cache mode] even if it is enabled.
 **
-** ^The fourth parameter to sqlite3_open_v2() is the name of the
+** ^The fourth parameter to OpenDatabase() is the name of the
 ** [sqlite3_vfs] object that defines the operating system interface that
 ** the new database connection should use.  ^If the fourth parameter is
 ** a NULL pointer then the default [sqlite3_vfs] object is used.
@@ -2541,12 +2516,12 @@ struct sqlite3_mem_methods {
 ** on-disk database will be created.  ^This private database will be
 ** automatically deleted as soon as the database connection is closed.
 **
-** [[URI filenames in sqlite3_open()]] <h3>URI Filenames</h3>
+** [[URI filenames in Open()]] <h3>URI Filenames</h3>
 **
 ** ^If [URI filename] interpretation is enabled, and the filename argument
 ** begins with "file:", then the filename is interpreted as a URI. ^URI
 ** filename interpretation is enabled if the [SQLITE_OPEN_URI] flag is
-** set in the fourth argument to sqlite3_open_v2(), or if it has
+** set in the fourth argument to OpenDatabase(), or if it has
 ** been enabled globally using the [SQLITE_CONFIG_URI] option with the
 ** [sqlite3_config()] method or by the [SQLITE_USE_URI] compile-time option.
 ** As of SQLite version 3.7.7, URI filename interpretation is turned off
@@ -2576,16 +2551,16 @@ struct sqlite3_mem_methods {
 **     a VFS object that provides the operating system interface that should
 **     be used to access the database file on disk. ^If this option is set to
 **     an empty string the default VFS object is used. ^Specifying an unknown
-**     VFS is an error. ^If sqlite3_open_v2() is used and the vfs option is
+**     VFS is an error. ^If OpenDatabase() is used and the vfs option is
 **     present, then the VFS specified by the option takes precedence over
-**     the value passed as the fourth parameter to sqlite3_open_v2().
+**     the value passed as the fourth parameter to OpenDatabase().
 **
 **   <li> <b>mode</b>: ^(The mode parameter may be set to either "ro", "rw",
 **     "rwc", or "memory". Attempting to set it to any other value is
 **     an error)^. 
 **     ^If "ro" is specified, then the database is opened for read-only 
 **     access, just as if the [SQLITE_OPEN_READONLY] flag had been set in the 
-**     third argument to sqlite3_open_v2(). ^If the mode option is set to 
+**     third argument to OpenDatabase(). ^If the mode option is set to 
 **     "rw", then the database is opened for read-write (but not create) 
 **     access, as if SQLITE_OPEN_READWRITE (but not SQLITE_OPEN_CREATE) had 
 **     been set. ^Value "rwc" is equivalent to setting both 
@@ -2593,14 +2568,14 @@ struct sqlite3_mem_methods {
 **     set to "memory" then a pure [in-memory database] that never reads
 **     or writes from disk is used. ^It is an error to specify a value for
 **     the mode parameter that is less restrictive than that specified by
-**     the flags passed in the third parameter to sqlite3_open_v2().
+**     the flags passed in the third parameter to OpenDatabase().
 **
 **   <li> <b>cache</b>: ^The cache parameter may be set to either "shared" or
 **     "private". ^Setting it to "shared" is equivalent to setting the
 **     SQLITE_OPEN_SHAREDCACHE bit in the flags argument passed to
-**     sqlite3_open_v2(). ^Setting the cache parameter to "private" is 
+**     OpenDatabase(). ^Setting the cache parameter to "private" is 
 **     equivalent to setting the SQLITE_OPEN_PRIVATECACHE bit.
-**     ^If sqlite3_open_v2() is used and the "cache" parameter is present in
+**     ^If OpenDatabase() is used and the "cache" parameter is present in
 **     a URI filename, its value overrides any behavior requested by setting
 **     SQLITE_OPEN_PRIVATECACHE or SQLITE_OPEN_SHAREDCACHE flag.
 ** </ul>
@@ -2643,16 +2618,6 @@ struct sqlite3_mem_methods {
 **
 ** See also: [sqlite3_temp_directory]
 */
- int sqlite3_open(
-  const char *filename,   /* Database filename (UTF-8) */
-  sqlite3 **ppDb          /* OUT: SQLite db handle */
-);
- int sqlite3_open_v2(
-  const char *filename,   /* Database filename (UTF-8) */
-  sqlite3 **ppDb,         /* OUT: SQLite db handle */
-  int flags,              /* Flags */
-  const char *zVfs        /* Name of VFS module to use */
-);
 
 /*
 ** CAPI3REF: Obtain Values For URI Parameters
@@ -2710,7 +2675,7 @@ struct sqlite3_mem_methods {
 ** [extended result code] even when extended result codes are
 ** disabled.
 **
-** ^The sqlite3_errmsg() returns English-language
+** ^The sqlite3.errmsg() returns English-language
 ** text that describes the error, as UTF-8.
 ** ^(Memory to hold the error message string is managed internally.
 ** The application does not need to worry about freeing the result.
@@ -2738,7 +2703,6 @@ struct sqlite3_mem_methods {
 */
  int sqlite3_errcode(sqlite3 *db);
  int sqlite3_extended_errcode(sqlite3 *db);
- const char *sqlite3_errmsg(sqlite3*);
  const char *sqlite3_errstr(int);
 
 /*
@@ -2880,7 +2844,7 @@ typedef struct sqlite3_stmt sqlite3_stmt;
 ** program using one of these routines.
 **
 ** The first argument, "db", is a [database connection] obtained from a
-** prior successful call to [sqlite3_open()] or [sqlite3_open_v2()].  The database connection must not have been closed.
+** prior successful call to [Open()] or [OpenDatabase()].  The database connection must not have been closed.
 **
 ** The second argument, "zSql", is the statement to be compiled, encoded
 ** as UTF-8.
@@ -3035,9 +2999,7 @@ typedef struct sqlite3_stmt sqlite3_stmt;
 ** The terms "protected" and "unprotected" refer to whether or not
 ** a mutex is held.  An internal mutex is held for a protected
 ** sqlite3_value object but no mutex is held for an unprotected
-** sqlite3_value object.  If SQLite is compiled to be single-threaded
-** (with [SQLITE_THREADSAFE=0] and with [sqlite3_threadsafe()] returning 0)
-** or if SQLite is run in one of reduced mutex modes 
+** sqlite3_value object.  If SQLite is run in one of reduced mutex modes 
 ** [SQLITE_CONFIG_SINGLETHREAD] or [SQLITE_CONFIG_MULTITHREAD]
 ** then there is no distinction between protected and unprotected
 ** sqlite3_value objects and they can be used interchangeably.  However,
@@ -3355,7 +3317,7 @@ typedef struct sqlite3_stmt sqlite3_stmt;
 **
 ** ^[SQLITE_ERROR] means that a run-time error (such as a constraint
 ** violation) has occurred.  sqlite3_stmt.Step() should not be called again on
-** the VM. More information may be found by calling [sqlite3_errmsg()].
+** the VM. More information may be found by calling [sqlite3.errmsg()].
 ** ^With the legacy interface, a more specific error code (for example,
 ** [SQLITE_INTERRUPT], [SQLITE_SCHEMA], [SQLITE_CORRUPT], and so forth)
 ** can be obtained by calling [sqlite3_stmt.Reset()] on the
@@ -3814,7 +3776,7 @@ typedef void (*sqlite3_destructor_type)(void*);
 #ifdef SQLITE_HAS_CODEC
 /*
 ** Specify the key for an encrypted database.  This routine should be
-** called right after sqlite3_open().
+** called right after Open().
 **
 ** The code to implement this API is not available in the public release
 ** of SQLite.
@@ -4095,7 +4057,7 @@ typedef void (*sqlite3_destructor_type)(void*);
 ** sharing was enabled or disabled for each thread separately.
 **
 ** ^(The cache sharing mode set by this interface effects all subsequent
-** calls to [sqlite3_open()] and [sqlite3_open_v2()].
+** calls to [Open()] and [OpenDatabase()].
 ** Existing database connections continue use the sharing mode
 ** that was in effect at the time they were opened.)^
 **
@@ -4252,7 +4214,7 @@ typedef void (*sqlite3_destructor_type)(void*);
 ** ^(This function may load one or more schemas from database files. If an
 ** error occurs during this process, or if the requested table or column
 ** cannot be found, an [error code] is returned and an error message left
-** in the [database connection] (to be retrieved using sqlite3_errmsg()).)^
+** in the [database connection] (to be retrieved using sqlite3.errmsg()).)^
 */
  int sqlite3_table_column_metadata(
   sqlite3 *db,                /* Connection handle */
@@ -4348,8 +4310,8 @@ typedef void (*sqlite3_destructor_type)(void*);
 ** and return an appropriate [error code].  ^SQLite ensures that *pzErrMsg
 ** is NULL before calling the xEntryPoint().  ^SQLite will invoke
 ** [sqlite3_free()] on *pzErrMsg after xEntryPoint() returns.  ^If any
-** xEntryPoint() returns an error, the [sqlite3_open()]
-** or [sqlite3_open_v2()] call that provoked the xEntryPoint() will fail.
+** xEntryPoint() returns an error, the [Open()]
+** or [OpenDatabase()] call that provoked the xEntryPoint() will fail.
 **
 ** ^Calling sqlite3_auto_extension(X) with an entry point X that is already
 ** on the list of automatic extensions is a harmless no-op. ^No entry point
@@ -4651,7 +4613,7 @@ typedef struct sqlite3_blob sqlite3_blob;
 ** to *ppBlob. Otherwise an [error code] is returned and *ppBlob is set
 ** to be a null pointer.)^
 ** ^This function sets the [database connection] error code and message
-** accessible via [sqlite3_errcode()] and [sqlite3_errmsg()] and related
+** accessible via [sqlite3_errcode()] and [sqlite3.errmsg()] and related
 ** functions. ^Note that the *ppBlob variable is always initialized in a
 ** way that makes it safe to invoke [sqlite3_blob_close()] on *ppBlob
 ** regardless of the success or failure of this routine.
@@ -4860,21 +4822,6 @@ typedef struct sqlite3_blob sqlite3_blob;
 ** use by SQLite, code that links against SQLite is
 ** permitted to use any of these routines.
 **
-** The SQLite source code contains multiple implementations
-** of these mutex routines.  An appropriate implementation
-** is selected automatically at compile-time.  ^(The following
-** implementations are available in the SQLite core:
-**
-** <ul>
-** <li>   SQLITE_MUTEX_PTHREADS
-** <li>   SQLITE_MUTEX_NOOP
-** </ul>)^
-**
-** ^The SQLITE_MUTEX_NOOP implementation is a set of routines
-** that does no real locking and is appropriate for use in
-** a single-threaded application.  ^The SQLITE_MUTEX_PTHREADS
-** implementation is appropriate for use on Unix.
-**
 ** ^(If SQLite is compiled with the SQLITE_MUTEX_APPDEF preprocessor
 ** macro defined (with "-DSQLITE_MUTEX_APPDEF=1"), then no mutex
 ** implementation is included with the library. In this case the
@@ -4963,11 +4910,6 @@ typedef struct sqlite3_blob sqlite3_blob;
 **
 ** See also: [sqlite3_mutex_held()] and [sqlite3_mutex_notheld()].
 */
- sqlite3_mutex *sqlite3_mutex_alloc(int);
- void sqlite3_mutex_free(sqlite3_mutex*);
- void sqlite3_mutex_enter(sqlite3_mutex*);
- int sqlite3_mutex_try(sqlite3_mutex*);
- void sqlite3_mutex_leave(sqlite3_mutex*);
 
 /*
 ** CAPI3REF: Mutex Methods Object
@@ -5138,7 +5080,7 @@ struct sqlite3_mutex_methods {
 ** ^If the second parameter (zDbName) does not match the name of any
 ** open database file, then SQLITE_ERROR is returned.  ^This error
 ** code is not remembered and will not be recalled by [sqlite3_errcode()]
-** or [sqlite3_errmsg()].  The underlying xFileControl method might
+** or [sqlite3.errmsg()].  The underlying xFileControl method might
 ** also return SQLITE_ERROR.  There is no way to distinguish between
 ** an incorrect zDbName and an SQLITE_ERROR return from the underlying
 ** xFileControl method.
@@ -5756,7 +5698,7 @@ typedef struct sqlite3_backup sqlite3_backup;
 ** returned and an error code and error message are stored in the
 ** destination [database connection] D.
 ** ^The error code and message for the failed call to sqlite3_backup_init()
-** can be retrieved using the [sqlite3_errcode()] and [sqlite3_errmsg()] functions.
+** can be retrieved using the [sqlite3_errcode()] and [sqlite3.errmsg()] functions.
 ** ^A successful call to sqlite3_backup_init() returns a pointer to an
 ** [sqlite3_backup] object.
 ** ^The [sqlite3_backup] object may be used with the sqlite3_backup_step() and
