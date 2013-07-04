@@ -14,7 +14,6 @@ package serendipity
 //
 //	In other words, if a subsequent malloc (ex: "b") worked, it is assumed that all prior mallocs (ex: "a") worked too.
 func DbMallocRaw(sqlite3 *db, int n) ([]byte) {
-	assert( db == nil || sqlite3_mutex_held(db.mutex) )
 	assert( db == nil || db.pnBytesFreed == 0 )
 	if db != nil && db.mallocFailed {
 		return nil
@@ -30,7 +29,6 @@ func DbMallocRaw(sqlite3 *db, int n) ([]byte) {
 //	Resize the block of memory pointed to by p to n bytes. If the resize fails, set the mallocFailed flag in the connection object.
 void *sqlite3DbRealloc(sqlite3 *db, void *p, int n) (pNew []byte){
 	assert( db != nil )
-	assert( sqlite3_mutex_held(db.mutex) )
 	if db.mallocFailed == 0 {
 		if p == nil {
 			return sqlite3DbMallocRaw(db, n)
@@ -55,9 +53,9 @@ func sqlite3Malloc(int n) (p []byte) {
 		//	this amount.  The only way to reach the limit is with sqlite3_malloc()
 		p = nil
 	} else if sqlite3Config.bMemstat {
-		sqlite3_mutex_enter(mem0.mutex)
-		mallocWithAlarm(n, &p)
-		sqlite3_mutex_leave(mem0.mutex)
+		mem0.mutex.CriticalSection(func() {
+			mallocWithAlarm(n, &p)
+		})
 	} else {
 		p = sqlite3Config.m.xMalloc(n)
 	}
@@ -101,7 +99,6 @@ func sqlite3MallocAlarm(int nByte) {
 //	Do a memory allocation with statistics and alarms.  Assume the lock is already held.
 func mallocWithAlarm(int n, void **pp) (nFull int) {
 	void *p;
-	assert( sqlite3_mutex_held(mem0.mutex) );
 	nFull = sqlite3Config.m.xRoundup(n);
 	sqlite3StatusSet(SQLITE_STATUS_MALLOC_SIZE, n);
 	if mem0.alarmCallback != 0 {
@@ -156,7 +153,6 @@ func sqlite3ScratchMalloc(int n) (p []byte) {
 			p = sqlite3Config.m.xMalloc(n);
 		}
 	}
-	assert( sqlite3_mutex_notheld(mem0.mutex) );
 	return p;
 }
 
@@ -166,23 +162,23 @@ func sqlite3ScratchFree(void *p) {
 			//	Release memory from the SQLITE_CONFIG_SCRATCH allocation
 			ScratchFreeslot *pSlot;
 			pSlot = (ScratchFreeslot*)p;
-			sqlite3_mutex_enter(mem0.mutex);
-			pSlot->pNext = mem0.pScratchFree;
-			mem0.pScratchFree = pSlot;
-			mem0.nScratchFree++;
-			assert( mem0.nScratchFree <= (u32)sqlite3Config.nScratch );
-			sqlite3StatusAdd(SQLITE_STATUS_SCRATCH_USED, -1);
-			sqlite3_mutex_leave(mem0.mutex);
+			mem0.mutex.CriticalSection(func() {
+				pSlot->pNext = mem0.pScratchFree;
+				mem0.pScratchFree = pSlot;
+				mem0.nScratchFree++;
+				assert( mem0.nScratchFree <= (u32)sqlite3Config.nScratch );
+				sqlite3StatusAdd(SQLITE_STATUS_SCRATCH_USED, -1);
+			})
 		} else {
 			//	Release memory back to the heap
 			if sqlite3Config.bMemstat {
 				int iSize = sqlite3MallocSize(p);
-				sqlite3_mutex_enter(mem0.mutex);
-				sqlite3StatusAdd(SQLITE_STATUS_SCRATCH_OVERFLOW, -iSize);
-				sqlite3StatusAdd(SQLITE_STATUS_MEMORY_USED, -iSize);
-				sqlite3StatusAdd(SQLITE_STATUS_MALLOC_COUNT, -1);
-				sqlite3Config.m.xFree(p);
-				sqlite3_mutex_leave(mem0.mutex);
+				mem0.mutex.CriticalSection(func() {
+					sqlite3StatusAdd(SQLITE_STATUS_SCRATCH_OVERFLOW, -iSize);
+					sqlite3StatusAdd(SQLITE_STATUS_MEMORY_USED, -iSize);
+					sqlite3StatusAdd(SQLITE_STATUS_MALLOC_COUNT, -1);
+					sqlite3Config.m.xFree(p);
+				})
 			} else {
 				sqlite3Config.m.xFree(p);
 			}
