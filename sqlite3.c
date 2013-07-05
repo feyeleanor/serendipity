@@ -5566,16 +5566,16 @@ struct sqlite3_vtab_cursor {
 ** output variable when querying the system for the current mutex
 ** implementation, using the [SQLITE_CONFIG_GETMUTEX] option.
 **
-** ^The xMutexInit method defined by this structure is invoked as
+** ^The Initialise method defined by this structure is invoked as
 ** part of system initialization by the sqlite3_initialize() function.
-** ^The xMutexInit routine is called by SQLite exactly once for each
+** ^The Initialise routine is called by SQLite exactly once for each
 ** effective call to [sqlite3_initialize()].
 **
-** ^The xMutexEnd method defined by this structure is invoked as
+** ^The End method defined by this structure is invoked as
 ** part of system shutdown by the sqlite3_shutdown() function. The
 ** implementation of this method is expected to release all outstanding
 ** resources obtained by the mutex methods implementation, especially
-** those obtained by the xMutexInit method.  ^The xMutexEnd()
+** those obtained by the Initialise method.  ^The End()
 ** interface is invoked exactly once for each call to [sqlite3_shutdown()].
 **
 ** ^(The remaining seven methods defined by this structure (xMutexAlloc,
@@ -5598,24 +5598,29 @@ struct sqlite3_vtab_cursor {
 ** (i.e. it is acceptable to provide an implementation that segfaults if
 ** it is passed a NULL pointer).
 **
-** The xMutexInit() method must be threadsafe.  ^It must be harmless to
-** invoke xMutexInit() multiple times within the same process and without
-** intervening calls to xMutexEnd().  Second and subsequent calls to
-** xMutexInit() must be no-ops.
+** The Initialise() method must be threadsafe.  ^It must be harmless to
+** invoke Initialise() multiple times within the same process and without
+** intervening calls to End().  Second and subsequent calls to
+** Initialise() must be no-ops.
 **
-** ^xMutexInit() must not use SQLite memory allocation ([sqlite3_malloc()]
+** ^Initialise() must not use SQLite memory allocation ([sqlite3_malloc()]
 ** and its associates).  ^Similarly, xMutexAlloc() must not use SQLite memory
 ** allocation for a mutex.  ^However xMutexAlloc() may use SQLite
 ** memory allocation for a fast or recursive mutex.
 **
-** ^SQLite will invoke the xMutexEnd() method when [sqlite3_shutdown()] is
-** called, but only if the prior call to xMutexInit returned SQLITE_OK.
-** If xMutexInit fails in any way, it is expected to clean up after itself
+** ^SQLite will invoke the End() method when [sqlite3_shutdown()] is
+** called, but only if the prior call to Initialise returned SQLITE_OK.
+** If Initialise fails in any way, it is expected to clean up after itself
 ** prior to returning.
 */
+type xMutex interface{
+	Initialise()
+	End()
+	Alloc(int) *sqlite3_mutex
+}
 struct sqlite3_mutex_methods {
-  int (*xMutexInit)(void);
-  int (*xMutexEnd)(void);
+  int (*Initialise)(void);
+  int (*End)(void);
   sqlite3_mutex *(*xMutexAlloc)(int);
   void (*xMutexFree)(sqlite3_mutex *);
   void (*xMutexEnter)(sqlite3_mutex *);
@@ -10093,9 +10098,7 @@ const char * const azCompileOpt[] = {
 #ifdef SQLITE_HAS_CODEC
   "HAS_CODEC",
 #endif
-#ifdef SQLITE_HOMEGROWN_RECURSIVE_MUTEX
   "HOMEGROWN_RECURSIVE_MUTEX",
-#endif
 #ifdef SQLITE_IGNORE_AFP_LOCK_ERRORS
   "IGNORE_AFP_LOCK_ERRORS",
 #endif
@@ -12538,7 +12541,7 @@ int mutexIsInit = 0;
            sizeof(*pTo) - offsetof(sqlite3_mutex_methods, xMutexFree));
     pTo->xMutexAlloc = pFrom->xMutexAlloc;
   }
-  rc = sqlite3Config.mutex.xMutexInit();
+  rc = sqlite3Config.mutex.Initialise();
 
 #ifdef SQLITE_DEBUG
   mutexIsInit = true
@@ -12553,8 +12556,8 @@ int mutexIsInit = 0;
 */
  int sqlite3MutexEnd(void){
   int rc = SQLITE_OK;
-  if( sqlite3Config.mutex.xMutexEnd ){
-    rc = sqlite3Config.mutex.xMutexEnd();
+  if( sqlite3Config.mutex.End ){
+    rc = sqlite3Config.mutex.End();
   }
 
 #ifdef SQLITE_DEBUG
@@ -12582,13 +12585,11 @@ func NewMutex(id int) (m *sqlite3_mutex) {
 	return
 }
 
-/*
-** Free a dynamic mutex.
-*/
- void sqlite3_mutex_free(sqlite3_mutex *p){
-  if( p ){
-    sqlite3Config.mutex.xMutexFree(p);
-  }
+//	Free a dynamic mutex.
+void sqlite3_mutex_free(sqlite3_mutex *p){
+	if p != nil {
+		sqlite3Config.mutex.xMutexFree(p)
+	}
 }
 
 /*
@@ -12820,33 +12821,16 @@ void debugMutexLeave(sqlite3_mutex *pX){
 */
 
 /*
-** The sqlite3_mutex.id, sqlite3_mutex.nRef, and sqlite3_mutex.owner fields
-** are necessary under two condidtions:  (1) Debug builds and (2) using
-** home-grown mutexes.  Encapsulate these conditions into a single #define.
-*/
-#if defined(SQLITE_DEBUG) || defined(SQLITE_HOMEGROWN_RECURSIVE_MUTEX)
-# define SQLITE_MUTEX_NREF 1
-#else
-# define SQLITE_MUTEX_NREF 0
-#endif
-
-/*
 ** Each recursive mutex is an instance of the following structure.
 */
 struct sqlite3_mutex {
   pthread_mutex_t mutex;     /* Mutex controlling the lock */
-#if SQLITE_MUTEX_NREF
   int id;                    /* Mutex type */
   volatile int nRef;         /* Number of entrances */
   volatile pthread_t owner;  /* Thread that is within this mutex */
   int trace;                 /* True to trace changes */
-#endif
 };
-#if SQLITE_MUTEX_NREF
 #define SQLITE3_MUTEX_INITIALIZER { PTHREAD_MUTEX_INITIALIZER, 0, 0, (pthread_t)0, 0 }
-#else
-#define SQLITE3_MUTEX_INITIALIZER { PTHREAD_MUTEX_INITIALIZER }
-#endif
 
 /*
 ** Initialize and deinitialize the mutex subsystem.
@@ -12910,30 +12894,17 @@ sqlite3_mutex *pthreadMutexAlloc(int iType){
     case SQLITE_MUTEX_RECURSIVE: {
       p = sqlite3MallocZero( sizeof(*p) );
       if( p ){
-#ifdef SQLITE_HOMEGROWN_RECURSIVE_MUTEX
         /* If recursive mutexes are not available, we will have to
         ** build our own.  See below. */
         pthread_mutex_init(&p->mutex, 0);
-#else
-        /* Use a recursive mutex if it is available */
-        pthread_mutexattr_t recursiveAttr;
-        pthread_mutexattr_init(&recursiveAttr);
-        pthread_mutexattr_settype(&recursiveAttr, PTHREAD_MUTEX_RECURSIVE);
-        pthread_mutex_init(&p->mutex, &recursiveAttr);
-        pthread_mutexattr_destroy(&recursiveAttr);
-#endif
-#if SQLITE_MUTEX_NREF
         p->id = iType;
-#endif
       }
       break;
     }
     case SQLITE_MUTEX_FAST: {
       p = sqlite3MallocZero( sizeof(*p) );
       if( p ){
-#if SQLITE_MUTEX_NREF
         p->id = iType;
-#endif
         pthread_mutex_init(&p->mutex, 0);
       }
       break;
@@ -12942,9 +12913,7 @@ sqlite3_mutex *pthreadMutexAlloc(int iType){
       assert( iType-2 >= 0 );
       assert( iType-2 < ArraySize(staticMutexes) );
       p = &staticMutexes[iType-2];
-#if SQLITE_MUTEX_NREF
       p->id = iType;
-#endif
       break;
     }
   }
@@ -12977,7 +12946,6 @@ void pthreadMutexFree(sqlite3_mutex *p){
 */
 void pthreadMutexEnter(sqlite3_mutex *p){
 
-#ifdef SQLITE_HOMEGROWN_RECURSIVE_MUTEX
   /* If recursive mutexes are not available, then we have to grow
   ** our own.  This implementation assumes that pthread_equal()
   ** is atomic - that it cannot be deceived into thinking self
@@ -12999,16 +12967,6 @@ void pthreadMutexEnter(sqlite3_mutex *p){
       p->nRef = 1;
     }
   }
-#else
-  /* Use the built-in recursive mutexes if they are available.
-  */
-  pthread_mutex_lock(&p->mutex);
-#if SQLITE_MUTEX_NREF
-  assert( p->nRef>0 || p->owner==0 );
-  p->owner = pthread_self();
-  p->nRef++;
-#endif
-#endif
 
 #ifdef SQLITE_DEBUG
   if( p->trace ){
@@ -13019,7 +12977,6 @@ void pthreadMutexEnter(sqlite3_mutex *p){
 int pthreadMutexTry(sqlite3_mutex *p){
   int rc;
 
-#ifdef SQLITE_HOMEGROWN_RECURSIVE_MUTEX
   /* If recursive mutexes are not available, then we have to grow
   ** our own.  This implementation assumes that pthread_equal()
   ** is atomic - that it cannot be deceived into thinking self
@@ -13044,19 +13001,6 @@ int pthreadMutexTry(sqlite3_mutex *p){
       rc = SQLITE_BUSY;
     }
   }
-#else
-  /* Use the built-in recursive mutexes if they are available.
-  */
-  if( pthread_mutex_trylock(&p->mutex)==0 ){
-#if SQLITE_MUTEX_NREF
-    p->owner = pthread_self();
-    p->nRef++;
-#endif
-    rc = SQLITE_OK;
-  }else{
-    rc = SQLITE_BUSY;
-  }
-#endif
 
 #ifdef SQLITE_DEBUG
   if( rc==SQLITE_OK && p->trace ){
@@ -13073,19 +13017,13 @@ int pthreadMutexTry(sqlite3_mutex *p){
 ** is not currently allocated.  SQLite will never do either.
 */
 void pthreadMutexLeave(sqlite3_mutex *p){
-#if SQLITE_MUTEX_NREF
   p->nRef--;
   if( p->nRef==0 ) p->owner = 0;
-#endif
   assert( p->nRef==0 || p->id==SQLITE_MUTEX_RECURSIVE );
 
-#ifdef SQLITE_HOMEGROWN_RECURSIVE_MUTEX
   if( p->nRef==0 ){
     pthread_mutex_unlock(&p->mutex);
   }
-#else
-  pthread_mutex_unlock(&p->mutex);
-#endif
 
 #ifdef SQLITE_DEBUG
   if( p->trace ){
