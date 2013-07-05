@@ -241,33 +241,6 @@ func sqlite3_config(op int, ap ...interface{}) (rc int) {
 			sqlite3PCacheSetDefault()
 		}
 		*va_arg(ap, sqlite3_pcache_methods2*) = sqlite3Config.pcache2
-#if defined(SQLITE_ENABLE_MEMSYS3) || defined(SQLITE_ENABLE_MEMSYS5)
-	case SQLITE_CONFIG_HEAP:
-		//	Designate a buffer for heap memory space
-		sqlite3Config.pHeap = va_arg(ap, void*)
-		sqlite3Config.nHeap = va_arg(ap, int)
-		sqlite3Config.mnReq = va_arg(ap, int)
-		if sqlite3Config.mnReq < 1 {
-			sqlite3Config.mnReq = 1
-		} else if sqlite3Config.mnReq > (1 << 12) {
-			//	cap min request size at 2^12
-			sqlite3Config.mnReq = 1 << 12
-		}
-		if sqlite3Config.pHeap == 0 {
-			//	If the heap pointer is NULL, then restore the malloc implementation back to NULL pointers too.  This will cause the malloc to go
-			//	back to its default implementation when sqlite3_initialize() is run.
-			memset(&sqlite3Config.m, 0, sizeof(sqlite3Config.m))
-		} else {
-			//	The heap pointer is not NULL, then install one of the mem5.c/mem3.c methods. If neither ENABLE_MEMSYS3 nor
-			//	ENABLE_MEMSYS5 is defined, return an error.
-#ifdef SQLITE_ENABLE_MEMSYS3
-			sqlite3Config.m = *sqlite3MemGetMemsys3()
-#endif
-#ifdef SQLITE_ENABLE_MEMSYS5
-			sqlite3Config.m = *sqlite3MemGetMemsys5()
-#endif
-		}
-#endif
 	//	Record a pointer to the logger funcction and its first argument. The default is NULL.  Logging is disabled if the function pointer is NULL.
 	case SQLITE_CONFIG_LOG:
 		//	MSVC is picky about pulling func ptrs from va lists.

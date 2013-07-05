@@ -2592,9 +2592,6 @@ const char zOptions[] =
   "   -echo                print commands before execution\n"
   "   -init FILENAME       read/process named file\n"
   "   -[no]header          turn headers on or off\n"
-#if defined(SQLITE_ENABLE_MEMSYS3) || defined(SQLITE_ENABLE_MEMSYS5)
-  "   -heap SIZE           Size of heap for memsys3 or memsys5\n"
-#endif
   "   -help                show this message\n"
   "   -html                set output mode to HTML\n"
   "   -interactive         force interactive I/O\n"
@@ -2707,17 +2704,6 @@ int main(int argc, char **argv){
       ** we do the actual processing of arguments later in a second pass.
       */
       stdin_is_interactive = 0;
-    case "-heap":
-#if defined(SQLITE_ENABLE_MEMSYS3) || defined(SQLITE_ENABLE_MEMSYS5)
-      int j, c;
-      const char *zSize;
-      sqlite3_int64 szHeap;
-
-      zSize = cmdline_option_value(argc, argv, ++i);
-      szHeap = integerValue(zSize);
-      if( szHeap>0x7fff0000 ) szHeap = 0x7fff0000;
-      sqlite3_config(SQLITE_CONFIG_HEAP, malloc((int)szHeap), (int)szHeap, 64);
-#endif
 #ifdef SQLITE_ENABLE_VFSTRACE
     case "-vfstrace":
 		extern int vfstrace_register(zTraceName, zOldVfsName string, xOut func(string, interface{}) int, pOutArg *interface{}, makeDefault int)
