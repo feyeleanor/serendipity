@@ -4076,33 +4076,11 @@ typedef void (*sqlite3_destructor_type)(void*);
  int sqlite3_enable_shared_cache(int);
 
 /*
-** CAPI3REF: Attempt To Free Heap Memory
-**
-** ^The sqlite3_release_memory() interface attempts to free N bytes
-** of heap memory by deallocating non-essential memory allocations
-** held by the database library.   Memory used to cache database
-** pages to improve performance is an example of non-essential memory.
-** ^sqlite3_release_memory() returns the number of bytes actually freed,
-** which might be more or less than the amount requested.
-** ^The sqlite3_release_memory() routine is a no-op returning zero
-** if SQLite is not compiled with [SQLITE_ENABLE_MEMORY_MANAGEMENT].
-**
-** See also: [sqlite3_db_release_memory()]
-*/
- int sqlite3_release_memory(int);
-
-/*
 ** CAPI3REF: Free Memory Used By A Database Connection
 **
 ** ^The sqlite3_db_release_memory(D) interface attempts to free as much heap
-** memory as possible from database connection D. Unlike the
-** [sqlite3_release_memory()] interface, this interface is effect even
-** when then [SQLITE_ENABLE_MEMORY_MANAGEMENT] compile-time option is
-** omitted.
-**
-** See also: [sqlite3_release_memory()]
+** memory as possible from database connection D.
 */
- int sqlite3_db_release_memory(sqlite3*);
 
 /*
 ** CAPI3REF: Impose A Limit On Heap Size
@@ -4142,14 +4120,7 @@ typedef void (*sqlite3_destructor_type)(void*);
 ** </ul>)^
 **
 ** Beginning with SQLite version 3.7.3, the soft heap limit is enforced
-** regardless of whether or not the [SQLITE_ENABLE_MEMORY_MANAGEMENT]
-** compile-time option is invoked.  With [SQLITE_ENABLE_MEMORY_MANAGEMENT],
-** the soft heap limit is enforced on every memory allocation.  Without
-** [SQLITE_ENABLE_MEMORY_MANAGEMENT], the soft heap limit is only enforced
-** when memory is allocated by the page cache.  Testing suggests that because
-** the page cache is the predominate memory user in SQLite, most
-** applications will achieve adequate soft heap limit enforcement without
-** the use of [SQLITE_ENABLE_MEMORY_MANAGEMENT].
+** when memory is allocated by the page cache.
 **
 ** The circumstances under which SQLite will enforce the soft heap limit may
 ** changes in future releases of SQLite.

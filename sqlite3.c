@@ -4769,30 +4769,10 @@ typedef void (*sqlite3_destructor_type)(void*);
 */
 
 /*
-** CAPI3REF: Attempt To Free Heap Memory
-**
-** ^The sqlite3_release_memory() interface attempts to free N bytes
-** of heap memory by deallocating non-essential memory allocations
-** held by the database library.   Memory used to cache database
-** pages to improve performance is an example of non-essential memory.
-** ^sqlite3_release_memory() returns the number of bytes actually freed,
-** which might be more or less than the amount requested.
-** ^The sqlite3_release_memory() routine is a no-op returning zero
-** if SQLite is not compiled with [SQLITE_ENABLE_MEMORY_MANAGEMENT].
-**
-** See also: [sqlite3_db_release_memory()]
-*/
-
-/*
 ** CAPI3REF: Free Memory Used By A Database Connection
 **
 ** ^The sqlite3_db_release_memory(D) interface attempts to free as much heap
-** memory as possible from database connection D. Unlike the
-** [sqlite3_release_memory()] interface, this interface is effect even
-** when then [SQLITE_ENABLE_MEMORY_MANAGEMENT] compile-time option is
-** omitted.
-**
-** See also: [sqlite3_release_memory()]
+** memory as possible from database connection D.
 */
 
 /*
@@ -4833,14 +4813,7 @@ typedef void (*sqlite3_destructor_type)(void*);
 ** </ul>)^
 **
 ** Beginning with SQLite version 3.7.3, the soft heap limit is enforced
-** regardless of whether or not the [SQLITE_ENABLE_MEMORY_MANAGEMENT]
-** compile-time option is invoked.  With [SQLITE_ENABLE_MEMORY_MANAGEMENT],
-** the soft heap limit is enforced on every memory allocation.  Without
-** [SQLITE_ENABLE_MEMORY_MANAGEMENT], the soft heap limit is only enforced
-** when memory is allocated by the page cache.  Testing suggests that because
-** the page cache is the predominate memory user in SQLite, most
-** applications will achieve adequate soft heap limit enforcement without
-** the use of [SQLITE_ENABLE_MEMORY_MANAGEMENT].
+** when memory is allocated by the page cache.
 **
 ** The circumstances under which SQLite will enforce the soft heap limit may
 ** changes in future releases of SQLite.
@@ -10113,9 +10086,6 @@ const char * const azCompileOpt[] = {
 #ifdef SQLITE_ENABLE_LOCKING_STYLE
   "ENABLE_LOCKING_STYLE=" CTIMEOPT_VAL(SQLITE_ENABLE_LOCKING_STYLE),
 #endif
-#ifdef SQLITE_ENABLE_MEMORY_MANAGEMENT
-  "ENABLE_MEMORY_MANAGEMENT",
-#endif
 #ifdef SQLITE_ENABLE_MEMSYS3
   "ENABLE_MEMSYS3",
 #endif
@@ -12754,20 +12724,6 @@ func Memsys3CriticalSection(f func()) {
 }
 
 /*
-** Called when we are unable to satisfy an allocation of nBytes.
-*/
-void memsys3OutOfMemory(int nByte){
-  if( !mem3.alarmBusy ){
-    mem3.alarmBusy = 1;
-    sqlite3_mutex_leave(mem3.mutex);
-    sqlite3_release_memory(nByte);
-    sqlite3_mutex_enter(mem3.mutex);
-    mem3.alarmBusy = 0;
-  }
-}
-
-
-/*
 ** Chunk i is a free chunk that has been unlinked.  Adjust its 
 ** size parameters for check-out and return a pointer to the 
 ** user portion of the chunk.
@@ -12922,7 +12878,6 @@ void *memsys3MallocUnsafe(int nByte){
   ** rarely (we hope!)
   */
   for(toFree=nBlock*16; toFree<(mem3.nPool*16); toFree *= 2){
-    memsys3OutOfMemory(toFree);
     if( mem3.iMaster ){
       memsys3Link(mem3.iMaster);
       mem3.iMaster = 0;
@@ -13827,6 +13782,14 @@ void (p *sqlite3_mutex) CriticalSection(f func() {
 	}
 }
 
+void (p *sqlite3_mutex) CriticalSectionExemption(f func() {
+	if p != nil {
+		sqlite3Config.mutex.xMutexLeave(p)
+		f()
+		sqlite3Config.mutex.xMutexEnter(p)
+	}
+})
+
 /*
 ** Obtain the mutex p. If successful, return SQLITE_OK. Otherwise, if another
 ** thread holds the mutex and it cannot be obtained, return SQLITE_BUSY.
@@ -14325,23 +14288,6 @@ void pthreadMutexLeave(sqlite3_mutex *p){
 */
 
 /*
-** Attempt to release up to n bytes of non-essential memory currently
-** held by SQLite. An example of non-essential memory is memory used to
-** cache database pages that are not currently in use.
-*/
- int sqlite3_release_memory(int n){
-#ifdef SQLITE_ENABLE_MEMORY_MANAGEMENT
-  return sqlite3PcacheReleaseMemory(n);
-#else
-  /* IMPLEMENTATION-OF: R-34391-24921 The sqlite3_release_memory() routine
-  ** is a no-op returning zero if SQLite is not compiled with
-  ** SQLITE_ENABLE_MEMORY_MANAGEMENT. */
-  UNUSED_PARAMETER(n);
-  return 0;
-#endif
-}
-
-/*
 ** An instance of the following object records the location of
 ** each unused scratch buffer.
 */
@@ -14382,18 +14328,13 @@ struct Mem0Global {
   int nearlyFull;
 } mem0 = { 0, 0, 0, 0, 0, 0, 0, 0 };
 
-/*
-** This routine runs when the memory allocator sees that the
-** total memory allocation is about to exceed the soft heap
-** limit.
-*/
+//	This routine runs when the memory allocator sees that the total memory allocation is about to exceed the soft heap limit.
 void softHeapLimitEnforcer(
-  void *NotUsed, 
-  sqlite3_int64 NotUsed2,
-  int allocSize
+	void *NotUsed, 
+	sqlite3_int64 NotUsed2,
+	int allocSize
 ){
-  UNUSED_PARAMETER2(NotUsed, NotUsed2);
-  sqlite3_release_memory(allocSize);
+  UNUSED_PARAMETER2(NotUsed, NotUsed2, allocSize)
 }
 
 /*
@@ -14416,13 +14357,9 @@ int sqlite3MemoryAlarm(
 }
 
 
-/*
-** Set the soft heap-size limit for the library. Passing a zero or 
-** negative value indicates no limit.
-*/
- sqlite3_int64 sqlite3_soft_heap_limit64(sqlite3_int64 n){
+//	Set the soft heap-size limit for the library. Passing a zero or negative value indicates no limit.
+sqlite3_int64 sqlite3_soft_heap_limit64(sqlite3_int64 n){
   sqlite3_int64 priorLimit;
-  sqlite3_int64 excess;
 #ifndef SQLITE_OMIT_AUTOINIT
   int rc = sqlite3_initialize();
   if( rc ) return -1;
@@ -14436,8 +14373,6 @@ int sqlite3MemoryAlarm(
   }else{
     sqlite3MemoryAlarm(0, 0, 0);
   }
-  excess = sqlite3_memory_used() - n;
-  if( excess>0 ) sqlite3_release_memory((int)(excess & 0x7fffffff));
   return priorLimit;
 }
 
@@ -23041,7 +22976,7 @@ PgHdr *pcacheSortDirtyList(PgHdr *pIn){
 /*
 ** This file implements the default page cache implementation (the
 ** sqlite3_pcache interface). It also contains part of the implementation
-** of the SQLITE_CONFIG_PAGECACHE and sqlite3_release_memory() features.
+** of the SQLITE_CONFIG_PAGECACHE feature.
 ** If the default page cache implementation is overriden, then neither of
 ** these two features are available.
 */
@@ -23262,53 +23197,33 @@ int pcache1Free(void *p){
   return nFreed;
 }
 
-#ifdef SQLITE_ENABLE_MEMORY_MANAGEMENT
-/*
-** Return the size of a pcache allocation
-*/
-int pcache1MemSize(void *p){
-  if( p>=pcache1_g.pStart && p<pcache1_g.pEnd ){
-    return pcache1_g.szSlot;
-  }else{
-    return sqlite3MallocSize(p)
-  }
-}
-#endif /* SQLITE_ENABLE_MEMORY_MANAGEMENT */
-
-/*
-** Allocate a new page object initially associated with cache pCache.
-*/
+//	Allocate a new page object initially associated with cache pCache.
 PgHdr1 *pcache1AllocPage(PCache1 *pCache){
-  PgHdr1 *p = 0;
-  void *pPg;
+	PgHdr1 *p = 0;
+	void *pPg;
 
-  /* The group mutex must be released before pcache1Alloc() is called. This
-  ** is because it may call sqlite3_release_memory(), which assumes that 
-  ** this mutex is not held. */
-  sqlite3_mutex_leave(pCache.pGroup.mutex)
 #ifdef SQLITE_PCACHE_SEPARATE_HEADER
-  pPg = pcache1Alloc(pCache->szPage);
-  p = sqlite3Malloc(sizeof(PgHdr1) + pCache->szExtra);
-  if( !pPg || !p ){
-    pcache1Free(pPg);
-    sqlite3_free(p);
-    pPg = 0;
-  }
+	pPg = pcache1Alloc(pCache.szPage)
+	p = sqlite3Malloc(sizeof(PgHdr1) + pCache.szExtra)
+	if pPg == nil || p == nil {
+		pcache1Free(pPg)
+		sqlite3_free(p)
+		pPg = 0
+	}
 #else
-  pPg = pcache1Alloc(sizeof(PgHdr1) + pCache->szPage + pCache->szExtra);
-  p = (PgHdr1 *)&((u8 *)pPg)[pCache->szPage];
+	pPg = pcache1Alloc(sizeof(PgHdr1) + pCache.szPage + pCache.szExtra)
+	p = (PgHdr1 *)&((u8 *)pPg)[pCache.szPage]
 #endif
-  sqlite3_mutex_enter(pCache.pGroup.mutex)
 
-  if( pPg ){
-    p->page.pBuf = pPg;
-    p->page.pExtra = &p[1];
-    if( pCache->bPurgeable ){
-      pCache->pGroup->nCurrentPage++;
-    }
-    return p;
-  }
-  return 0;
+	if pPg != nil {
+		p.page.pBuf = pPg
+		p.page.pExtra = &p[1]
+		if pCache.bPurgeable {
+			pCache.pGroup.nCurrentPage++
+		}
+		return p
+	}
+	return nil
 }
 
 /*
@@ -23382,35 +23297,32 @@ int pcache1UnderMemoryPressure(PCache1 *pCache){
 ** The PCache mutex must be held when this function is called.
 */
 int pcache1ResizeHash(PCache1 *p){
-  PgHdr1 **apNew;
-  unsigned int nNew;
-  unsigned int i;
+	PgHdr1 **apNew;
+	unsigned int nNew;
+	unsigned int i;
 
-  nNew = p->nHash*2;
-  if( nNew<256 ){
-    nNew = 256;
-  }
+	nNew = p.nHash * 2;
+	if nNew < 256 {
+		nNew = 256
+	}
 
-  sqlite3_mutex_leave(p.pGroup.mutex)
-  apNew = (PgHdr1 **)sqlite3MallocZero(sizeof(PgHdr1 *)*nNew);
-  sqlite3_mutex_enter(p.pGroup.mutex)
-  if( apNew ){
-    for(i=0; i<p->nHash; i++){
-      PgHdr1 *pPage;
-      PgHdr1 *pNext = p->apHash[i];
-      while( (pPage = pNext)!=0 ){
-        unsigned int h = pPage->iKey % nNew;
-        pNext = pPage->pNext;
-        pPage->pNext = apNew[h];
-        apNew[h] = pPage;
-      }
-    }
-    sqlite3_free(p->apHash);
-    p->apHash = apNew;
-    p->nHash = nNew;
-  }
-
-  return (p->apHash ? SQLITE_OK : SQLITE_NOMEM);
+	p.pGroup.mutex.CriticalSectionExemption(func() {
+		apNew = make([]*PgHdr1, nNew)
+	})
+	for i := 0; i < p.nHash; i++ {
+		PgHdr1 *pPage;
+		PgHdr1 *pNext = p->apHash[i];
+		while( (pPage = pNext)!=0 ) {
+			unsigned int h = pPage->iKey % nNew;
+			pNext = pPage->pNext;
+			pPage->pNext = apNew[h];
+			apNew[h] = pPage;
+		}
+	}
+	sqlite3_free(p->apHash);
+	p->apHash = apNew;
+	p->nHash = nNew;
+	return (p->apHash ? SQLITE_OK : SQLITE_NOMEM);
 }
 
 /*
@@ -23564,11 +23476,7 @@ sqlite3_pcache *pcache1Create(int szPage, int szExtra, int bPurgeable){
   **   *  Otherwise (if multi-threaded and ENABLE_MEMORY_MANAGEMENT is off)
   **      use separate caches (mode-1)
   */
-#if defined(SQLITE_ENABLE_MEMORY_MANAGEMENT)
-  const int separateCache = 0;
-#else
-  int separateCache = sqlite3Config.bCoreMutex>0;
-#endif
+  int separateCache = sqlite3Config.bCoreMutex > 0
 
   assert( (szPage & (szPage-1))==0 && szPage>=512 && szPage<=65536 );
   assert( szExtra < 300 );
@@ -23930,35 +23838,6 @@ void pcache1Destroy(sqlite3_pcache *p){
   sqlite3_config(SQLITE_CONFIG_PCACHE2, &defaultMethods);
 }
 
-#ifdef SQLITE_ENABLE_MEMORY_MANAGEMENT
-/*
-** This function is called to free superfluous dynamically allocated memory
-** held by the pager system. Memory in use by any SQLite pager allocated
-** by the current thread may be sqlite3_free()ed.
-**
-** nReq is the number of bytes of memory required. Once this much has
-** been released, the function returns. The return value is the total number 
-** of bytes of memory released.
-*/
- int sqlite3PcacheReleaseMemory(int nReq){
-  int nFree = 0;
-  if( pcache1_g.pStart==0 ){
-    PgHdr1 *p;
-    pcache1_g.grp.mutex.CriticalSection(func() {
-	    for ; (nReq < 0 || nFree < nReq) && ((p = pcache1_g.grp.pLruTail) != 0); {
-	      nFree += pcache1MemSize(p.page.pBuf)
-#ifdef SQLITE_PCACHE_SEPARATE_HEADER
-	      nFree += sqlite3MemSize(p)
-#endif
-	      pcache1PinPage(p)
-	      pcache1RemoveFromHash(p)
-	      pcache1FreePage(p)
-	    }
-    })
-  }
-  return nFree;
-}
-#endif /* SQLITE_ENABLE_MEMORY_MANAGEMENT */
 /************** End of pcache1.c *********************************************/
 /************** Begin file rowset.c ******************************************/
 /*
@@ -36984,17 +36863,17 @@ int btreeInvokeBusyHandler(void *pArg){
     assert( sizeof(Pgno)==4 );
   
     pBt = sqlite3MallocZero( sizeof(*pBt) );
-    if( pBt==0 ){
+    if pBt == nil {
       rc = SQLITE_NOMEM;
       goto btree_open_out;
     }
     rc = sqlite3PagerOpen(pVfs, &pBt->pPager, zFilename,
                           EXTRA_SIZE, flags, vfsFlags, pageReinit);
-    if( rc==SQLITE_OK ){
+    if rc==SQLITE_OK {
       sqlite3PagerSetMmapLimit(pBt->pPager, db->szMmap);
       rc = sqlite3PagerReadFileheader(pBt->pPager,sizeof(zDbHeader),zDbHeader);
     }
-    if( rc!=SQLITE_OK ){
+    if rc!=SQLITE_OK {
       goto btree_open_out;
     }
     pBt->openFlags = (u8)flags;
@@ -37004,13 +36883,14 @@ int btreeInvokeBusyHandler(void *pArg){
   
     pBt->pCursor = 0;
     pBt->pPage1 = 0;
-    if( sqlite3PagerIsreadonly(pBt->pPager) ) pBt->btsFlags |= BTS_READ_ONLY;
+    if sqlite3PagerIsreadonly(pBt->pPager) {
+		pBt->btsFlags |= BTS_READ_ONLY
+	}
 #ifdef SQLITE_SECURE_DELETE
     pBt->btsFlags |= BTS_SECURE_DELETE;
 #endif
     pBt->pageSize = (zDbHeader[16]<<8) | (zDbHeader[17]<<16);
-    if( pBt->pageSize<512 || pBt->pageSize>SQLITE_MAX_PAGE_SIZE
-         || ((pBt->pageSize-1)&pBt->pageSize)!=0 ){
+    if pBt->pageSize<512 || pBt->pageSize>SQLITE_MAX_PAGE_SIZE || ((pBt->pageSize-1)&pBt->pageSize)!=0 {
       pBt->pageSize = 0;
 #ifndef SQLITE_OMIT_AUTOVACUUM
       /* If the magic name ":memory:" will create an in-memory database, then
@@ -49464,10 +49344,6 @@ VdbeCursor *allocateCursor(
   **     purposes in a vdbe program. The different uses might require
   **     different sized allocations. Memory cells provide growable
   **     allocations.
-  **
-  **   * When using ENABLE_MEMORY_MANAGEMENT, memory cell buffers can
-  **     be freed lazily via the sqlite3_release_memory() API. This
-  **     minimizes the number of malloc calls made by the system.
   **
   ** Memory cells for cursors are allocated at the top of the address
   ** space. Memory cell (p->nMem) corresponds to cursor 0. Space for
@@ -73154,9 +73030,7 @@ struct sqlite3_api_routines {
   sqlite3_int64 (*memory_highwater)(int);
   sqlite3_int64 (*memory_used)(void);
   sqlite3_mutex *(*mutex_alloc)(int);
-  void (*mutex_enter)(sqlite3_mutex*);
   void (*mutex_free)(sqlite3_mutex*);
-  void (*mutex_leave)(sqlite3_mutex*);
   int (*mutex_try)(sqlite3_mutex*);
   int (*open_v2)(const char*,sqlite3**,int,const char*);
   int (*release_memory)(int);
@@ -73391,7 +73265,6 @@ const sqlite3_api_routines sqlite3Apis = {
   sqlite3_mutex_leave,
   sqlite3_mutex_try,
   OpenDatabase,
-  sqlite3_release_memory,
   sqlite3_result_error_nomem,
   sqlite3_result_error_toobig,
   sqlite3_sleep,

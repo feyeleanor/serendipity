@@ -111,12 +111,6 @@ func mallocWithAlarm(int n, void **pp) (nFull int) {
 		}
 	}
 	p = sqlite3Config.m.xMalloc(nFull);
-#ifdef SQLITE_ENABLE_MEMORY_MANAGEMENT
-	if( p==0 && mem0.alarmCallback ){
-		sqlite3MallocAlarm(nFull);
-		p = sqlite3Config.m.xMalloc(nFull);
-	}
-#endif
 	if p != nil {
 		nFull = sqlite3MallocSize(p);
 		sqlite3StatusAdd(SQLITE_STATUS_MEMORY_USED, nFull);
@@ -132,28 +126,28 @@ func mallocWithAlarm(int n, void **pp) (nFull int) {
 //	routine is intended to get memory to old large transient data structures that would not normally fit on the stack of an
 //	embedded processor.
 func sqlite3ScratchMalloc(int n) (p []byte) {
-	assert( n>0 );
-
-	sqlite3_mutex_enter(mem0.mutex);
-	if mem0.nScratchFree && sqlite3Config.szScratch>=n {
-		p = mem0.pScratchFree;
-		mem0.pScratchFree = mem0.pScratchFree->pNext;
-		mem0.nScratchFree--;
-		sqlite3StatusAdd(SQLITE_STATUS_SCRATCH_USED, 1);
-		sqlite3StatusSet(SQLITE_STATUS_SCRATCH_SIZE, n);
-		sqlite3_mutex_leave(mem0.mutex);
+	sqlite3_mutex_enter(mem0.mutex)
+	if mem0.nScratchFree != 0 && sqlite3Config.szScratch >= n {
+		p = mem0.pScratchFree
+		mem0.pScratchFree = mem0.pScratchFree.pNext
+		mem0.nScratchFree--
+		sqlite3StatusAdd(SQLITE_STATUS_SCRATCH_USED, 1)
+		sqlite3StatusSet(SQLITE_STATUS_SCRATCH_SIZE, n)
+		sqlite3_mutex_leave(mem0.mutex)
 	} else {
-		if( sqlite3Config.bMemstat ){
-			sqlite3StatusSet(SQLITE_STATUS_SCRATCH_SIZE, n);
-			n = mallocWithAlarm(n, &p);
-			if( p ) sqlite3StatusAdd(SQLITE_STATUS_SCRATCH_OVERFLOW, n);
-			sqlite3_mutex_leave(mem0.mutex);
+		if sqlite3Config.bMemstat {
+			sqlite3StatusSet(SQLITE_STATUS_SCRATCH_SIZE, n)
+			n = mallocWithAlarm(n, &p)
+			if  p != nil {
+				sqlite3StatusAdd(SQLITE_STATUS_SCRATCH_OVERFLOW, n)
+			}
+			sqlite3_mutex_leave(mem0.mutex)
 		} else {
-			sqlite3_mutex_leave(mem0.mutex);
-			p = sqlite3Config.m.xMalloc(n);
+			sqlite3_mutex_leave(mem0.mutex)
+			p = sqlite3Config.m.xMalloc(n)
 		}
 	}
-	return p;
+	return p
 }
 
 func sqlite3ScratchFree(void *p) {
