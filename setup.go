@@ -37,7 +37,7 @@ func sqlite3_initialize() (rc int) {
 	//	If the system is so sick that we are unable to allocate a mutex, there is not much SQLite is going to be able to do.
 	//
 	//	The mutex subsystem must take care of serializing its own initialization.
-	if rc = sqlite3MutexInit(); rc != 0 {
+	if rc = InitializeMutexSubsystem(); rc != 0 {
 		return rc
 	}
 
@@ -54,7 +54,7 @@ func sqlite3_initialize() (rc int) {
 			sqlite3Config.isMallocInit = 1
 			if !sqlite3Config.pInitMutex {
 				sqlite3Config.pInitMutex = NewMutex(SQLITE_MUTEX_RECURSIVE)
-				if sqlite3Config.bCoreMutex && !sqlite3Config.pInitMutex {
+				if !sqlite3Config.pInitMutex {
 					rc = SQLITE_NOMEM
 				}
 			}
@@ -188,18 +188,6 @@ func sqlite3_config(op int, ap ...interface{}) (rc int) {
 	va_start(ap, op)
 	switch op {
 		//	Mutex configuration options are only available in a threadsafe compile. 
-	case SQLITE_CONFIG_SINGLETHREAD:
-		//	Disable all mutexing
-		sqlite3Config.bCoreMutex = 0
-		sqlite3Config.bFullMutex = 0
-	case SQLITE_CONFIG_MULTITHREAD:
-		//	Disable mutexing of database connections, enable mutexing of core data structures
-		sqlite3Config.bCoreMutex = 1
-		sqlite3Config.bFullMutex = 0
-	case SQLITE_CONFIG_SERIALIZED:
-		//	Enable all mutexing
-		sqlite3Config.bCoreMutex = 1
-		sqlite3Config.bFullMutex = 1
 	case SQLITE_CONFIG_MUTEX:
 		//	Specify an alternative mutex implementation
 		sqlite3Config.mutex = *va_arg(ap, sqlite3_mutex_methods*)
@@ -215,9 +203,6 @@ func sqlite3_config(op int, ap ...interface{}) (rc int) {
 			sqlite3MemSetDefault()
 		}
 		*va_arg(ap, sqlite3_mem_methods*) = sqlite3Config.m
-	case SQLITE_CONFIG_MEMSTATUS:
-		//	Enable or disable the malloc status collection
-		sqlite3Config.bMemstat = va_arg(ap, int)
 	case SQLITE_CONFIG_SCRATCH:
 		//	Designate a buffer for scratch memory space
 		sqlite3Config.pScratch = va_arg(ap, void*)
@@ -249,10 +234,6 @@ func sqlite3_config(op int, ap ...interface{}) (rc int) {
 		typedef void(*LOGFUNC_t)(void*,int,const char*)
 		sqlite3Config.xLog = va_arg(ap, LOGFUNC_t)
 		sqlite3Config.pLogArg = va_arg(ap, void*)
-	case SQLITE_CONFIG_URI:
-		sqlite3Config.bOpenUri = va_arg(ap, int)
-	case SQLITE_CONFIG_COVERING_INDEX_SCAN:
-		sqlite3Config.bUseCis = va_arg(ap, int)
 #ifdef SQLITE_ENABLE_SQLLOG
 	case SQLITE_CONFIG_SQLLOG:
 		typedef void(*SQLLOGFUNC_t)(void*, sqlite3*, const char*, int)

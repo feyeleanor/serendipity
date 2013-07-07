@@ -142,44 +142,6 @@
 #endif
 
 /*
-** CAPI3REF: Test To See If The Library Is Threadsafe
-**
-** ^The sqlite3_threadsafe() function returns zero if and only if
-** SQLite was compiled with mutexing code omitted due to the
-** [SQLITE_THREADSAFE] compile-time option being set to 0.
-**
-** SQLite can be compiled with or without mutexes.  When
-** the [SQLITE_THREADSAFE] C preprocessor macro is 1 or 2, mutexes
-** are enabled and SQLite is threadsafe.  When the
-** [SQLITE_THREADSAFE] macro is 0, 
-** the mutexes are omitted.  Without the mutexes, it is not safe
-** to use SQLite concurrently from more than one thread.
-**
-** Enabling mutexes incurs a measurable performance penalty.
-** So if speed is of utmost importance, it makes sense to disable
-** the mutexes.  But for maximum safety, mutexes should be enabled.
-** ^The default behavior is for mutexes to be enabled.
-**
-** This interface can be used by an application to make sure that the
-** version of SQLite that it is linking against was compiled with
-** the desired setting of the [SQLITE_THREADSAFE] macro.
-**
-** This interface only reports on the compile-time mutex setting
-** of the [SQLITE_THREADSAFE] flag.  If SQLite is compiled with
-** SQLITE_THREADSAFE=1 or =2 then mutexes are enabled by default but
-** can be fully or partially disabled using a call to [sqlite3_config()]
-** with the verbs [SQLITE_CONFIG_SINGLETHREAD], [SQLITE_CONFIG_MULTITHREAD],
-** or [SQLITE_CONFIG_MUTEX].  ^(The return value of the
-** sqlite3_threadsafe() function shows only the compile-time setting of
-** thread safety, not any run-time changes to that setting made by
-** sqlite3_config(). In other words, the return value from sqlite3_threadsafe()
-** is unchanged by calls to sqlite3_config().)^
-**
-** See the [threading mode] documentation for additional information.
-*/
- int sqlite3_threadsafe(void);
-
-/*
 ** CAPI3REF: Database Connection Handle
 ** KEYWORDS: {database connection} {database connections}
 **
@@ -192,7 +154,6 @@
 ** [sqlite3_busy_timeout()] to name but three) that are methods on an
 ** sqlite3 object.
 */
-typedef struct sqlite3 sqlite3;
 
 /*
 ** CAPI3REF: 64-Bit Integer Types
@@ -1315,11 +1276,7 @@ struct sqlite3_vfs {
 ** SQLite holds the [SQLITE_MUTEX_STATIC_MASTER] mutex when it invokes
 ** the xInit method, so the xInit method need not be threadsafe.  The
 ** xShutdown method is only called from [sqlite3_shutdown()] so it does
-** not need to be threadsafe either.  For all other methods, SQLite
-** holds the [SQLITE_MUTEX_STATIC_MEM] mutex as long as the
-** [SQLITE_CONFIG_MEMSTATUS] configuration option is turned on (which
-** it is by default) and so the methods are automatically serialized.
-** However, if [SQLITE_CONFIG_MEMSTATUS] is disabled, then the other
+** not need to be threadsafe either. The other
 ** methods must be threadsafe or else make their own arrangements for
 ** serialization.
 **
@@ -1353,32 +1310,6 @@ struct sqlite3_mem_methods {
 ** is invoked.
 **
 ** <dl>
-** [[SQLITE_CONFIG_SINGLETHREAD]] <dt>SQLITE_CONFIG_SINGLETHREAD</dt>
-** <dd>There are no arguments to this option.  ^This option sets the
-** [threading mode] to Single-thread.  In other words, it disables
-** all mutexing and puts SQLite into a mode where it can only be used
-** by a single thread.</dd>
-**
-** [[SQLITE_CONFIG_MULTITHREAD]] <dt>SQLITE_CONFIG_MULTITHREAD</dt>
-** <dd>There are no arguments to this option.  ^This option sets the
-** [threading mode] to Multi-thread.  In other words, it disables
-** mutexing on [database connection] and [prepared statement] objects.
-** The application is responsible for serializing access to
-** [database connections] and [prepared statements].  But other mutexes
-** are enabled so that SQLite will be safe to use in a multi-threaded
-** environment as long as no two threads attempt to use the same
-** [database connection] at the same time.</dd>
-**
-** [[SQLITE_CONFIG_SERIALIZED]] <dt>SQLITE_CONFIG_SERIALIZED</dt>
-** <dd>There are no arguments to this option.  ^This option sets the
-** [threading mode] to Serialized. In other words, this option enables
-** all mutexes including the recursive
-** mutexes on [database connection] and [prepared statement] objects.
-** In this mode (which is the default) the SQLite library will itself serialize access
-** to [database connections] and [prepared statements] so that the
-** application is free to use the same [database connection] or the
-** same [prepared statement] in different threads at the same time.</dd>
-**
 ** [[SQLITE_CONFIG_MALLOC]] <dt>SQLITE_CONFIG_MALLOC</dt>
 ** <dd> ^(This option takes a single argument which is a pointer to an
 ** instance of the [sqlite3_mem_methods] structure.  The argument specifies
@@ -1394,22 +1325,6 @@ struct sqlite3_mem_methods {
 ** This option can be used to overload the default memory allocation
 ** routines with a wrapper that simulations memory allocation failure or
 ** tracks memory usage, for example. </dd>
-**
-** [[SQLITE_CONFIG_MEMSTATUS]] <dt>SQLITE_CONFIG_MEMSTATUS</dt>
-** <dd> ^This option takes single argument of type int, interpreted as a 
-** boolean, which enables or disables the collection of memory allocation 
-** statistics. ^(When memory allocation statistics are disabled, the 
-** following SQLite interfaces become non-operational:
-**   <ul>
-**   <li> [sqlite3_memory_used()]
-**   <li> [sqlite3_memory_highwater()]
-**   <li> [sqlite3_soft_heap_limit64()]
-**   <li> [sqlite3_status()]
-**   </ul>)^
-** ^Memory allocation statistics are enabled by default unless SQLite is
-** compiled with [SQLITE_DEFAULT_MEMSTATUS]=0 in which case memory
-** allocation statistics are disabled by default.
-** </dd>
 **
 ** [[SQLITE_CONFIG_SCRATCH]] <dt>SQLITE_CONFIG_SCRATCH</dt>
 ** <dd> ^This option specifies a memory buffer that SQLite can use for
@@ -1510,31 +1425,6 @@ struct sqlite3_mem_methods {
 ** In a multi-threaded application, the application-defined logger
 ** function must be threadsafe. </dd>
 **
-** [[SQLITE_CONFIG_URI]] <dt>SQLITE_CONFIG_URI
-** <dd> This option takes a single argument of type int. If non-zero, then
-** URI handling is globally enabled. If the parameter is zero, then URI handling
-** is globally disabled. If URI handling is globally enabled, all filenames
-** passed to [Open()] or [OpenDatabase()] or
-** specified as part of [ATTACH] commands are interpreted as URIs, regardless
-** of whether or not the [SQLITE_OPEN_URI] flag is set when the database
-** connection is opened. If it is globally disabled, filenames are
-** only interpreted as URIs if the SQLITE_OPEN_URI flag is set when the
-** database connection is opened. By default, URI handling is globally
-** disabled. The default value may be changed by compiling with the
-** [SQLITE_USE_URI] symbol defined.
-**
-** [[SQLITE_CONFIG_COVERING_INDEX_SCAN]] <dt>SQLITE_CONFIG_COVERING_INDEX_SCAN
-** <dd> This option takes a single integer argument which is interpreted as
-** a boolean in order to enable or disable the use of covering indices for
-** full table scans in the query optimizer.  The default setting is determined
-** by the [SQLITE_ALLOW_COVERING_INDEX_SCAN] compile-time option, or is "on"
-** if that compile-time option is omitted.
-** The ability to disable the use of covering indices for full table scans
-** is because some incorrectly coded legacy applications might malfunction
-** malfunction when the optimization is enabled.  Providing the ability to
-** disable the optimization allows the older, buggy application code to work
-** without change even with newer versions of SQLite.
-**
 ** [[SQLITE_CONFIG_PCACHE]] [[SQLITE_CONFIG_GETPCACHE]]
 ** <dt>SQLITE_CONFIG_PCACHE and SQLITE_CONFIG_GETPCACHE
 ** <dd> These options are obsolete and should not be used by new code.
@@ -1573,22 +1463,17 @@ struct sqlite3_mem_methods {
 ** changed to its compile-time default.
 ** </dl>
 */
-#define SQLITE_CONFIG_SINGLETHREAD  1  /* nil */
-#define SQLITE_CONFIG_MULTITHREAD   2  /* nil */
-#define SQLITE_CONFIG_SERIALIZED    3  /* nil */
 #define SQLITE_CONFIG_MALLOC        4  /* sqlite3_mem_methods* */
 #define SQLITE_CONFIG_GETMALLOC     5  /* sqlite3_mem_methods* */
 #define SQLITE_CONFIG_SCRATCH       6  /* void*, int sz, int N */
 #define SQLITE_CONFIG_PAGECACHE     7  /* void*, int sz, int N */
 #define SQLITE_CONFIG_HEAP          8  /* void*, int nByte, int min */
-#define SQLITE_CONFIG_MEMSTATUS     9  /* boolean */
 #define SQLITE_CONFIG_MUTEX        10  /* sqlite3_mutex_methods* */
 #define SQLITE_CONFIG_GETMUTEX     11  /* sqlite3_mutex_methods* */
 /* previously SQLITE_CONFIG_CHUNKALLOC 12 which is now unused. */ 
 #define SQLITE_CONFIG_PCACHE       14  /* no-op */
 #define SQLITE_CONFIG_GETPCACHE    15  /* no-op */
 #define SQLITE_CONFIG_LOG          16  /* xFunc, void* */
-#define SQLITE_CONFIG_URI          17  /* int */
 #define SQLITE_CONFIG_PCACHE2      18  /* sqlite3_pcache_methods2* */
 #define SQLITE_CONFIG_GETPCACHE2   19  /* sqlite3_pcache_methods2* */
 #define SQLITE_CONFIG_COVERING_INDEX_SCAN 20  /* int */
@@ -2515,16 +2400,7 @@ struct sqlite3_mem_methods {
 **
 ** [[URI filenames in Open()]] <h3>URI Filenames</h3>
 **
-** ^If [URI filename] interpretation is enabled, and the filename argument
-** begins with "file:", then the filename is interpreted as a URI. ^URI
-** filename interpretation is enabled if the [SQLITE_OPEN_URI] flag is
-** set in the fourth argument to OpenDatabase(), or if it has
-** been enabled globally using the [SQLITE_CONFIG_URI] option with the
-** [sqlite3_config()] method or by the [SQLITE_USE_URI] compile-time option.
-** As of SQLite version 3.7.7, URI filename interpretation is turned off
-** by default, but future releases of SQLite might enable URI filename
-** interpretation by default.  See "[URI filenames]" for additional
-** information.
+** ^If the filename argument begins with "file:", then the filename is interpreted as a URI.
 **
 ** URI filenames are parsed according to RFC 3986. ^If the URI contains an
 ** authority, then it must be either an empty string or the string 
@@ -2996,13 +2872,7 @@ typedef struct sqlite3_stmt sqlite3_stmt;
 ** The terms "protected" and "unprotected" refer to whether or not
 ** a mutex is held.  An internal mutex is held for a protected
 ** sqlite3_value object but no mutex is held for an unprotected
-** sqlite3_value object.  If SQLite is run in one of reduced mutex modes 
-** [SQLITE_CONFIG_SINGLETHREAD] or [SQLITE_CONFIG_MULTITHREAD]
-** then there is no distinction between protected and unprotected
-** sqlite3_value objects and they can be used interchangeably.  However,
-** for maximum code portability it is recommended that applications
-** still make the distinction between protected and unprotected
-** sqlite3_value objects even when not strictly required.
+** sqlite3_value object.
 **
 ** ^The sqlite3_value objects that are passed as parameters into the
 ** implementation of [application-defined SQL functions] are protected.
@@ -4106,9 +3976,6 @@ typedef void (*sqlite3_destructor_type)(void*);
 **
 ** <ul>
 ** <li> The soft heap limit is set to zero.
-** <li> Memory accounting is disabled using a combination of the
-**      [sqlite3_config]([SQLITE_CONFIG_MEMSTATUS],...) start-time option and
-**      the [SQLITE_DEFAULT_MEMSTATUS] compile-time option.
 ** <li> An alternative page cache implementation is specified using
 **      [sqlite3_config]([SQLITE_CONFIG_PCACHE2],...).
 ** <li> The page cache allocates from its own memory pool supplied

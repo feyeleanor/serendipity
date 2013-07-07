@@ -279,40 +279,11 @@
 #endif
 
 /*
-** The SQLITE_THREADSAFE macro must be defined as 0, 1, or 2.
-** 0 means mutexes are permanently disable and the library is never
-** threadsafe.  1 means the library is serialized which is the highest
-** level of threadsafety.  2 means the libary is multithreaded - multiple
-** threads can use SQLite as long as no two threads try to use the same
-** database connection at the same time.
-**
-** Older versions of SQLite used an optional THREADSAFE macro.
-** We support that for legacy.
-*/
-#if !defined(SQLITE_THREADSAFE)
-# if defined(THREADSAFE)
-#   define SQLITE_THREADSAFE THREADSAFE
-# else
-#   define SQLITE_THREADSAFE 1 /* IMP: R-07272-22309 */
-# endif
-#endif
-
-/*
 ** Powersafe overwrite is on by default.  But can be turned off using
 ** the -DSQLITE_POWERSAFE_OVERWRITE=0 command-line option.
 */
 #ifndef SQLITE_POWERSAFE_OVERWRITE
 # define SQLITE_POWERSAFE_OVERWRITE 1
-#endif
-
-/*
-** The SQLITE_DEFAULT_MEMSTATUS macro must be defined as either 0 or 1.
-** It determines whether or not the features related to 
-** SQLITE_CONFIG_MEMSTATUS are available by default or not. This value can
-** be overridden at runtime using the sqlite3_config() API.
-*/
-#if !defined(SQLITE_DEFAULT_MEMSTATUS)
-# define SQLITE_DEFAULT_MEMSTATUS 1
 #endif
 
 /*
@@ -356,7 +327,7 @@
 **
 ** See also ticket #2741.
 */
-#if !defined(_XOPEN_SOURCE) && SQLITE_THREADSAFE
+#if !defined(_XOPEN_SOURCE)
 #  define _XOPEN_SOURCE 500  /* Needed to enable pthread recursive mutexes */
 #endif
 
@@ -584,44 +555,6 @@
  int sqlite3_compileoption_used(const char *zOptName);
  const char *sqlite3_compileoption_get(int N);
 #endif
-
-/*
-** CAPI3REF: Test To See If The Library Is Threadsafe
-**
-** ^The sqlite3_threadsafe() function returns zero if and only if
-** SQLite was compiled with mutexing code omitted due to the
-** [SQLITE_THREADSAFE] compile-time option being set to 0.
-**
-** SQLite can be compiled with or without mutexes.  When
-** the [SQLITE_THREADSAFE] C preprocessor macro is 1 or 2, mutexes
-** are enabled and SQLite is threadsafe.  When the
-** [SQLITE_THREADSAFE] macro is 0, 
-** the mutexes are omitted.  Without the mutexes, it is not safe
-** to use SQLite concurrently from more than one thread.
-**
-** Enabling mutexes incurs a measurable performance penalty.
-** So if speed is of utmost importance, it makes sense to disable
-** the mutexes.  But for maximum safety, mutexes should be enabled.
-** ^The default behavior is for mutexes to be enabled.
-**
-** This interface can be used by an application to make sure that the
-** version of SQLite that it is linking against was compiled with
-** the desired setting of the [SQLITE_THREADSAFE] macro.
-**
-** This interface only reports on the compile-time mutex setting
-** of the [SQLITE_THREADSAFE] flag.  If SQLite is compiled with
-** SQLITE_THREADSAFE=1 or =2 then mutexes are enabled by default but
-** can be fully or partially disabled using a call to [sqlite3_config()]
-** with the verbs [SQLITE_CONFIG_SINGLETHREAD], [SQLITE_CONFIG_MULTITHREAD],
-** or [SQLITE_CONFIG_MUTEX].  ^(The return value of the
-** sqlite3_threadsafe() function shows only the compile-time setting of
-** thread safety, not any run-time changes to that setting made by
-** sqlite3_config(). In other words, the return value from sqlite3_threadsafe()
-** is unchanged by calls to sqlite3_config().)^
-**
-** See the [threading mode] documentation for additional information.
-*/
- int sqlite3_threadsafe(void);
 
 /*
 ** CAPI3REF: Database Connection Handle
@@ -1753,11 +1686,7 @@ struct sqlite3_vfs {
 ** SQLite holds the [SQLITE_MUTEX_STATIC_MASTER] mutex when it invokes
 ** the xInit method, so the xInit method need not be threadsafe.  The
 ** xShutdown method is only called from [sqlite3_shutdown()] so it does
-** not need to be threadsafe either.  For all other methods, SQLite
-** holds the [SQLITE_MUTEX_STATIC_MEM] mutex as long as the
-** [SQLITE_CONFIG_MEMSTATUS] configuration option is turned on (which
-** it is by default) and so the methods are automatically serialized.
-** However, if [SQLITE_CONFIG_MEMSTATUS] is disabled, then the other
+** not need to be threadsafe either.  The other
 ** methods must be threadsafe or else make their own arrangements for
 ** serialization.
 **
@@ -1791,47 +1720,6 @@ struct sqlite3_mem_methods {
 ** is invoked.
 **
 ** <dl>
-** [[SQLITE_CONFIG_SINGLETHREAD]] <dt>SQLITE_CONFIG_SINGLETHREAD</dt>
-** <dd>There are no arguments to this option.  ^This option sets the
-** [threading mode] to Single-thread.  In other words, it disables
-** all mutexing and puts SQLite into a mode where it can only be used
-** by a single thread.   ^If SQLite is compiled with
-** the [SQLITE_THREADSAFE | SQLITE_THREADSAFE=0] compile-time option then
-** it is not possible to change the [threading mode] from its default
-** value of Single-thread and so [sqlite3_config()] will return 
-** [SQLITE_ERROR] if called with the SQLITE_CONFIG_SINGLETHREAD
-** configuration option.</dd>
-**
-** [[SQLITE_CONFIG_MULTITHREAD]] <dt>SQLITE_CONFIG_MULTITHREAD</dt>
-** <dd>There are no arguments to this option.  ^This option sets the
-** [threading mode] to Multi-thread.  In other words, it disables
-** mutexing on [database connection] and [prepared statement] objects.
-** The application is responsible for serializing access to
-** [database connections] and [prepared statements].  But other mutexes
-** are enabled so that SQLite will be safe to use in a multi-threaded
-** environment as long as no two threads attempt to use the same
-** [database connection] at the same time.  ^If SQLite is compiled with
-** the [SQLITE_THREADSAFE | SQLITE_THREADSAFE=0] compile-time option then
-** it is not possible to set the Multi-thread [threading mode] and
-** [sqlite3_config()] will return [SQLITE_ERROR] if called with the
-** SQLITE_CONFIG_MULTITHREAD configuration option.</dd>
-**
-** [[SQLITE_CONFIG_SERIALIZED]] <dt>SQLITE_CONFIG_SERIALIZED</dt>
-** <dd>There are no arguments to this option.  ^This option sets the
-** [threading mode] to Serialized. In other words, this option enables
-** all mutexes including the recursive
-** mutexes on [database connection] and [prepared statement] objects.
-** In this mode (which is the default when SQLite is compiled with
-** [SQLITE_THREADSAFE=1]) the SQLite library will itself serialize access
-** to [database connections] and [prepared statements] so that the
-** application is free to use the same [database connection] or the
-** same [prepared statement] in different threads at the same time.
-** ^If SQLite is compiled with
-** the [SQLITE_THREADSAFE | SQLITE_THREADSAFE=0] compile-time option then
-** it is not possible to set the Serialized [threading mode] and
-** [sqlite3_config()] will return [SQLITE_ERROR] if called with the
-** SQLITE_CONFIG_SERIALIZED configuration option.</dd>
-**
 ** [[SQLITE_CONFIG_MALLOC]] <dt>SQLITE_CONFIG_MALLOC</dt>
 ** <dd> ^(This option takes a single argument which is a pointer to an
 ** instance of the [sqlite3_mem_methods] structure.  The argument specifies
@@ -1847,22 +1735,6 @@ struct sqlite3_mem_methods {
 ** This option can be used to overload the default memory allocation
 ** routines with a wrapper that simulations memory allocation failure or
 ** tracks memory usage, for example. </dd>
-**
-** [[SQLITE_CONFIG_MEMSTATUS]] <dt>SQLITE_CONFIG_MEMSTATUS</dt>
-** <dd> ^This option takes single argument of type int, interpreted as a 
-** boolean, which enables or disables the collection of memory allocation 
-** statistics. ^(When memory allocation statistics are disabled, the 
-** following SQLite interfaces become non-operational:
-**   <ul>
-**   <li> [sqlite3_memory_used()]
-**   <li> [sqlite3_memory_highwater()]
-**   <li> [sqlite3_soft_heap_limit64()]
-**   <li> [sqlite3_status()]
-**   </ul>)^
-** ^Memory allocation statistics are enabled by default unless SQLite is
-** compiled with [SQLITE_DEFAULT_MEMSTATUS]=0 in which case memory
-** allocation statistics are disabled by default.
-** </dd>
 **
 ** [[SQLITE_CONFIG_SCRATCH]] <dt>SQLITE_CONFIG_SCRATCH</dt>
 ** <dd> ^This option specifies a memory buffer that SQLite can use for
@@ -1921,11 +1793,7 @@ struct sqlite3_mem_methods {
 ** alternative low-level mutex routines to be used in place
 ** the mutex routines built into SQLite.)^  ^SQLite makes a copy of the
 ** content of the [sqlite3_mutex_methods] structure before the call to
-** [sqlite3_config()] returns. ^If SQLite is compiled with
-** the [SQLITE_THREADSAFE | SQLITE_THREADSAFE=0] compile-time option then
-** the entire mutexing subsystem is omitted from the build and hence calls to
-** [sqlite3_config()] with the SQLITE_CONFIG_MUTEX configuration option will
-** return [SQLITE_ERROR].</dd>
+** [sqlite3_config()] returns.</dd>
 **
 ** [[SQLITE_CONFIG_GETMUTEX]] <dt>SQLITE_CONFIG_GETMUTEX</dt>
 ** <dd> ^(This option takes a single argument which is a pointer to an
@@ -1934,11 +1802,7 @@ struct sqlite3_mem_methods {
 ** structure is filled with the currently defined mutex routines.)^
 ** This option can be used to overload the default mutex allocation
 ** routines with a wrapper used to track mutex usage for performance
-** profiling or testing, for example.   ^If SQLite is compiled with
-** the [SQLITE_THREADSAFE | SQLITE_THREADSAFE=0] compile-time option then
-** the entire mutexing subsystem is omitted from the build and hence calls to
-** [sqlite3_config()] with the SQLITE_CONFIG_GETMUTEX configuration option will
-** return [SQLITE_ERROR].</dd>
+** profiling or testing, for example.</dd>
 **
 ** [[SQLITE_CONFIG_PCACHE2]] <dt>SQLITE_CONFIG_PCACHE2</dt>
 ** <dd> ^(This option takes a single argument which is a pointer to
@@ -1970,31 +1834,6 @@ struct sqlite3_mem_methods {
 ** supplied by the application must not invoke any SQLite interface.
 ** In a multi-threaded application, the application-defined logger
 ** function must be threadsafe. </dd>
-**
-** [[SQLITE_CONFIG_URI]] <dt>SQLITE_CONFIG_URI
-** <dd> This option takes a single argument of type int. If non-zero, then
-** URI handling is globally enabled. If the parameter is zero, then URI handling
-** is globally disabled. If URI handling is globally enabled, all filenames
-** passed to [Open()], [OpenDatabase()] or
-** specified as part of [ATTACH] commands are interpreted as URIs, regardless
-** of whether or not the [SQLITE_OPEN_URI] flag is set when the database
-** connection is opened. If it is globally disabled, filenames are
-** only interpreted as URIs if the SQLITE_OPEN_URI flag is set when the
-** database connection is opened. By default, URI handling is globally
-** disabled. The default value may be changed by compiling with the
-** [SQLITE_USE_URI] symbol defined.
-**
-** [[SQLITE_CONFIG_COVERING_INDEX_SCAN]] <dt>SQLITE_CONFIG_COVERING_INDEX_SCAN
-** <dd> This option takes a single integer argument which is interpreted as
-** a boolean in order to enable or disable the use of covering indices for
-** full table scans in the query optimizer.  The default setting is determined
-** by the [SQLITE_ALLOW_COVERING_INDEX_SCAN] compile-time option, or is "on"
-** if that compile-time option is omitted.
-** The ability to disable the use of covering indices for full table scans
-** is because some incorrectly coded legacy applications might malfunction
-** malfunction when the optimization is enabled.  Providing the ability to
-** disable the optimization allows the older, buggy application code to work
-** without change even with newer versions of SQLite.
 **
 ** [[SQLITE_CONFIG_PCACHE]] [[SQLITE_CONFIG_GETPCACHE]]
 ** <dt>SQLITE_CONFIG_PCACHE and SQLITE_CONFIG_GETPCACHE
@@ -2034,22 +1873,17 @@ struct sqlite3_mem_methods {
 ** changed to its compile-time default.
 ** </dl>
 */
-#define SQLITE_CONFIG_SINGLETHREAD  1  /* nil */
-#define SQLITE_CONFIG_MULTITHREAD   2  /* nil */
-#define SQLITE_CONFIG_SERIALIZED    3  /* nil */
 #define SQLITE_CONFIG_MALLOC        4  /* sqlite3_mem_methods* */
 #define SQLITE_CONFIG_GETMALLOC     5  /* sqlite3_mem_methods* */
 #define SQLITE_CONFIG_SCRATCH       6  /* void*, int sz, int N */
 #define SQLITE_CONFIG_PAGECACHE     7  /* void*, int sz, int N */
 #define SQLITE_CONFIG_HEAP          8  /* void*, int nByte, int min */
-#define SQLITE_CONFIG_MEMSTATUS     9  /* boolean */
 #define SQLITE_CONFIG_MUTEX        10  /* sqlite3_mutex_methods* */
 #define SQLITE_CONFIG_GETMUTEX     11  /* sqlite3_mutex_methods* */
 /* previously SQLITE_CONFIG_CHUNKALLOC 12 which is now unused. */ 
 #define SQLITE_CONFIG_PCACHE       14  /* no-op */
 #define SQLITE_CONFIG_GETPCACHE    15  /* no-op */
 #define SQLITE_CONFIG_LOG          16  /* xFunc, void* */
-#define SQLITE_CONFIG_URI          17  /* int */
 #define SQLITE_CONFIG_PCACHE2      18  /* sqlite3_pcache_methods2* */
 #define SQLITE_CONFIG_GETPCACHE2   19  /* sqlite3_pcache_methods2* */
 #define SQLITE_CONFIG_COVERING_INDEX_SCAN 20  /* int */
@@ -2953,16 +2787,7 @@ struct sqlite3_mem_methods {
 **
 ** [[URI filenames in Open()]] <h3>URI Filenames</h3>
 **
-** ^If [URI filename] interpretation is enabled, and the filename argument
-** begins with "file:", then the filename is interpreted as a URI. ^URI
-** filename interpretation is enabled if the [SQLITE_OPEN_URI] flag is
-** set in the fourth argument to OpenDatabase(), or if it has
-** been enabled globally using the [SQLITE_CONFIG_URI] option with the
-** [sqlite3_config()] method or by the [SQLITE_USE_URI] compile-time option.
-** As of SQLite version 3.7.7, URI filename interpretation is turned off
-** by default, but future releases of SQLite might enable URI filename
-** interpretation by default.  See "[URI filenames]" for additional
-** information.
+** ^If the filename argument begins with "file:", then the filename is interpreted as a URI.
 **
 ** URI filenames are parsed according to RFC 3986. ^If the URI contains an
 ** authority, then it must be either an empty string or the string 
@@ -3425,15 +3250,7 @@ struct sqlite3_mem_methods {
 ** The terms "protected" and "unprotected" refer to whether or not
 ** a mutex is held.  An internal mutex is held for a protected
 ** sqlite3_value object but no mutex is held for an unprotected
-** sqlite3_value object.  If SQLite is compiled to be single-threaded
-** (with [SQLITE_THREADSAFE=0] and with [sqlite3_threadsafe()] returning 0)
-** or if SQLite is run in one of reduced mutex modes 
-** [SQLITE_CONFIG_SINGLETHREAD] or [SQLITE_CONFIG_MULTITHREAD]
-** then there is no distinction between protected and unprotected
-** sqlite3_value objects and they can be used interchangeably.  However,
-** for maximum code portability it is recommended that applications
-** still make the distinction between protected and unprotected
-** sqlite3_value objects even when not strictly required.
+** sqlite3_value object.
 **
 ** ^The sqlite3_value objects that are passed as parameters into the
 ** implementation of [application-defined SQL functions] are protected.
@@ -4799,9 +4616,6 @@ typedef void (*sqlite3_destructor_type)(void*);
 **
 ** <ul>
 ** <li> The soft heap limit is set to zero.
-** <li> Memory accounting is disabled using a combination of the
-**      [sqlite3_config]([SQLITE_CONFIG_MEMSTATUS],...) start-time option and
-**      the [SQLITE_DEFAULT_MEMSTATUS] compile-time option.
 ** <li> An alternative page cache implementation is specified using
 **      [sqlite3_config]([SQLITE_CONFIG_PCACHE2],...).
 ** <li> The page cache allocates from its own memory pool supplied
@@ -9692,13 +9506,8 @@ typedef struct {
 **
 ** This structure also contains some state information.
 */
+type Configuration struct {
 struct Sqlite3Config {
-  int bMemstat;                     /* True to enable memory status */
-  int bCoreMutex;                   /* True to enable core mutexing */
-  int bFullMutex;                   /* True to enable full mutexing */
-  int bOpenUri;                     /* True to interpret filenames as URIs */
-  int bUseCis;                      /* Use covering indices for full-scans */
-  int mxStrlen;                     /* Maximum string length */
   sqlite3_mem_methods m;            /* Low-level memory allocation interface */
   sqlite3_mutex_methods mutex;      /* Low-level mutex interface */
   sqlite3_pcache_methods2 pcache2;  /* Low-level page-cache interface */
@@ -9857,165 +9666,6 @@ func (db *sqlite3) VtabInSync() bool {
 #endif /* _SQLITEINT_H_ */
 
 /************** End of sqliteInt.h *******************************************/
-/************** Begin file global.c ******************************************/
-/*
-** This file contains definitions of global variables and contants.
-*/
-
-/*
-** The following 256 byte lookup table is used to support SQLites built-in
-** equivalents to the following standard library functions:
-**
-**   isspace()                        0x01
-**   isalpha()                        0x02
-**   isdigit()                        0x04
-**   isalnum()                        0x06
-**   isxdigit()                       0x08
-**   SQLite identifier character      0x40
-**
-** Bit 0x40 is set if the character non-alphanumeric and can be used in an 
-** SQLite identifier.  Identifiers are alphanumerics, "_", "$", and any
-** non-ASCII UTF character. Hence the test for whether or not a character is
-** part of an identifier is 0x46.
-**
-** SQLite's versions are identical to the standard versions assuming a
-** locale of "C". They are implemented as macros in sqliteInt.h.
-*/
-#ifdef SQLITE_ASCII
- const unsigned char sqlite3CtypeMap[256] = {
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  /* 00..07    ........ */
-  0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00,  /* 08..0f    ........ */
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  /* 10..17    ........ */
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  /* 18..1f    ........ */
-  0x01, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00,  /* 20..27     !"#$%&' */
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  /* 28..2f    ()*+,-./ */
-  0x0c, 0x0c, 0x0c, 0x0c, 0x0c, 0x0c, 0x0c, 0x0c,  /* 30..37    01234567 */
-  0x0c, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  /* 38..3f    89:;<=>? */
-
-  0x00, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x02,  /* 40..47    @ABCDEFG */
-  0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,  /* 48..4f    HIJKLMNO */
-  0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,  /* 50..57    PQRSTUVW */
-  0x02, 0x02, 0x02, 0x00, 0x00, 0x00, 0x00, 0x40,  /* 58..5f    XYZ[\]^_ */
-  0x00, 0x2a, 0x2a, 0x2a, 0x2a, 0x2a, 0x2a, 0x22,  /* 60..67    `abcdefg */
-  0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22,  /* 68..6f    hijklmno */
-  0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22,  /* 70..77    pqrstuvw */
-  0x22, 0x22, 0x22, 0x00, 0x00, 0x00, 0x00, 0x00,  /* 78..7f    xyz{|}~. */
-
-  0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,  /* 80..87    ........ */
-  0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,  /* 88..8f    ........ */
-  0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,  /* 90..97    ........ */
-  0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,  /* 98..9f    ........ */
-  0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,  /* a0..a7    ........ */
-  0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,  /* a8..af    ........ */
-  0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,  /* b0..b7    ........ */
-  0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,  /* b8..bf    ........ */
-
-  0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,  /* c0..c7    ........ */
-  0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,  /* c8..cf    ........ */
-  0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,  /* d0..d7    ........ */
-  0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,  /* d8..df    ........ */
-  0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,  /* e0..e7    ........ */
-  0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,  /* e8..ef    ........ */
-  0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,  /* f0..f7    ........ */
-  0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40   /* f8..ff    ........ */
-};
-#endif
-
-#ifndef SQLITE_USE_URI
-# define  SQLITE_USE_URI 0
-#endif
-
-#ifndef SQLITE_ALLOW_COVERING_INDEX_SCAN
-# define SQLITE_ALLOW_COVERING_INDEX_SCAN 1
-#endif
-
-/*
-** The following singleton contains the global configuration for
-** the SQLite library.
-*/
-struct Sqlite3Config sqlite3Config = {
-   SQLITE_DEFAULT_MEMSTATUS,  /* bMemstat */
-   1,                         /* bCoreMutex */
-   SQLITE_THREADSAFE==1,      /* bFullMutex */
-   SQLITE_USE_URI,            /* bOpenUri */
-   SQLITE_ALLOW_COVERING_INDEX_SCAN,   /* bUseCis */
-   0x7ffffffe,                /* mxStrlen */
-   {0,0,0,0,0,0,0,0},         /* m */
-   {0,0,0,0,0,0,0,0,0},       /* mutex */
-   {0,0,0,0,0,0,0,0,0,0,0,0,0},/* pcache2 */
-   SQLITE_DEFAULT_MMAP_SIZE,  /* szMmap */
-   SQLITE_MAX_MMAP_SIZE,      /* mxMmap */
-   (void*)0,                  /* pScratch */
-   0,                         /* szScratch */
-   0,                         /* nScratch */
-   (void*)0,                  /* pPage */
-   0,                         /* szPage */
-   0,                         /* nPage */
-   0,                         /* mxParserStack */
-   0,                         /* sharedCacheEnabled */
-   /* All the rest should always be initialized to zero */
-   0,                         /* isInit */
-   0,                         /* inProgress */
-   0,                         /* isMutexInit */
-   0,                         /* isMallocInit */
-   0,                         /* isPCacheInit */
-   0,                         /* pInitMutex */
-   0,                         /* nRefInitMutex */
-   0,                         /* xLog */
-   0,                         /* pLogArg */
-   0,                         /* bLocaltimeFault */
-#ifdef SQLITE_ENABLE_SQLLOG
-   0,                         /* xSqllog */
-   0                          /* pSqllogArg */
-#endif
-};
-
-
-/*
-** Hash table for global functions - functions common to all
-** database connections.  After initialization, this table is
-** read-only.
-*/
-FuncDefHash sqlite3GlobalFunctions;
-
-/*
-** Constant tokens for values 0 and 1.
-*/
-const Token sqlite3IntTokens[] = {
-   { "0", 1 },
-   { "1", 1 }
-};
-
-
-/*
-** The value of the "pending" byte must be 0x40000000 (1 byte past the
-** 1-gibabyte boundary) in a compatible database.  SQLite never uses
-** the database page that contains the pending byte.  It never attempts
-** to read or write that page.  The pending byte page is set assign
-** for use by the VFS layers as space for managing file locks.
-**
-** During testing, it is often desirable to move the pending byte to
-** a different position in the file.  This allows code that has to
-** deal with the pending byte to run on files that are much smaller
-** than 1 GiB.  The sqlite3_test_control() interface can be used to
-** move the pending byte.
-**
-** IMPORTANT:  Changing the pending byte to any value other than
-** 0x40000000 results in an incompatible database file format!
-** Changing the pending byte during operating results in undefined
-** and dileterious behavior.
-*/
- int sqlite3PendingByte = 0x40000000;
-
-/*
-** Properties of opcodes.  The OPFLG_INITIALIZER macro is
-** created by mkopcodeh.awk during compilation.  Data is obtained
-** from the comments following the "case OP_xxxx:" statements in
-** the vdbe.c file.  
-*/
- const unsigned char sqlite3OpcodeProperty[] = OPFLG_INITIALIZER;
-
-/************** End of global.c **********************************************/
 /************** Begin file ctime.c *******************************************/
 /*
 ** This file implements routines used to report what compile-time options
@@ -10267,9 +9917,6 @@ const char * const azCompileOpt[] = {
 #endif
 #if defined(SQLITE_TEMP_STORE) && !defined(SQLITE_TEMP_STORE_xc)
   "TEMP_STORE=" CTIMEOPT_VAL(SQLITE_TEMP_STORE),
-#endif
-#if defined(SQLITE_THREADSAFE)
-  "THREADSAFE=" CTIMEOPT_VAL(SQLITE_THREADSAFE),
 #endif
 #ifdef SQLITE_USE_ALLOCA
   "USE_ALLOCA",
@@ -12500,553 +12147,6 @@ void sqlite3MemShutdown(void *NotUsed){
 #endif /* SQLITE_SYSTEM_MALLOC */
 
 /************** End of mem1.c ************************************************/
-/************** Begin file mutex.c *******************************************/
-/*
-** This file contains the C functions that implement mutexes.
-**
-** This file contains code that is common across all mutex implementations.
-*/
-
-#if defined(SQLITE_DEBUG)
-/*
-** For debugging purposes, record when the mutex subsystem is initialized
-** and uninitialized so that we can assert() if there is an attempt to
-** allocate a mutex while the system is uninitialized.
-*/
-int mutexIsInit = 0;
-#endif /* SQLITE_DEBUG */
-
-
-/*
-** Initialize the mutex system.
-*/
- int sqlite3MutexInit(void){ 
-  int rc = SQLITE_OK;
-  if( !sqlite3Config.mutex.xMutexAlloc ){
-    /* If the xMutexAlloc method has not been set, then the user did not
-    ** install a mutex implementation via sqlite3_config() prior to 
-    ** sqlite3_initialize() being called. This block copies pointers to
-    ** the default implementation into the sqlite3Config structure.
-    */
-    sqlite3_mutex_methods const *pFrom;
-    sqlite3_mutex_methods *pTo = &sqlite3Config.mutex;
-
-    if( sqlite3Config.bCoreMutex ){
-      pFrom = sqlite3DefaultMutex();
-    }else{
-      pFrom = sqlite3NoopMutex();
-    }
-    memcpy(pTo, pFrom, offsetof(sqlite3_mutex_methods, xMutexAlloc));
-    memcpy(&pTo->xMutexFree, &pFrom->xMutexFree,
-           sizeof(*pTo) - offsetof(sqlite3_mutex_methods, xMutexFree));
-    pTo->xMutexAlloc = pFrom->xMutexAlloc;
-  }
-  rc = sqlite3Config.mutex.Initialise();
-
-#ifdef SQLITE_DEBUG
-  mutexIsInit = true
-#endif
-
-  return rc;
-}
-
-/*
-** Shutdown the mutex system. This call frees resources allocated by
-** sqlite3MutexInit().
-*/
- int sqlite3MutexEnd(void){
-  int rc = SQLITE_OK;
-  if( sqlite3Config.mutex.End ){
-    rc = sqlite3Config.mutex.End();
-  }
-
-#ifdef SQLITE_DEBUG
-  mutexIsInit = false
-#endif
-
-  return rc;
-}
-
-/*
-** Retrieve a pointer to a mutex or allocate a new dynamic one.
-*/
- sqlite3_mutex *sqlite3_mutex_alloc(int id){
-#ifndef SQLITE_OMIT_AUTOINIT
-  if( sqlite3_initialize() ) return 0;
-#endif
-  return sqlite3Config.mutex.xMutexAlloc(id);
-}
-
-func NewMutex(id int) (m *sqlite3_mutex) {
-	if sqlite3Config.bCoreMutex {
-		assert( mutexIsInit )
-		m = sqlite3Config.mutex.xMutexAlloc(id)
-	}
-	return
-}
-
-//	Free a dynamic mutex.
-void sqlite3_mutex_free(sqlite3_mutex *p){
-	if p != nil {
-		sqlite3Config.mutex.xMutexFree(p)
-	}
-}
-
-/*
-** Obtain the mutex p. If some other thread already has the mutex, block
-** until it can be obtained.
-*/
- void sqlite3_mutex_enter(sqlite3_mutex *p){
-  if( p ){
-    sqlite3Config.mutex.xMutexEnter(p);
-  }
-}
-
-void (p *sqlite3_mutex) CriticalSection(f func() {
-	if p != nil {
-		sqlite3Config.mutex.xMutexEnter(p)
-		f()
-		sqlite3Config.mutex.xMutexLeave(p)
-	}
-}
-
-void (p *sqlite3_mutex) CriticalSectionExemption(f func() {
-	if p != nil {
-		sqlite3Config.mutex.xMutexLeave(p)
-		f()
-		sqlite3Config.mutex.xMutexEnter(p)
-	}
-})
-
-/*
-** Obtain the mutex p. If successful, return SQLITE_OK. Otherwise, if another
-** thread holds the mutex and it cannot be obtained, return SQLITE_BUSY.
-*/
- int sqlite3_mutex_try(sqlite3_mutex *p){
-  int rc = SQLITE_OK;
-  if( p ){
-    return sqlite3Config.mutex.xMutexTry(p);
-  }
-  return rc;
-}
-
-/*
-** The sqlite3_mutex_leave() routine exits a mutex that was previously
-** entered by the same thread.  The behavior is undefined if the mutex 
-** is not currently entered. If a NULL pointer is passed as an argument
-** this function is a no-op.
-*/
- void sqlite3_mutex_leave(sqlite3_mutex *p){
-  if( p ){
-    sqlite3Config.mutex.xMutexLeave(p);
-  }
-}
-/************** End of mutex.c ***********************************************/
-/************** Begin file mutex_noop.c **************************************/
-/*
-** This file contains the C functions that implement mutexes.
-**
-** This implementation in this file does not provide any mutual
-** exclusion and is thus suitable for use only in applications
-** that use SQLite in a single thread.  The routines defined
-** here are place-holders.  Applications can substitute working
-** mutex routines at start-time using the
-**
-**     sqlite3_config(SQLITE_CONFIG_MUTEX,...)
-**
-** interface.
-**
-** If compiled with SQLITE_DEBUG, then additional logic is inserted
-** that does error checking on mutexes to make sure they are being
-** called correctly.
-*/
-
-#ifndef SQLITE_DEBUG
-/*
-** Stub routines for all mutex methods.
-**
-** This routines provide no mutual exclusion or error checking.
-*/
-int noopMutexInit(void){ return SQLITE_OK; }
-int noopMutexEnd(void){ return SQLITE_OK; }
-sqlite3_mutex *noopMutexAlloc(int id){ 
-  UNUSED_PARAMETER(id);
-  return (sqlite3_mutex*)8; 
-}
-void noopMutexFree(sqlite3_mutex *p){ UNUSED_PARAMETER(p); return; }
-void noopMutexEnter(sqlite3_mutex *p){ UNUSED_PARAMETER(p); return; }
-int noopMutexTry(sqlite3_mutex *p){
-  UNUSED_PARAMETER(p);
-  return SQLITE_OK;
-}
-void noopMutexLeave(sqlite3_mutex *p){ UNUSED_PARAMETER(p); return; }
-
- sqlite3_mutex_methods const *sqlite3NoopMutex(void){
-  const sqlite3_mutex_methods sMutex = {
-    noopMutexInit,
-    noopMutexEnd,
-    noopMutexAlloc,
-    noopMutexFree,
-    noopMutexEnter,
-    noopMutexTry,
-    noopMutexLeave,
-
-    0,
-    0,
-  };
-
-  return &sMutex;
-}
-#endif /* !SQLITE_DEBUG */
-
-#ifdef SQLITE_DEBUG
-/*
-** In this implementation, error checking is provided for testing
-** and debugging purposes.  The mutexes still do not provide any
-** mutual exclusion.
-*/
-
-/*
-** The mutex object
-*/
-typedef struct sqlite3_debug_mutex {
-  int id;     /* The mutex type */
-  int cnt;    /* Number of entries without a matching leave */
-} sqlite3_debug_mutex;
-
-/*
-** Initialize and deinitialize the mutex subsystem.
-*/
-int debugMutexInit(void){ return SQLITE_OK; }
-int debugMutexEnd(void){ return SQLITE_OK; }
-
-/*
-** The sqlite3_mutex_alloc() routine allocates a new
-** mutex and returns a pointer to it.  If it returns NULL
-** that means that a mutex could not be allocated. 
-*/
-sqlite3_mutex *debugMutexAlloc(int id){
-  sqlite3_debug_mutex aStatic[6];
-  sqlite3_debug_mutex *pNew = 0;
-  switch( id ){
-    case SQLITE_MUTEX_FAST:
-    case SQLITE_MUTEX_RECURSIVE: {
-      pNew = sqlite3Malloc(sizeof(*pNew));
-      if( pNew ){
-        pNew->id = id;
-        pNew->cnt = 0;
-      }
-      break;
-    }
-    default: {
-      assert( id-2 >= 0 );
-      assert( id-2 < (int)(sizeof(aStatic)/sizeof(aStatic[0])) );
-      pNew = &aStatic[id-2];
-      pNew->id = id;
-      break;
-    }
-  }
-  return (sqlite3_mutex*)pNew;
-}
-
-/*
-** This routine deallocates a previously allocated mutex.
-*/
-void debugMutexFree(sqlite3_mutex *pX){
-  sqlite3_debug_mutex *p = (sqlite3_debug_mutex*)pX;
-  assert( p->cnt==0 );
-  assert( p->id==SQLITE_MUTEX_FAST || p->id==SQLITE_MUTEX_RECURSIVE );
-  sqlite3_free(p);
-}
-
-/*
-** The sqlite3_mutex_enter() and sqlite3_mutex_try() routines attempt
-** to enter a mutex.  If another thread is already within the mutex,
-** sqlite3_mutex_enter() will block and sqlite3_mutex_try() will return
-** SQLITE_BUSY.  The sqlite3_mutex_try() interface returns SQLITE_OK
-** upon successful entry.  Mutexes created using SQLITE_MUTEX_RECURSIVE can
-** be entered multiple times by the same thread.  In such cases the,
-** mutex must be exited an equal number of times before another thread
-** can enter.  If the same thread tries to enter any other kind of mutex
-** more than once, the behavior is undefined.
-*/
-void debugMutexEnter(sqlite3_mutex *pX){
-  sqlite3_debug_mutex *p = (sqlite3_debug_mutex*)pX;
-  p->cnt++;
-}
-int debugMutexTry(sqlite3_mutex *pX){
-  sqlite3_debug_mutex *p = (sqlite3_debug_mutex*)pX;
-  p->cnt++;
-  return SQLITE_OK;
-}
-
-/*
-** The sqlite3_mutex_leave() routine exits a mutex that was
-** previously entered by the same thread.  The behavior
-** is undefined if the mutex is not currently entered or
-** is not currently allocated.  SQLite will never do either.
-*/
-void debugMutexLeave(sqlite3_mutex *pX){
-  sqlite3_debug_mutex *p = (sqlite3_debug_mutex*)pX;
-  p->cnt--;
-}
-
- sqlite3_mutex_methods const *sqlite3NoopMutex(void){
-  const sqlite3_mutex_methods sMutex = {
-    debugMutexInit,
-    debugMutexEnd,
-    debugMutexAlloc,
-    debugMutexFree,
-    debugMutexEnter,
-    debugMutexTry,
-    debugMutexLeave,
-  };
-
-  return &sMutex;
-}
-#endif /* SQLITE_DEBUG */
-
-/************** End of mutex_noop.c ******************************************/
-/************** Begin file mutex_unix.c **************************************/
-/*
-** This file contains the C functions that implement mutexes for pthreads
-*/
-
-/*
-** The code in this file is only used if we are compiling threadsafe
-** under unix with pthreads.
-**
-** Note that this implementation requires a version of pthreads that
-** supports recursive mutexes.
-*/
-
-/*
-** Each recursive mutex is an instance of the following structure.
-*/
-struct sqlite3_mutex {
-  pthread_mutex_t mutex;     /* Mutex controlling the lock */
-  int id;                    /* Mutex type */
-  volatile int nRef;         /* Number of entrances */
-  volatile pthread_t owner;  /* Thread that is within this mutex */
-  int trace;                 /* True to trace changes */
-};
-#define SQLITE3_MUTEX_INITIALIZER { PTHREAD_MUTEX_INITIALIZER, 0, 0, (pthread_t)0, 0 }
-
-/*
-** Initialize and deinitialize the mutex subsystem.
-*/
-int pthreadMutexInit(void){ return SQLITE_OK; }
-int pthreadMutexEnd(void){ return SQLITE_OK; }
-
-/*
-** The sqlite3_mutex_alloc() routine allocates a new
-** mutex and returns a pointer to it.  If it returns NULL
-** that means that a mutex could not be allocated.  SQLite
-** will unwind its stack and return an error.  The argument
-** to sqlite3_mutex_alloc() is one of these integer constants:
-**
-** <ul>
-** <li>  SQLITE_MUTEX_FAST
-** <li>  SQLITE_MUTEX_RECURSIVE
-** <li>  SQLITE_MUTEX_STATIC_MASTER
-** <li>  SQLITE_MUTEX_STATIC_MEM
-** <li>  SQLITE_MUTEX_STATIC_MEM2
-** <li>  SQLITE_MUTEX_STATIC_PRNG
-** <li>  SQLITE_MUTEX_STATIC_LRU
-** <li>  SQLITE_MUTEX_STATIC_PMEM
-** </ul>
-**
-** The first two constants cause sqlite3_mutex_alloc() to create
-** a new mutex.  The new mutex is recursive when SQLITE_MUTEX_RECURSIVE
-** is used but not necessarily so when SQLITE_MUTEX_FAST is used.
-** The mutex implementation does not need to make a distinction
-** between SQLITE_MUTEX_RECURSIVE and SQLITE_MUTEX_FAST if it does
-** not want to.  But SQLite will only request a recursive mutex in
-** cases where it really needs one.  If a faster non-recursive mutex
-** implementation is available on the host platform, the mutex subsystem
-** might return such a mutex in response to SQLITE_MUTEX_FAST.
-**
-** The other allowed parameters to sqlite3_mutex_alloc() each return
-** a pointer to a preexisting mutex.  Six mutexes are
-** used by the current version of SQLite.  Future versions of SQLite
-** may add additional mutexes.  Static mutexes are for internal
-** use by SQLite only.  Applications that use SQLite mutexes should
-** use only the dynamic mutexes returned by SQLITE_MUTEX_FAST or
-** SQLITE_MUTEX_RECURSIVE.
-**
-** Note that if one of the dynamic mutex parameters (SQLITE_MUTEX_FAST
-** or SQLITE_MUTEX_RECURSIVE) is used then sqlite3_mutex_alloc()
-** returns a different mutex on every call.  But for the 
-** mutex types, the same mutex is returned on every call that has
-** the same type number.
-*/
-sqlite3_mutex *pthreadMutexAlloc(int iType){
-  sqlite3_mutex staticMutexes[] = {
-    SQLITE3_MUTEX_INITIALIZER,
-    SQLITE3_MUTEX_INITIALIZER,
-    SQLITE3_MUTEX_INITIALIZER,
-    SQLITE3_MUTEX_INITIALIZER,
-    SQLITE3_MUTEX_INITIALIZER,
-    SQLITE3_MUTEX_INITIALIZER
-  };
-  sqlite3_mutex *p;
-  switch( iType ){
-    case SQLITE_MUTEX_RECURSIVE: {
-      p = sqlite3MallocZero( sizeof(*p) );
-      if( p ){
-        /* If recursive mutexes are not available, we will have to
-        ** build our own.  See below. */
-        pthread_mutex_init(&p->mutex, 0);
-        p->id = iType;
-      }
-      break;
-    }
-    case SQLITE_MUTEX_FAST: {
-      p = sqlite3MallocZero( sizeof(*p) );
-      if( p ){
-        p->id = iType;
-        pthread_mutex_init(&p->mutex, 0);
-      }
-      break;
-    }
-    default: {
-      assert( iType-2 >= 0 );
-      assert( iType-2 < ArraySize(staticMutexes) );
-      p = &staticMutexes[iType-2];
-      p->id = iType;
-      break;
-    }
-  }
-  return p;
-}
-
-
-/*
-** This routine deallocates a previously
-** allocated mutex.  SQLite is careful to deallocate every
-** mutex that it allocates.
-*/
-void pthreadMutexFree(sqlite3_mutex *p){
-  assert( p->nRef==0 );
-  assert( p->id==SQLITE_MUTEX_FAST || p->id==SQLITE_MUTEX_RECURSIVE );
-  pthread_mutex_destroy(&p->mutex);
-  sqlite3_free(p);
-}
-
-/*
-** The sqlite3_mutex_enter() and sqlite3_mutex_try() routines attempt
-** to enter a mutex.  If another thread is already within the mutex,
-** sqlite3_mutex_enter() will block and sqlite3_mutex_try() will return
-** SQLITE_BUSY.  The sqlite3_mutex_try() interface returns SQLITE_OK
-** upon successful entry.  Mutexes created using SQLITE_MUTEX_RECURSIVE can
-** be entered multiple times by the same thread.  In such cases the,
-** mutex must be exited an equal number of times before another thread
-** can enter.  If the same thread tries to enter any other kind of mutex
-** more than once, the behavior is undefined.
-*/
-void pthreadMutexEnter(sqlite3_mutex *p){
-
-  /* If recursive mutexes are not available, then we have to grow
-  ** our own.  This implementation assumes that pthread_equal()
-  ** is atomic - that it cannot be deceived into thinking self
-  ** and p->owner are equal if p->owner changes between two values
-  ** that are not equal to self while the comparison is taking place.
-  ** This implementation also assumes a coherent cache - that 
-  ** separate processes cannot read different values from the same
-  ** address at the same time.  If either of these two conditions
-  ** are not met, then the mutexes will fail and problems will result.
-  */
-  {
-    pthread_t self = pthread_self();
-    if( p->nRef>0 && pthread_equal(p->owner, self) ){
-      p->nRef++;
-    }else{
-      pthread_mutex_lock(&p->mutex);
-      assert( p->nRef==0 );
-      p->owner = self;
-      p->nRef = 1;
-    }
-  }
-
-#ifdef SQLITE_DEBUG
-  if( p->trace ){
-    printf("enter mutex %p (%d) with nRef=%d\n", p, p->trace, p->nRef);
-  }
-#endif
-}
-int pthreadMutexTry(sqlite3_mutex *p){
-  int rc;
-
-  /* If recursive mutexes are not available, then we have to grow
-  ** our own.  This implementation assumes that pthread_equal()
-  ** is atomic - that it cannot be deceived into thinking self
-  ** and p->owner are equal if p->owner changes between two values
-  ** that are not equal to self while the comparison is taking place.
-  ** This implementation also assumes a coherent cache - that 
-  ** separate processes cannot read different values from the same
-  ** address at the same time.  If either of these two conditions
-  ** are not met, then the mutexes will fail and problems will result.
-  */
-  {
-    pthread_t self = pthread_self();
-    if( p->nRef>0 && pthread_equal(p->owner, self) ){
-      p->nRef++;
-      rc = SQLITE_OK;
-    }else if( pthread_mutex_trylock(&p->mutex)==0 ){
-      assert( p->nRef==0 );
-      p->owner = self;
-      p->nRef = 1;
-      rc = SQLITE_OK;
-    }else{
-      rc = SQLITE_BUSY;
-    }
-  }
-
-#ifdef SQLITE_DEBUG
-  if( rc==SQLITE_OK && p->trace ){
-    printf("enter mutex %p (%d) with nRef=%d\n", p, p->trace, p->nRef);
-  }
-#endif
-  return rc;
-}
-
-/*
-** The sqlite3_mutex_leave() routine exits a mutex that was
-** previously entered by the same thread.  The behavior
-** is undefined if the mutex is not currently entered or
-** is not currently allocated.  SQLite will never do either.
-*/
-void pthreadMutexLeave(sqlite3_mutex *p){
-  p->nRef--;
-  if( p->nRef==0 ) p->owner = 0;
-  assert( p->nRef==0 || p->id==SQLITE_MUTEX_RECURSIVE );
-
-  if( p->nRef==0 ){
-    pthread_mutex_unlock(&p->mutex);
-  }
-
-#ifdef SQLITE_DEBUG
-  if( p->trace ){
-    printf("leave mutex %p (%d) with nRef=%d\n", p, p->trace, p->nRef);
-  }
-#endif
-}
-
- sqlite3_mutex_methods const *sqlite3DefaultMutex(void){
-  const sqlite3_mutex_methods sMutex = {
-    pthreadMutexInit,
-    pthreadMutexEnd,
-    pthreadMutexAlloc,
-    pthreadMutexFree,
-    pthreadMutexEnter,
-    pthreadMutexTry,
-    pthreadMutexLeave,
-  };
-
-  return &sMutex;
-}
-
-/************** End of mutex_unix.c ******************************************/
 /************** Begin file malloc.c ******************************************/
 /*
 ** Memory allocation functions used throughout sqlite.
@@ -13149,9 +12249,7 @@ sqlite3_int64 sqlite3_soft_heap_limit64(sqlite3_int64 n){
     sqlite3MemSetDefault();
   }
   memset(&mem0, 0, sizeof(mem0));
-  if( sqlite3Config.bCoreMutex ){
-    mem0.mutex = NewMutex(SQLITE_MUTEX_STATIC_MEM)
-  }
+  mem0.mutex = NewMutex(SQLITE_MUTEX_STATIC_MEM)
   if( sqlite3Config.pScratch && sqlite3Config.szScratch>=100
       && sqlite3Config.nScratch>0 ){
     int i, n, sz;
@@ -13242,15 +12340,7 @@ sqlite3_int64 sqlite3_soft_heap_limit64(sqlite3_int64 n){
 //	Free memory previously obtained from sqlite3Malloc().
 void sqlite3_free(p interface{}) {
 	if p != nil {
-		if sqlite3Config.bMemstat {
-			mem0.mutex.CriticalSection(func() {
-				sqlite3StatusAdd(SQLITE_STATUS_MEMORY_USED, -sqlite3MallocSize(p))
-				sqlite3StatusAdd(SQLITE_STATUS_MALLOC_COUNT, -1)
-				sqlite3Config.m.xFree(p)
-			})
-		} else {
-			sqlite3Config.m.xFree(p)
-		}
+		sqlite3Config.m.xFree(p)
 	}
 }
 
@@ -13291,26 +12381,8 @@ void sqlite3_free(p interface{}) {
   ** argument to xRealloc is always a value returned by a prior call to
   ** xRoundup. */
   nNew = sqlite3Config.m.xRoundup(nBytes);
-  if( nOld==nNew ){
+  if nOld == nNew {
     pNew = pOld;
-  }else if( sqlite3Config.bMemstat ){
-    mem0.mutex.CriticalSection(func() {
-	    sqlite3StatusSet(SQLITE_STATUS_MALLOC_SIZE, nBytes);
-	    nDiff = nNew - nOld;
-	    if( sqlite3StatusValue(SQLITE_STATUS_MEMORY_USED) >= 
-	          mem0.alarmThreshold-nDiff ){
-	      sqlite3MallocAlarm(nDiff);
-	    }
-	    pNew = sqlite3Config.m.xRealloc(pOld, nNew);
-	    if( pNew==0 && mem0.alarmCallback ){
-	      sqlite3MallocAlarm(nBytes);
-	      pNew = sqlite3Config.m.xRealloc(pOld, nNew);
-	    }
-	    if( pNew ){
-	      nNew = sqlite3MallocSize(pNew);
-	      sqlite3StatusAdd(SQLITE_STATUS_MEMORY_USED, nNew-nOld);
-	    }
-    })
   }else{
     pNew = sqlite3Config.m.xRealloc(pOld, nNew);
   }
@@ -22199,10 +21271,8 @@ int pcache1Init(void *NotUsed){
   UNUSED_PARAMETER(NotUsed);
   assert( pcache1_g.isInit==0 );
   memset(&pcache1_g, 0, sizeof(pcache1_g));
-  if( sqlite3Config.bCoreMutex ){
-    pcache1_g.grp.mutex = sqlite3_mutex_alloc(SQLITE_MUTEX_STATIC_LRU);
-    pcache1_g.mutex = sqlite3_mutex_alloc(SQLITE_MUTEX_STATIC_PMEM);
-  }
+  pcache1_g.grp.mutex = sqlite3_mutex_alloc(SQLITE_MUTEX_STATIC_LRU);
+  pcache1_g.mutex = sqlite3_mutex_alloc(SQLITE_MUTEX_STATIC_PMEM);
   pcache1_g.grp.mxPinned = 10;
   pcache1_g.isInit = 1;
   return SQLITE_OK;
@@ -22241,20 +21311,15 @@ sqlite3_pcache *pcache1Create(int szPage, int szExtra, int bPurgeable){
   **   *  Otherwise (if multi-threaded and ENABLE_MEMORY_MANAGEMENT is off)
   **      use separate caches (mode-1)
   */
-  int separateCache = sqlite3Config.bCoreMutex > 0
 
   assert( (szPage & (szPage-1))==0 && szPage>=512 && szPage<=65536 );
   assert( szExtra < 300 );
 
-  sz = sizeof(PCache1) + sizeof(PGroup)*separateCache;
+  sz = sizeof(PCache1) + sizeof(PGroup);
   pCache = (PCache1 *)sqlite3MallocZero(sz);
   if( pCache ){
-    if( separateCache ){
-      pGroup = (PGroup*)&pCache[1];
-      pGroup->mxPinned = 10;
-    }else{
-      pGroup = &pcache1_g.grp;
-    }
+    pGroup = (PGroup*)&pCache[1];
+    pGroup->mxPinned = 10;
     pCache->pGroup = pGroup;
     pCache->szPage = szPage;
     pCache->szExtra = szExtra;
@@ -35688,13 +34753,11 @@ int btreeInvokeBusyHandler(void *pArg){
     */
     if( p->sharable ){
       pBt->nRef = 1
-      if sqlite3Config.bCoreMutex {
-        pBt.mutex = NewMutex(SQLITE_MUTEX_FAST)
-        if( pBt->mutex==0 ){
-          rc = SQLITE_NOMEM;
-          db->mallocFailed = 0;
-          goto btree_open_out;
-        }
+      pBt.mutex = NewMutex(SQLITE_MUTEX_FAST)
+      if( pBt->mutex==0 ){
+        rc = SQLITE_NOMEM;
+        db->mallocFailed = 0;
+        goto btree_open_out;
       }
 	  NewMutex(SQLITE_MUTEX_STATIC_MASTER).CriticalSection(func() {
 	      pBt.pNext = sqlite3SharedCacheList
@@ -72040,7 +71103,6 @@ const sqlite3_api_routines sqlite3Apis = {
   /*
   ** Added for 3.5.8
   */
-  sqlite3_threadsafe,
   sqlite3_result_zeroblob,
   sqlite3_result_error_code,
   sqlite3_test_control,
@@ -85881,11 +84943,7 @@ void bestBtreeIndex(WhereBestIdx *p){
     ** So this computation assumes table records are about twice as big
     ** as index records
     */
-    if( (pc.plan.wsFlags&~(WHERE_REVERSE|WHERE_ORDERED|WHERE_OB_UNIQUE))
-                                                              ==WHERE_IDX_ONLY
-     && (pWC->wctrlFlags & WHERE_ONEPASS_DESIRED)==0
-     && sqlite3Config.bUseCis
-    ){
+    if (pc.plan.wsFlags & ~(WHERE_REVERSE | WHERE_ORDERED | WHERE_OB_UNIQUE)) == WHERE_IDX_ONLY && (pWC.wctrlFlags & WHERE_ONEPASS_DESIRED) == 0 {
       /* This index is not useful for indexing, but it is a covering index.
       ** A full-scan of the index might be a little faster than a full-scan
       ** of the table, so give this case a cost slightly less than a table
@@ -92160,12 +91218,6 @@ abort_parse:
 */
  int sqlite3_libversion_number(void){ return SQLITE_VERSION_NUMBER; }
 
-/* IMPLEMENTATION-OF: R-20790-14025 The sqlite3_threadsafe() function returns
-** zero if and only if SQLite was compiled with mutexing code omitted due to
-** the SQLITE_THREADSAFE compile-time option being set to 0.
-*/
- int sqlite3_threadsafe(void){ return SQLITE_THREADSAFE; }
-
 /*
 ** If the following global variable points to a string which is the
 ** name of a directory, then that directory will be used to store
@@ -93572,9 +92624,7 @@ const int aHardLimit[] = {
 
   assert( *pzErrMsg==0 );
 
-  if( ((flags & SQLITE_OPEN_URI) || sqlite3Config.bOpenUri) 
-   && nUri>=5 && memcmp(zUri, "file:", 5)==0 
-  ){
+  if flags & SQLITE_OPEN_URI != 0 && nUri >= 5 && zUri[:5] != "file:" {
     char *zOpt;
     int eState;                   /* Parser state when parsing URI */
     int iIn;                      /* Input character index */
@@ -93791,15 +92841,10 @@ func OpenDatabase(filename string, flags uint, virtual_fs string) (ppDb *sqlite3
 		return SQLITE_MISUSE_BKPT
 	}
 
-	switch {
-	case !sqlite3Config.bCoreMutex:
+	if flags & SQLITE_OPEN_NOMUTEX != 0 {
 		isThreadsafe = false
-	case flags & SQLITE_OPEN_NOMUTEX != 0:
-		isThreadsafe = false
-	case flags & SQLITE_OPEN_FULLMUTEX != 0:
+	} else {
 		isThreadsafe = true
-	default:
-		isThreadsafe = sqlite3Config.bFullMutex;
 	}
 	switch {
 	case flags & SQLITE_OPEN_PRIVATECACHE != 0:

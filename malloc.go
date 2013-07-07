@@ -52,10 +52,6 @@ func sqlite3Malloc(int n) (p []byte) {
 		//	255 bytes of overhead.  SQLite itself will never use anything near
 		//	this amount.  The only way to reach the limit is with sqlite3_malloc()
 		p = nil
-	} else if sqlite3Config.bMemstat {
-		mem0.mutex.CriticalSection(func() {
-			mallocWithAlarm(n, &p)
-		})
 	} else {
 		p = sqlite3Config.m.xMalloc(n)
 	}
@@ -135,17 +131,8 @@ func sqlite3ScratchMalloc(int n) (p []byte) {
 		sqlite3StatusSet(SQLITE_STATUS_SCRATCH_SIZE, n)
 		sqlite3_mutex_leave(mem0.mutex)
 	} else {
-		if sqlite3Config.bMemstat {
-			sqlite3StatusSet(SQLITE_STATUS_SCRATCH_SIZE, n)
-			n = mallocWithAlarm(n, &p)
-			if  p != nil {
-				sqlite3StatusAdd(SQLITE_STATUS_SCRATCH_OVERFLOW, n)
-			}
-			sqlite3_mutex_leave(mem0.mutex)
-		} else {
-			sqlite3_mutex_leave(mem0.mutex)
-			p = sqlite3Config.m.xMalloc(n)
-		}
+		sqlite3_mutex_leave(mem0.mutex)
+		p = sqlite3Config.m.xMalloc(n)
 	}
 	return p
 }
@@ -165,17 +152,7 @@ func sqlite3ScratchFree(void *p) {
 			})
 		} else {
 			//	Release memory back to the heap
-			if sqlite3Config.bMemstat {
-				int iSize = sqlite3MallocSize(p);
-				mem0.mutex.CriticalSection(func() {
-					sqlite3StatusAdd(SQLITE_STATUS_SCRATCH_OVERFLOW, -iSize);
-					sqlite3StatusAdd(SQLITE_STATUS_MEMORY_USED, -iSize);
-					sqlite3StatusAdd(SQLITE_STATUS_MALLOC_COUNT, -1);
-					sqlite3Config.m.xFree(p);
-				})
-			} else {
-				sqlite3Config.m.xFree(p);
-			}
+			sqlite3Config.m.xFree(p);
 		}
 	}
 }
