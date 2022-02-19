@@ -42,7 +42,7 @@ void *sqlite3DbRealloc(sqlite3 *db, void *p, int n) (pNew []byte){
 }
 
 
-//	Allocate memory.  This routine is like sqlite3_malloc() except that it assumes the memory subsystem has already been initialized.
+//	Allocate memory.  This routine is like sqlite3Malloc() except that it assumes the memory subsystem has already been initialized.
 func sqlite3Malloc(int n) (p []byte) {
 	//	n <= 0	IMP: R-65312-04917
 	if n <= 0 || n >= 0x7fffff00 {
@@ -50,25 +50,13 @@ func sqlite3Malloc(int n) (p []byte) {
 		//	signed integer value might cause an integer overflow inside of the
 		//	xMalloc().  Hence we limit the maximum size to 0x7fffff00, giving
 		//	255 bytes of overhead.  SQLite itself will never use anything near
-		//	this amount.  The only way to reach the limit is with sqlite3_malloc()
+		//	this amount.  The only way to reach the limit is with sqlite3Malloc()
 		p = nil
 	} else {
 		p = sqlite3Config.m.xMalloc(n)
 	}
 	assert( EIGHT_BYTE_ALIGNMENT(p) )		//	IMP: R-04675-44850
 	return
-}
-
-
-//	This version of the memory allocation is for use by the application.
-//	First make sure the memory subsystem is initialized, then do the allocation.
-func sqlite3_malloc(int n) []byte {
-#ifndef SQLITE_OMIT_AUTOINIT
-	if sqlite3_initialize() {
-		return nil
-	}
-#endif
-	return sqlite3Malloc(n)
 }
 
 
@@ -84,9 +72,9 @@ func sqlite3MallocAlarm(int nByte) {
 	nowUsed = sqlite3StatusValue(SQLITE_STATUS_MEMORY_USED);
 	pArg = mem0.alarmArg;
 	mem0.alarmCallback = 0;
-	sqlite3_mutex_leave(mem0.mutex);
+	mem0.mutex.Leave()
 	xCallback(pArg, nowUsed, nByte);
-	sqlite3_mutex_enter(mem0.mutex);
+	mem0.mutex.Enter()
 	mem0.alarmCallback = xCallback;
 	mem0.alarmArg = pArg;
 }
@@ -122,16 +110,16 @@ func mallocWithAlarm(int n, void **pp) (nFull int) {
 //	routine is intended to get memory to old large transient data structures that would not normally fit on the stack of an
 //	embedded processor.
 func sqlite3ScratchMalloc(int n) (p []byte) {
-	sqlite3_mutex_enter(mem0.mutex)
+	mem0.mutex.Enter()
 	if mem0.nScratchFree != 0 && sqlite3Config.szScratch >= n {
 		p = mem0.pScratchFree
 		mem0.pScratchFree = mem0.pScratchFree.pNext
 		mem0.nScratchFree--
 		sqlite3StatusAdd(SQLITE_STATUS_SCRATCH_USED, 1)
 		sqlite3StatusSet(SQLITE_STATUS_SCRATCH_SIZE, n)
-		sqlite3_mutex_leave(mem0.mutex)
+		mem0.mutex.Leave()
 	} else {
-		sqlite3_mutex_leave(mem0.mutex)
+		mem0.mutex.Leave()
 		p = sqlite3Config.m.xMalloc(n)
 	}
 	return p

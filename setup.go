@@ -1,12 +1,6 @@
 package serendipity
 
-//	Initialize SQLite.  
-//
-//	This routine must be called to initialize the memory allocation, VFS, and mutex subsystems prior to doing any serious work with
-//	SQLite.  But as long as you do not compile with SQLITE_OMIT_AUTOINIT this routine will be called automatically by key routines such as
-//	Open().
-//
-//	This routine is a no-op except on its very first call for the process, or for the first call after a call to sqlite3_shutdown.
+//	Initialize Serendipity.
 //
 //	The first thread to call this routine runs the initialization to completion.  If subsequent threads call this routine before the first
 //	thread has finished the initialization process, then the subsequent threads must block until the first thread finishes with the initialization.
@@ -21,28 +15,12 @@ package serendipity
 //
 //		*	Recursive calls to this routine from thread X return immediately without blocking.
 
-func sqlite3_initialize() (rc int) {
-	//	If SQLite is already completely initialized, then this call to sqlite3_initialize() should be a no-op.  But the initialization
-	//	must be complete.  So isInit must not be set until the very end of this routine.
-	if sqlite3Config.isInit {
-		return SQLITE_OK
-	}
-
-#ifdef SQLITE_ENABLE_SQLLOG
-	extern void sqlite3_init_sqllog(void)
-	sqlite3_init_sqllog()
-#endif
-
+func init() {
 	//	Make sure the mutex subsystem is initialized.  If unable to initialize the mutex subsystem, return early with the error.
 	//	If the system is so sick that we are unable to allocate a mutex, there is not much SQLite is going to be able to do.
-	//
-	//	The mutex subsystem must take care of serializing its own initialization.
-	if rc = InitializeMutexSubsystem(); rc != 0 {
-		return rc
-	}
 
 	//	Initialize the malloc() system and the recursive pInitMutex mutex.
-	//	This operation is protected by the STATIC_MASTER mutex.  Note that MutexAlloc() is called for a mutex prior to initializing the
+	//	This operation is protected by the STATIC_MASTER mutex.  Note that NewMutex() is called for a mutex prior to initializing the
 	//	malloc subsystem - this implies that the allocation of a mutex must not require support from the malloc subsystem.
 	MasterMutex := NewMutex(SQLITE_MUTEX_STATIC_MASTER)
 	MasterMutex.CriticalSection(func() {
@@ -80,9 +58,8 @@ func sqlite3_initialize() (rc int) {
 	//	call to sqlite3PcacheInitialize().
 
 	sqlite3Config.pInitMutex.CriticalSection(func() {
-		if sqlite3Config.isInit == 0 && sqlite3Config.inProgress == 0 {
+		if !sqlite3Config.isInit {
 			pHash := sqlite3GlobalFunctions
-			sqlite3Config.inProgress = 1
 			memset(pHash, 0, sizeof(sqlite3GlobalFunctions))
 			sqlite3RegisterGlobalFunctions();
 			if sqlite3Config.isPCacheInit == 0 {
@@ -96,7 +73,6 @@ func sqlite3_initialize() (rc int) {
 				sqlite3PCacheBufferSetup(sqlite3Config.pPage, sqlite3Config.szPage, sqlite3Config.nPage)
 				sqlite3Config.isInit = 1
 			}
-			sqlite3Config.inProgress = 0
 		}
 	})
 
@@ -105,8 +81,8 @@ func sqlite3_initialize() (rc int) {
 		sqlite3Config.nRefInitMutex--
 		if sqlite3Config.nRefInitMutex <= 0 {
 			assert( sqlite3Config.nRefInitMutex == 0 )
-			sqlite3_mutex_free(sqlite3Config.pInitMutex)
-			sqlite3Config.pInitMutex = 0
+			sqlite3Config.pInitMutex.Free()
+			sqlite3Config.pInitMutex = nil
 		}
 	})
 
@@ -132,44 +108,6 @@ func sqlite3_initialize() (rc int) {
 	}
 #endif
 	return
-}
-
-
-//	Undo the effects of sqlite3_initialize().  Must not be called while there are outstanding database connections or memory allocations or
-//	while any part of SQLite is otherwise in use in any thread.  This routine is not threadsafe.  But it is safe to invoke this routine
-//	on when SQLite is already shut down.  If SQLite is already shut down when this routine is invoked, then this routine is a harmless no-op.
-
-func sqlite3_shutdown() int {
-	if sqlite3Config.isInit {
-#ifdef SQLITE_EXTRA_SHUTDOWN
-		void SQLITE_EXTRA_SHUTDOWN(void)
-		SQLITE_EXTRA_SHUTDOWN()
-#endif
-		sqlite3_os_end()
-		sqlite3_reset_auto_extension()
-		sqlite3Config.isInit = 0
-	}
-	if sqlite3Config.isPCacheInit {
-		sqlite3PcacheShutdown()
-		sqlite3Config.isPCacheInit = 0
-	}
-	if sqlite3Config.isMallocInit {
-		sqlite3MallocEnd()
-		sqlite3Config.isMallocInit = 0
-
-#ifndef SQLITE_OMIT_SHUTDOWN_DIRECTORIES
-		//	The heap subsystem has now been shutdown and these values are supposed to be NULL or point to memory that was obtained from sqlite3_malloc(),
-		//	which would rely on that heap subsystem; therefore, make sure these values cannot refer to heap memory that was just invalidated when the
-		//	heap subsystem was shutdown.  This is only done if the current call to this function resulted in the heap subsystem actually being shutdown.
-		sqlite3_data_directory = 0
-		sqlite3_temp_directory = 0
-#endif
-	}
-	if sqlite3Config.isMutexInit {
-		sqlite3MutexEnd()
-		sqlite3Config.isMutexInit = 0
-	}
-	return SQLITE_OK
 }
 
 
@@ -234,12 +172,6 @@ func sqlite3_config(op int, ap ...interface{}) (rc int) {
 		typedef void(*LOGFUNC_t)(void*,int,const char*)
 		sqlite3Config.xLog = va_arg(ap, LOGFUNC_t)
 		sqlite3Config.pLogArg = va_arg(ap, void*)
-#ifdef SQLITE_ENABLE_SQLLOG
-	case SQLITE_CONFIG_SQLLOG:
-		typedef void(*SQLLOGFUNC_t)(void*, sqlite3*, const char*, int)
-		sqlite3Config.xSqllog = va_arg(ap, SQLLOGFUNC_t)
-		sqlite3Config.pSqllogArg = va_arg(ap, void *)
-#endif
 	case SQLITE_CONFIG_MMAP_SIZE:
 		sqlite3_int64 szMmap = va_arg(ap, sqlite3_int64)
 		sqlite3_int64 mxMmap = va_arg(ap, sqlite3_int64)

@@ -253,7 +253,7 @@ typedef int (*sqlite3_callback)(void*,int,char**, char**);
 ** sqlite3_exec(), then execution of the current statement stops and
 ** subsequent statements are skipped.  ^If the 5th parameter to sqlite3_exec()
 ** is not NULL then any error message is written into memory obtained
-** from [sqlite3_malloc()] and passed back through the 5th parameter.
+** from [sqlite3Malloc()] and passed back through the 5th parameter.
 ** To avoid memory leaks, the application should invoke [sqlite3_free()]
 ** on error message strings returned through the 5th parameter of
 ** of sqlite3_exec() after the error message string is no longer needed.
@@ -743,7 +743,7 @@ struct sqlite3_io_methods {
 ** ^The [SQLITE_FCNTL_VFSNAME] opcode can be used to obtain the names of
 ** all [VFSes] in the VFS stack.  The names are of all VFS shims and the
 ** final bottom-level VFS are written into memory obtained from 
-** [sqlite3_malloc()] and the result is stored in the char* variable
+** [sqlite3Malloc()] and the result is stored in the char* variable
 ** that the fourth parameter of [sqlite3_file_control()] points to.
 ** The caller is responsible for freeing the memory when done.  As with
 ** all file-control actions, there is no guarantee that this will actually
@@ -792,7 +792,7 @@ struct sqlite3_io_methods {
 ** temporary filename using the same algorithm that is followed to generate
 ** temporary filenames for TEMP tables and other internal uses.  The
 ** argument should be a char** which will be filled with the filename
-** written into memory obtained from [sqlite3_malloc()].  The caller should
+** written into memory obtained from [sqlite3Malloc()].  The caller should
 ** invoke [sqlite3_free()] on the result to avoid a memory leak.
 **
 ** <li>[[SQLITE_FCNTL_MMAP_SIZE]]
@@ -823,18 +823,6 @@ struct sqlite3_io_methods {
 #define SQLITE_FCNTL_BUSYHANDLER            15
 #define SQLITE_FCNTL_TEMPFILENAME           16
 #define SQLITE_FCNTL_MMAP_SIZE              18
-
-/*
-** CAPI3REF: Mutex Handle
-**
-** The mutex module within SQLite defines [sqlite3_mutex] to be an
-** abstract type for a mutex object.  The SQLite core never looks
-** at the internal representation of an [sqlite3_mutex].  It only
-** deals with pointers to the [sqlite3_mutex] object.
-**
-** Mutexes are created using [sqlite3_mutex_alloc()].
-*/
-typedef struct sqlite3_mutex sqlite3_mutex;
 
 /*
 ** CAPI3REF: OS Interface Object
@@ -1100,33 +1088,20 @@ struct sqlite3_vfs {
 ** CAPI3REF: Initialize The SQLite Library
 **
 ** ^The sqlite3_initialize() routine initializes the
-** SQLite library.  ^The sqlite3_shutdown() routine
-** deallocates any resources that were allocated by sqlite3_initialize().
-** These routines are designed to aid in process initialization and
-** shutdown on embedded systems.  Workstation applications using
-** SQLite normally do not need to invoke either of these routines.
+** SQLite library.
+** This routine is designed to aid in process initialization on embedded systems.  Workstation applications using
+** SQLite normally do not need to invoke this routine.
 **
 ** A call to sqlite3_initialize() is an "effective" call if it is
 ** the first time sqlite3_initialize() is invoked during the lifetime of
-** the process, or if it is the first time sqlite3_initialize() is invoked
-** following a call to sqlite3_shutdown().  ^(Only an effective call
+** the process.  ^(Only an effective call
 ** of sqlite3_initialize() does any initialization.  All other calls
 ** are harmless no-ops.)^
 **
-** A call to sqlite3_shutdown() is an "effective" call if it is the first
-** call to sqlite3_shutdown() since the last sqlite3_initialize().  ^(Only
-** an effective call to sqlite3_shutdown() does any deinitialization.
-** All other valid calls to sqlite3_shutdown() are harmless no-ops.)^
-**
-** The sqlite3_initialize() interface is threadsafe, but sqlite3_shutdown()
-** is not.  The sqlite3_shutdown() interface must only be called from a
-** single thread.  All open [database connections] must be closed and all
-** other SQLite resources must be deallocated prior to invoking
-** sqlite3_shutdown().
+** The sqlite3_initialize() interface is threadsafe.
 **
 ** Among other things, ^sqlite3_initialize() will invoke
-** sqlite3_os_init().  Similarly, ^sqlite3_shutdown()
-** will invoke sqlite3_os_end().
+** sqlite3_os_init().
 **
 ** ^The sqlite3_initialize() routine returns [SQLITE_OK] on success.
 ** ^If for some reason, sqlite3_initialize() is unable to initialize
@@ -1138,43 +1113,31 @@ struct sqlite3_vfs {
 ** invoke sqlite3_initialize() directly.  For example, [Open()]
 ** calls sqlite3_initialize() so the SQLite library will be automatically
 ** initialized when [Open()] is called if it has not be initialized
-** already.  ^However, if SQLite is compiled with the [SQLITE_OMIT_AUTOINIT]
-** compile-time option, then the automatic calls to sqlite3_initialize()
-** are omitted and the application must call sqlite3_initialize() directly
-** prior to using any other SQLite interface.  For maximum portability,
-** it is recommended that applications always invoke sqlite3_initialize()
-** directly prior to using any other SQLite interface.  Future releases
-** of SQLite may require this.  In other words, the behavior exhibited
-** when SQLite is compiled with [SQLITE_OMIT_AUTOINIT] might become the
-** default behavior in some future release of SQLite.
+** already.
 **
 ** The sqlite3_os_init() routine does operating-system specific
-** initialization of the SQLite library.  The sqlite3_os_end()
-** routine undoes the effect of sqlite3_os_init().  Typical tasks
+** initialization of the SQLite library.  Typical tasks
 ** performed by these routines include allocation or deallocation
 ** of resources, initialization of global variables,
 ** setting up a default [sqlite3_vfs] module, or setting up
 ** a default configuration using [sqlite3_config()].
 **
-** The application should never invoke either sqlite3_os_init()
-** or sqlite3_os_end() directly.  The application should only invoke
-** sqlite3_initialize() and sqlite3_shutdown().  The sqlite3_os_init()
-** interface is called automatically by sqlite3_initialize() and
-** sqlite3_os_end() is called by sqlite3_shutdown().  Appropriate
-** implementations for sqlite3_os_init() and sqlite3_os_end()
+** The application should never invoke sqlite3_os_init()
+** directly.  The application should only invoke
+** sqlite3_initialize().  The sqlite3_os_init()
+** interface is called automatically by sqlite3_initialize().  Appropriate
+** implementations for sqlite3_os_init()
 ** are built into SQLite when it is compiled for Unix or OS/2.
 ** When [custom builds | built for other platforms]
 ** (using the [SQLITE_OS_OTHER=1] compile-time
 ** option) the application must supply a suitable implementation for
-** sqlite3_os_init() and sqlite3_os_end().  An application-supplied
-** implementation of sqlite3_os_init() or sqlite3_os_end()
+** sqlite3_os_init().  An application-supplied
+** implementation of sqlite3_os_init()
 ** must return [SQLITE_OK] on success and some other [error code] upon
 ** failure.
 */
  int sqlite3_initialize(void);
- int sqlite3_shutdown(void);
  int sqlite3_os_init(void);
- int sqlite3_os_end(void);
 
 /*
 ** CAPI3REF: Configuring The SQLite Library
@@ -1189,9 +1152,8 @@ struct sqlite3_vfs {
 ** must insure that no other SQLite interfaces are invoked by other
 ** threads while sqlite3_config() is running.  Furthermore, sqlite3_config()
 ** may only be invoked prior to library initialization using
-** [sqlite3_initialize()] or after shutdown by [sqlite3_shutdown()].
-** ^If sqlite3_config() is called after [sqlite3_initialize()] and before
-** [sqlite3_shutdown()] then it will return SQLITE_MISUSE.
+** [sqlite3_initialize()].
+** ^If sqlite3_config() is called after [sqlite3_initialize()] then it will return SQLITE_MISUSE.
 ** Note, however, that ^sqlite3_config() can be called as part of the
 ** implementation of an application-defined [sqlite3_os_init()].
 **
@@ -1262,26 +1224,21 @@ struct sqlite3_vfs {
 ** a memory allocation given a particular requested size.  Most memory
 ** allocators round up memory allocations at least to the next multiple
 ** of 8.  Some allocators round up to a larger multiple or to a power of 2.
-** Every memory allocation request coming in through [sqlite3_malloc()]
+** Every memory allocation request coming in through [sqlite3Malloc()]
 ** or [sqlite3_realloc()] first calls xRoundup.  If xRoundup returns 0, 
 ** that causes the corresponding memory allocation to fail.
 **
 ** The xInit method initializes the memory allocator.  (For example,
 ** it might allocate any require mutexes or initialize internal data
-** structures.  The xShutdown method is invoked (indirectly) by
-** [sqlite3_shutdown()] and should deallocate any resources acquired
-** by xInit.  The pAppData pointer is used as the only parameter to
-** xInit and xShutdown.
+** structures.  The pAppData pointer is used as the only parameter to
+** xInit.
 **
 ** SQLite holds the [SQLITE_MUTEX_STATIC_MASTER] mutex when it invokes
-** the xInit method, so the xInit method need not be threadsafe.  The
-** xShutdown method is only called from [sqlite3_shutdown()] so it does
-** not need to be threadsafe either. The other
+** the xInit method, so the xInit method need not be threadsafe.  The other
 ** methods must be threadsafe or else make their own arrangements for
 ** serialization.
 **
-** SQLite will never invoke xInit() more than once without an intervening
-** call to xShutdown().
+** SQLite will never invoke xInit().
 */
 typedef struct sqlite3_mem_methods sqlite3_mem_methods;
 struct sqlite3_mem_methods {
@@ -1291,8 +1248,7 @@ struct sqlite3_mem_methods {
   int (*xSize)(void*);           /* Return the size of an allocation */
   int (*xRoundup)(int);          /* Round up request size to allocation size */
   int (*xInit)(void*);           /* Initialize the memory allocator */
-  void (*xShutdown)(void*);      /* Deinitialize the memory allocator */
-  void *pAppData;                /* Argument to xInit() and xShutdown() */
+  void *pAppData;                /* Argument to xInit() */
 };
 
 /*
@@ -1340,7 +1296,7 @@ struct sqlite3_mem_methods {
 ** ^SQLite will never require a scratch buffer that is more than 6
 ** times the database page size. ^If SQLite needs needs additional
 ** scratch memory beyond what is provided by this configuration option, then 
-** [sqlite3_malloc()] will be used to obtain the memory needed.</dd>
+** [sqlite3Malloc()] will be used to obtain the memory needed.</dd>
 **
 ** [[SQLITE_CONFIG_PAGECACHE]] <dt>SQLITE_CONFIG_PAGECACHE</dt>
 ** <dd> ^This option specifies a memory buffer that SQLite can use for
@@ -1358,7 +1314,7 @@ struct sqlite3_mem_methods {
 ** ^SQLite will use the memory provided by the first argument to satisfy its
 ** memory needs for the first N pages that it adds to cache.  ^If additional
 ** page cache memory is needed beyond what is provided by this option, then
-** SQLite goes to [sqlite3_malloc()] for the additional storage space.
+** SQLite goes to [sqlite3Malloc()] for the additional storage space.
 ** The pointer in the first argument must
 ** be aligned to an 8-byte boundary or subsequent behavior of SQLite
 ** will be undefined.</dd>
@@ -1431,23 +1387,6 @@ struct sqlite3_mem_methods {
 ** They are retained for backwards compatibility but are now no-ops.
 ** </dd>
 **
-** [[SQLITE_CONFIG_SQLLOG]]
-** <dt>SQLITE_CONFIG_SQLLOG
-** <dd>This option is only available if sqlite is compiled with the
-** [SQLITE_ENABLE_SQLLOG] pre-processor macro defined. The first argument should
-** be a pointer to a function of type void(*)(void*,sqlite3*,const char*, int).
-** The second should be of type (void*). The callback is invoked by the library
-** in three separate circumstances, identified by the value passed as the
-** fourth parameter. If the fourth parameter is 0, then the database connection
-** passed as the second argument has just been opened. The third argument
-** points to a buffer containing the name of the main database file. If the
-** fourth parameter is 1, then the SQL statement that the third parameter
-** points to has just been executed. Or, if the fourth parameter is 2, then
-** the connection being passed as the second parameter is being closed. The
-** third parameter is passed NULL In this case.  An example of using this
-** configuration option can be seen in the "test_sqllog.c" source file in
-** the canonical SQLite source tree.</dd>
-**
 ** [[SQLITE_CONFIG_MMAP_SIZE]]
 ** <dt>SQLITE_CONFIG_MMAP_SIZE
 ** <dd>SQLITE_CONFIG_MMAP_SIZE takes two 64-bit integer (sqlite3_int64) values
@@ -1477,7 +1416,6 @@ struct sqlite3_mem_methods {
 #define SQLITE_CONFIG_PCACHE2      18  /* sqlite3_pcache_methods2* */
 #define SQLITE_CONFIG_GETPCACHE2   19  /* sqlite3_pcache_methods2* */
 #define SQLITE_CONFIG_COVERING_INDEX_SCAN 20  /* int */
-#define SQLITE_CONFIG_SQLLOG       21  /* xSqllog, void* */
 #define SQLITE_CONFIG_MMAP_SIZE    22  /* sqlite3_int64, sqlite3_int64 */
 
 /*
@@ -1869,7 +1807,7 @@ struct sqlite3_mem_methods {
 ** After the application has finished with the result from sqlite3_get_table(),
 ** it must pass the result table pointer to sqlite3_free_table() in order to
 ** release the memory that was malloced.  Because of the way the
-** [sqlite3_malloc()] happens within sqlite3_get_table(), the calling
+** [sqlite3Malloc()] happens within sqlite3_get_table(), the calling
 ** function must not try to call [sqlite3_free()] directly.  Only
 ** [sqlite3_free_table()] is able to release the memory properly and safely.
 **
@@ -1898,10 +1836,10 @@ struct sqlite3_mem_methods {
 ** from the standard C library.
 **
 ** ^The sqlite3_mprintf() and sqlite3_vmprintf() routines write their
-** results into memory obtained from [sqlite3_malloc()].
+** results into memory obtained from [sqlite3Malloc()].
 ** The strings returned by these two routines should be
 ** released by [sqlite3_free()].  ^Both routines return a
-** NULL pointer if [sqlite3_malloc()] is unable to allocate enough
+** NULL pointer if [sqlite3Malloc()] is unable to allocate enough
 ** memory to hold the resulting string.
 **
 ** ^(The sqlite3_snprintf() routine is similar to "snprintf()" from
@@ -1997,15 +1935,15 @@ struct sqlite3_mem_methods {
 ** internal memory allocation needs. "Core" in the previous sentence
 ** does not include operating-system specific VFS implementation.
 **
-** ^The sqlite3_malloc() routine returns a pointer to a block
+** ^The sqlite3Malloc() routine returns a pointer to a block
 ** of memory at least N bytes in length, where N is the parameter.
-** ^If sqlite3_malloc() is unable to obtain sufficient free
+** ^If sqlite3Malloc() is unable to obtain sufficient free
 ** memory, it returns a NULL pointer.  ^If the parameter N to
-** sqlite3_malloc() is zero or negative then sqlite3_malloc() returns
+** sqlite3Malloc() is zero or negative then sqlite3Malloc() returns
 ** a NULL pointer.
 **
 ** ^Calling sqlite3_free() with a pointer previously returned
-** by sqlite3_malloc() or sqlite3_realloc() releases that memory so
+** by sqlite3Malloc() or sqlite3_realloc() releases that memory so
 ** that it might be reused.  ^The sqlite3_free() routine is
 ** a no-op if is called with a NULL pointer.  Passing a NULL pointer
 ** to sqlite3_free() is harmless.  After being freed, memory
@@ -2013,14 +1951,14 @@ struct sqlite3_mem_methods {
 ** memory might result in a segmentation fault or other severe error.
 ** Memory corruption, a segmentation fault, or other severe error
 ** might result if sqlite3_free() is called with a non-NULL pointer that
-** was not obtained from sqlite3_malloc() or sqlite3_realloc().
+** was not obtained from sqlite3Malloc() or sqlite3_realloc().
 **
 ** ^(The sqlite3_realloc() interface attempts to resize a
 ** prior memory allocation to be at least N bytes, where N is the
 ** second parameter.  The memory allocation to be resized is the first
 ** parameter.)^ ^ If the first parameter to sqlite3_realloc()
 ** is a NULL pointer then its behavior is identical to calling
-** sqlite3_malloc(N) where N is the second parameter to sqlite3_realloc().
+** sqlite3Malloc(N) where N is the second parameter to sqlite3_realloc().
 ** ^If the second parameter to sqlite3_realloc() is zero or
 ** negative then the behavior is exactly the same as calling
 ** sqlite3_free(P) where P is the first parameter to sqlite3_realloc().
@@ -2032,7 +1970,7 @@ struct sqlite3_mem_methods {
 ** ^If sqlite3_realloc() returns NULL, then the prior allocation
 ** is not freed.
 **
-** ^The memory returned by sqlite3_malloc() and sqlite3_realloc()
+** ^The memory returned by sqlite3Malloc() and sqlite3_realloc()
 ** is always aligned to at least an 8 byte boundary, or to a
 ** 4 byte boundary if the [SQLITE_4_BYTE_ALIGNED_MALLOC] compile-time
 ** option is used.
@@ -2044,14 +1982,14 @@ struct sqlite3_mem_methods {
 **
 ** The pointer arguments to [sqlite3_free()] and [sqlite3_realloc()]
 ** must be either NULL or else pointers obtained from a prior
-** invocation of [sqlite3_malloc()] or [sqlite3_realloc()] that have
+** invocation of [sqlite3Malloc()] or [sqlite3_realloc()] that have
 ** not yet been released.
 **
 ** The application must not read or write any part of
 ** a block of memory after it has been released using
 ** [sqlite3_free()] or [sqlite3_realloc()].
 */
- void *sqlite3_malloc(int);
+ void *sqlite3Malloc(int);
  void *sqlite3_realloc(void*, int);
  void sqlite3_free(void*);
 
@@ -2059,7 +1997,7 @@ struct sqlite3_mem_methods {
 ** CAPI3REF: Memory Allocator Statistics
 **
 ** SQLite provides these two interfaces for reporting on the status
-** of the [sqlite3_malloc()], [sqlite3_free()], and [sqlite3_realloc()]
+** of the [sqlite3Malloc()], [sqlite3_free()], and [sqlite3_realloc()]
 ** routines, which form the built-in memory allocation subsystem.
 **
 ** ^The [sqlite3_memory_used()] routine returns the number of bytes
@@ -2068,9 +2006,9 @@ struct sqlite3_mem_methods {
 ** value of [sqlite3_memory_used()] since the high-water mark
 ** was last reset.  ^The values returned by [sqlite3_memory_used()] and
 ** [sqlite3_memory_highwater()] include any overhead
-** added by SQLite in its implementation of [sqlite3_malloc()],
+** added by SQLite in its implementation of [sqlite3Malloc()],
 ** but not overhead added by the any underlying system library
-** routines that [sqlite3_malloc()] may call.
+** routines that [sqlite3Malloc()] may call.
 **
 ** ^The memory high-water mark is reset to the current value of
 ** [sqlite3_memory_used()] if and only if the parameter to
@@ -2566,8 +2504,8 @@ struct sqlite3_mem_methods {
 ** When that happens, the second error will be reported since these
 ** interfaces always report the most recent result.  To avoid
 ** this, each thread can obtain exclusive use of the [database connection] D
-** by invoking [sqlite3_mutex_enter]([sqlite3_db_mutex](D)) before beginning
-** to use D and invoking [sqlite3_mutex_leave]([sqlite3_db_mutex](D)) after
+** by invoking db.mutex.[Enter](D) before beginning
+** to use D and invoking db.mutex.[Leave](D) after
 ** all calls to the interfaces listed here are completed.
 **
 ** If an interface fails with SQLITE_MISUSE, that means the interface
@@ -3724,13 +3662,13 @@ typedef void (*sqlite3_destructor_type)(void*);
 ** thereafter.
 **
 ** ^The [temp_store_directory pragma] may modify this variable and cause
-** it to point to memory obtained from [sqlite3_malloc].  ^Furthermore,
+** it to point to memory obtained from [sqlite3Malloc].  ^Furthermore,
 ** the [temp_store_directory pragma] always assumes that any string
 ** that this variable points to is held in memory obtained from 
-** [sqlite3_malloc] and the pragma may attempt to free that memory
+** [sqlite3Malloc] and the pragma may attempt to free that memory
 ** using [sqlite3_free].
 ** Hence, if this variable is modified directly, either it should be
-** made NULL or made to point to memory obtained from [sqlite3_malloc]
+** made NULL or made to point to memory obtained from [sqlite3Malloc]
 ** or else the use of the [temp_store_directory pragma] should be avoided.
 */
  char *sqlite3_temp_directory;
@@ -4088,7 +4026,7 @@ typedef void (*sqlite3_destructor_type)(void*);
 ** ^If an error occurs and pzErrMsg is not 0, then the
 ** [sqlite3_load_extension()] interface shall attempt to
 ** fill *pzErrMsg with error message text stored in memory
-** obtained from [sqlite3_malloc()]. The calling function
+** obtained from [sqlite3Malloc()]. The calling function
 ** should free this memory by calling [sqlite3_free()].
 **
 ** ^Extension loading must be enabled using
@@ -4657,19 +4595,11 @@ typedef struct sqlite3_blob sqlite3_blob;
 ** use by SQLite, code that links against SQLite is
 ** permitted to use any of these routines.
 **
-** ^(If SQLite is compiled with the SQLITE_MUTEX_APPDEF preprocessor
-** macro defined (with "-DSQLITE_MUTEX_APPDEF=1"), then no mutex
-** implementation is included with the library. In this case the
-** application must supply a custom mutex implementation using the
-** [SQLITE_CONFIG_MUTEX] option of the sqlite3_config() function
-** before calling sqlite3_initialize() or any other public sqlite3_
-** function that calls sqlite3_initialize().)^
-**
-** ^The sqlite3_mutex_alloc() routine allocates a new
+** ^The NewMutex() routine allocates a new
 ** mutex and returns a pointer to it. ^If it returns NULL
 ** that means that a mutex could not be allocated.  ^SQLite
 ** will unwind its stack and return an error.  ^(The argument
-** to sqlite3_mutex_alloc() is one of these integer constants:
+** to NewMutex() is one of these integer constants:
 **
 ** <ul>
 ** <li>  SQLITE_MUTEX_FAST
@@ -4683,7 +4613,7 @@ typedef struct sqlite3_blob sqlite3_blob;
 ** </ul>)^
 **
 ** ^The first two constants (SQLITE_MUTEX_FAST and SQLITE_MUTEX_RECURSIVE)
-** cause sqlite3_mutex_alloc() to create
+** cause NewMutex() to create
 ** a new mutex.  ^The new mutex is recursive when SQLITE_MUTEX_RECURSIVE
 ** is used but not necessarily so when SQLITE_MUTEX_FAST is used.
 ** The mutex implementation does not need to make a distinction
@@ -4693,7 +4623,7 @@ typedef struct sqlite3_blob sqlite3_blob;
 ** implementation is available on the host platform, the mutex subsystem
 ** might return such a mutex in response to SQLITE_MUTEX_FAST.
 **
-** ^The other allowed parameters to sqlite3_mutex_alloc() (anything other
+** ^The other allowed parameters to NewMutex() (anything other
 ** than SQLITE_MUTEX_FAST and SQLITE_MUTEX_RECURSIVE) each return
 ** a pointer to a preexisting mutex.  ^Six mutexes are
 ** used by the current version of SQLite.  Future versions of SQLite
@@ -4703,22 +4633,22 @@ typedef struct sqlite3_blob sqlite3_blob;
 ** SQLITE_MUTEX_RECURSIVE.
 **
 ** ^Note that if one of the dynamic mutex parameters (SQLITE_MUTEX_FAST
-** or SQLITE_MUTEX_RECURSIVE) is used then sqlite3_mutex_alloc()
+** or SQLITE_MUTEX_RECURSIVE) is used then NewMutex()
 ** returns a different mutex on every call.  ^But for the static
 ** mutex types, the same mutex is returned on every call that has
 ** the same type number.
 **
-** ^The sqlite3_mutex_free() routine deallocates a previously
+** ^The Free() routine deallocates a previously
 ** allocated dynamic mutex.  ^SQLite is careful to deallocate every
 ** dynamic mutex that it allocates.  The dynamic mutexes must not be in
 ** use when they are deallocated.  Attempting to deallocate a static
 ** mutex results in undefined behavior.  ^SQLite never deallocates
 ** a mutex.
 **
-** ^The sqlite3_mutex_enter() and sqlite3_mutex_try() routines attempt
+** ^The Enter() and Try() routines attempt
 ** to enter a mutex.  ^If another thread is already within the mutex,
-** sqlite3_mutex_enter() will block and sqlite3_mutex_try() will return
-** SQLITE_BUSY.  ^The sqlite3_mutex_try() interface returns [SQLITE_OK]
+** Enter() will block and Try() will return
+** SQLITE_BUSY.  ^The Try() interface returns [SQLITE_OK]
 ** upon successful entry.  ^(Mutexes created using
 ** SQLITE_MUTEX_RECURSIVE can be entered multiple times by the same thread.
 ** In such cases the,
@@ -4729,25 +4659,15 @@ typedef struct sqlite3_blob sqlite3_blob;
 ** such behavior in its own use of mutexes.)^
 **
 ** ^(Some systems (for example, Windows 95) do not support the operation
-** implemented by sqlite3_mutex_try().  On those systems, sqlite3_mutex_try()
+** implemented by Try().  On those systems, Try()
 ** will always return SQLITE_BUSY.  The SQLite core only ever uses
-** sqlite3_mutex_try() as an optimization so this is acceptable behavior.)^
-**
-** ^The sqlite3_mutex_leave() routine exits a mutex that was
-** previously entered by the same thread.   ^(The behavior
-** is undefined if the mutex is not currently entered by the
-** calling thread or is not currently allocated.  SQLite will
-** never do either.)^
-**
-** ^If the argument to sqlite3_mutex_enter(), sqlite3_mutex_try(), or
-** sqlite3_mutex_leave() is a NULL pointer, then all three routines
-** behave as no-ops.
+** Try() as an optimization so this is acceptable behavior.)^
 */
 
 /*
 ** CAPI3REF: Mutex Types
 **
-** The [sqlite3_mutex_alloc()] interface takes a single argument
+** The [NewMutex()] interface takes a single argument
 ** which is one of these integer constants.
 **
 ** The set of mutexes may change from one SQLite release to the
@@ -4757,24 +4677,13 @@ typedef struct sqlite3_blob sqlite3_blob;
 #define SQLITE_MUTEX_FAST             0
 #define SQLITE_MUTEX_RECURSIVE        1
 #define SQLITE_MUTEX_STATIC_MASTER    2
-#define SQLITE_MUTEX_STATIC_MEM       3  /* sqlite3_malloc() */
+#define SQLITE_MUTEX_STATIC_MEM       3  /* sqlite3Malloc() */
 #define SQLITE_MUTEX_STATIC_MEM2      4  /* NOT USED */
 #define SQLITE_MUTEX_STATIC_OPEN      4  /* sqlite3BtreeOpen() */
 #define SQLITE_MUTEX_STATIC_PRNG      5  /* sqlite3_random() */
 #define SQLITE_MUTEX_STATIC_LRU       6  /* lru page list */
 #define SQLITE_MUTEX_STATIC_LRU2      7  /* NOT USED */
 #define SQLITE_MUTEX_STATIC_PMEM      7  /* sqlite3PageMalloc() */
-
-/*
-** CAPI3REF: Retrieve the mutex for a database connection
-**
-** ^This interface returns a pointer the [sqlite3_mutex] object that 
-** serializes access to the [database connection] given in the argument
-** when the [threading mode] is Serialized.
-** ^If the [threading mode] is Single-thread or Multi-thread then this
-** routine returns a NULL pointer.
-*/
- sqlite3_mutex *sqlite3_db_mutex(sqlite3*);
 
 /*
 ** CAPI3REF: Low-Level Control Of Database Files
@@ -4900,8 +4809,8 @@ typedef struct sqlite3_blob sqlite3_blob;
 ** <dl>
 ** [[SQLITE_STATUS_MEMORY_USED]] ^(<dt>SQLITE_STATUS_MEMORY_USED</dt>
 ** <dd>This parameter is the current amount of memory checked out
-** using [sqlite3_malloc()], either directly or indirectly.  The
-** figure includes calls made to [sqlite3_malloc()] by the application
+** using [sqlite3Malloc()], either directly or indirectly.  The
+** figure includes calls made to [sqlite3Malloc()] by the application
 ** and internal memory usage by the SQLite library.  Scratch memory
 ** controlled by [SQLITE_CONFIG_SCRATCH] and auxiliary page-cache
 ** memory controlled by [SQLITE_CONFIG_PAGECACHE] is not included in
@@ -4910,7 +4819,7 @@ typedef struct sqlite3_blob sqlite3_blob;
 **
 ** [[SQLITE_STATUS_MALLOC_SIZE]] ^(<dt>SQLITE_STATUS_MALLOC_SIZE</dt>
 ** <dd>This parameter records the largest memory allocation request
-** handed to [sqlite3_malloc()] or [sqlite3_realloc()] (or their
+** handed to [sqlite3Malloc()] or [sqlite3_realloc()] (or their
 ** internal equivalents).  Only the value returned in the
 ** *pHighwater parameter to [sqlite3_status()] is of interest.  
 ** The value written into the *pCurrent parameter is undefined.</dd>)^
@@ -4929,7 +4838,7 @@ typedef struct sqlite3_blob sqlite3_blob;
 ** ^(<dt>SQLITE_STATUS_PAGECACHE_OVERFLOW</dt>
 ** <dd>This parameter returns the number of bytes of page cache
 ** allocation which could not be satisfied by the [SQLITE_CONFIG_PAGECACHE]
-** buffer and where forced to overflow to [sqlite3_malloc()].  The
+** buffer and where forced to overflow to [sqlite3Malloc()].  The
 ** returned value includes allocations that overflowed because they
 ** where too large (they were larger than the "sz" parameter to
 ** [SQLITE_CONFIG_PAGECACHE]) and allocations that overflowed because
@@ -4952,7 +4861,7 @@ typedef struct sqlite3_blob sqlite3_blob;
 ** [[SQLITE_STATUS_SCRATCH_OVERFLOW]] ^(<dt>SQLITE_STATUS_SCRATCH_OVERFLOW</dt>
 ** <dd>This parameter returns the number of bytes of scratch memory
 ** allocation which could not be satisfied by the [SQLITE_CONFIG_SCRATCH]
-** buffer and where forced to overflow to [sqlite3_malloc()].  The values
+** buffer and where forced to overflow to [sqlite3Malloc()].  The values
 ** returned include overflows because the requested allocation was too
 ** larger (that is, because the requested allocation was larger than the
 ** "sz" parameter to [SQLITE_CONFIG_SCRATCH]) and because no scratch buffer
@@ -5197,20 +5106,11 @@ struct sqlite3_pcache_page {
 ** built-in default page cache is used instead of the application defined
 ** page cache.)^
 **
-** [[the xShutdown() page cache method]]
-** ^The xShutdown() method is called by [sqlite3_shutdown()].
-** It can be used to clean up 
-** any outstanding resources before process shutdown, if required.
-** ^The xShutdown() method may be NULL.
-**
 ** ^SQLite automatically serializes calls to the xInit method,
-** so the xInit method need not be threadsafe.  ^The
-** xShutdown method is only called from [sqlite3_shutdown()] so it does
-** not need to be threadsafe either.  All other methods must be threadsafe
+** so the xInit method need not be threadsafe.  All other methods must be threadsafe
 ** in multithreaded applications.
 **
-** ^SQLite will never invoke xInit() more than once without an intervening
-** call to xShutdown().
+** ^SQLite will never invoke xInit() more than once.
 **
 ** [[the xCreate() page cache methods]]
 ** ^SQLite invokes the xCreate() method to construct a new cache instance.
@@ -5325,7 +5225,6 @@ struct sqlite3_pcache_methods2 {
   int iVersion;
   void *pArg;
   int (*xInit)(void*);
-  void (*xShutdown)(void*);
   sqlite3_pcache *(*xCreate)(int szPage, int szExtra, int bPurgeable);
   void (*xCachesize)(sqlite3_pcache*, int nCachesize);
   int (*xPagecount)(sqlite3_pcache*);
@@ -5347,7 +5246,6 @@ typedef struct sqlite3_pcache_methods sqlite3_pcache_methods;
 struct sqlite3_pcache_methods {
   void *pArg;
   int (*xInit)(void*);
-  void (*xShutdown)(void*);
   sqlite3_pcache *(*xCreate)(int szPage, int bPurgeable);
   void (*xCachesize)(sqlite3_pcache*, int nCachesize);
   int (*xPagecount)(sqlite3_pcache*);

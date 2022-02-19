@@ -140,11 +140,6 @@ struct sqlite3_api_routines {
   int (*file_control)(sqlite3*,const char*,int,void*);
   sqlite3_int64 (*memory_highwater)(int);
   sqlite3_int64 (*memory_used)(void);
-  sqlite3_mutex *(*mutex_alloc)(int);
-  void (*mutex_enter)(sqlite3_mutex*);
-  void (*mutex_free)(sqlite3_mutex*);
-  void (*mutex_leave)(sqlite3_mutex*);
-  int (*mutex_try)(sqlite3_mutex*);
   int (*open_v2)(const char*,sqlite3**,int,const char*);
   int (*release_memory)(int);
   void (*result_error_nomem)(Context*);
@@ -178,7 +173,6 @@ struct sqlite3_api_routines {
                             void (*xFinal)(Context*),
                             void(*xDestroy)(void*));
   int (*db_config)(sqlite3*,int,...);
-  sqlite3_mutex *(*db_mutex)(sqlite3*);
   int (*db_status)(sqlite3*,int,int*,int*,int);
   int (*extended_errcode)(sqlite3*);
   void (*log)(int,const char*,...);

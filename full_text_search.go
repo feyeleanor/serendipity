@@ -813,7 +813,7 @@ struct Fts3Phrase {
 **   aMI[iCol*3 + 1] = Number of occurrences
 **   aMI[iCol*3 + 2] = Number of rows containing at least one instance
 **
-** The aMI array is allocated using sqlite3_malloc(). It should be freed 
+** The aMI array is allocated using sqlite3Malloc(). It should be freed 
 ** when the expression node is.
 */
 struct Fts3Expr {
@@ -1345,7 +1345,7 @@ void fts3Appendf(
 **
 **     fts3QuoteId("un \"zip\"")   ->    "un \"\"zip\"\""
 **
-** The pointer returned points to memory obtained from sqlite3_malloc(). It
+** The pointer returned points to memory obtained from sqlite3Malloc(). It
 ** is the callers responsibility to call sqlite3_free() to release this
 ** memory.
 */
@@ -1353,7 +1353,7 @@ char *fts3QuoteId(char const *zInput){
   int nRet;
   char *zRet;
   nRet = 2 + (int)len(zInput)*2 + 1;
-  zRet = sqlite3_malloc(nRet);
+  zRet = sqlite3Malloc(nRet);
   if( zRet ){
     int i;
     char *z = zRet;
@@ -1383,7 +1383,7 @@ char *fts3QuoteId(char const *zInput){
 **
 **     "docid, unzip(x.'a'), unzip(x.'b'), unzip(x.'c') FROM %_content AS x"
 **
-** The pointer returned points to a buffer allocated by sqlite3_malloc(). It
+** The pointer returned points to a buffer allocated by sqlite3Malloc(). It
 ** is the responsibility of the caller to eventually free it.
 **
 ** If *pRc is not SQLITE_OK when this function is called, it is a no-op (and
@@ -1440,7 +1440,7 @@ char *fts3ReadExprList(Fts3Table *p, const char *zFunc, int *pRc){
 **
 **     "?, zip(?), zip(?), zip(?)"
 **
-** The pointer returned points to a buffer allocated by sqlite3_malloc(). It
+** The pointer returned points to a buffer allocated by sqlite3Malloc(). It
 ** is the responsibility of the caller to eventually free it.
 **
 ** If *pRc is not SQLITE_OK when this function is called, it is a no-op (and
@@ -1529,7 +1529,7 @@ int fts3PrefixParameter(
     }
   }
 
-  aIndex = sqlite3_malloc(sizeof(struct Fts3Index) * nIndex);
+  aIndex = sqlite3Malloc(sizeof(struct Fts3Index) * nIndex);
   *apIndex = aIndex;
   *pnIndex = nIndex;
   if( !aIndex ){
@@ -1612,7 +1612,7 @@ int fts3ContentColumns(
     }
 
     /* Allocate and populate the array to return. */
-    azCol = (const char **)sqlite3_malloc(sizeof(char *) * nCol + nStr);
+    azCol = (const char **)sqlite3Malloc(sizeof(char *) * nCol + nStr);
     if( azCol==0 ){
       rc = SQLITE_NOMEM;
     }else{
@@ -1689,7 +1689,7 @@ int fts3InitVtab(
   nDb = (int)lenargv[1]) + 1;
   nName = (int)lenargv[2]) + 1;
 
-  aCol = (const char **)sqlite3_malloc(sizeof(const char *) * (argc-2) );
+  aCol = (const char **)sqlite3Malloc(sizeof(const char *) * (argc-2) );
   if( !aCol ) return SQLITE_NOMEM;
   memset((void *)aCol, 0, sizeof(const char *) * (argc-2));
 
@@ -1864,7 +1864,7 @@ int fts3InitVtab(
           nName +                              /* zName */
           nDb +                                /* zDb */
           nString;                             /* Space for azColumn strings */
-  p = (Fts3Table*)sqlite3_malloc(nByte);
+  p = (Fts3Table*)sqlite3Malloc(nByte);
   if( p==0 ){
     rc = SQLITE_NOMEM;
     goto fts3_init_out;
@@ -1982,7 +1982,7 @@ int fts3ConnectMethod(
   int argc,                       /* Number of elements in argv array */
   const char * const *argv,       /* xCreate/xConnect argument array */
   sqlite3_vtab **ppVtab,          /* OUT: New sqlite3_vtab object */
-  char **pzErr                    /* OUT: sqlite3_malloc'd error message */
+  char **pzErr                    /* OUT: sqlite3Malloc'd error message */
 ){
   return fts3InitVtab(0, db, pAux, argc, argv, ppVtab, pzErr);
 }
@@ -1992,7 +1992,7 @@ int fts3CreateMethod(
   int argc,                       /* Number of elements in argv array */
   const char * const *argv,       /* xCreate/xConnect argument array */
   sqlite3_vtab **ppVtab,          /* OUT: New sqlite3_vtab object */
-  char **pzErr                    /* OUT: sqlite3_malloc'd error message */
+  char **pzErr                    /* OUT: sqlite3Malloc'd error message */
 ){
   return fts3InitVtab(1, db, pAux, argc, argv, ppVtab, pzErr);
 }
@@ -2829,7 +2829,7 @@ void fts3PutDeltaVarint3(
 ** should be false. If they are sorted in ascending order, it should be
 ** passed a non-zero value.
 **
-** If no error occurs, *paOut is set to point at an sqlite3_malloc'd buffer
+** If no error occurs, *paOut is set to point at an sqlite3Malloc'd buffer
 ** containing the output doclist and SQLITE_OK is returned. In this case
 ** *pnOut is set to the number of bytes in the output doclist.
 **
@@ -2885,7 +2885,7 @@ int fts3DoclistOrMerge(
   ** A symetric argument may be made if the doclists are in descending 
   ** order.
   */
-  aOut = sqlite3_malloc(n1+n2+FTS3_VARINT_MAX-1);
+  aOut = sqlite3Malloc(n1+n2+FTS3_VARINT_MAX-1);
   if( !aOut ) return SQLITE_NOMEM;
 
   p = aOut;
@@ -3101,7 +3101,7 @@ int fts3TermSelectMerge(
   if( pTS->aaOutput[0]==0 ){
     /* If this is the first term selected, copy the doclist to the output
     ** buffer using memcpy(). */
-    pTS->aaOutput[0] = sqlite3_malloc(nDoclist);
+    pTS->aaOutput[0] = sqlite3Malloc(nDoclist);
     pTS->anOutput[0] = nDoclist;
     if( pTS->aaOutput[0] ){
       memcpy(pTS->aaOutput[0], aDoclist, nDoclist);
@@ -3315,7 +3315,7 @@ int fts3TermSegReaderCursor(
   Fts3MultiSegReader *pSegcsr;    /* Object to allocate and return */
   int rc = SQLITE_NOMEM;          /* Return code */
 
-  pSegcsr = sqlite3_malloc(sizeof(Fts3MultiSegReader));
+  pSegcsr = sqlite3Malloc(sizeof(Fts3MultiSegReader));
   if( pSegcsr ){
     int i;
     int bFound = 0;               /* True once an index has been found */
@@ -4146,7 +4146,7 @@ func (db *sqlite3) Fts3Init() (rc int) {
   sqlite3Fts3PorterTokenizerModule(&pPorter);
 
   /* Allocate and initialize the hash-table used to store tokenizers. */
-  pHash = sqlite3_malloc(sizeof(Fts3Hash));
+  pHash = sqlite3Malloc(sizeof(Fts3Hash));
   if( !pHash ){
     rc = SQLITE_NOMEM;
   }else{
@@ -4257,7 +4257,7 @@ void fts3EvalAllocateReaders(
 ** It is merged into the main doclist stored in p->doclist.aAll/nAll.
 **
 ** This function assumes that pList points to a buffer allocated using
-** sqlite3_malloc(). This function takes responsibility for eventually
+** sqlite3Malloc(). This function takes responsibility for eventually
 ** freeing the buffer.
 */
 void fts3EvalPhraseMergeToken(
@@ -4428,7 +4428,7 @@ int fts3EvalDeferredPhrase(Fts3Cursor *pCsr, Fts3Phrase *pPhrase){
         nDistance = iPrev - nMaxUndeferred;
       }
 
-      aOut = (char *)sqlite3_malloc(nPoslist+8);
+      aOut = (char *)sqlite3Malloc(nPoslist+8);
       if( !aOut ){
         sqlite3_free(aPoslist);
         return SQLITE_NOMEM;
@@ -4987,7 +4987,7 @@ int fts3EvalStart(Fts3Cursor *pCsr){
   if( rc==SQLITE_OK && nToken>1 && pTab->bFts4 ){
     Fts3TokenAndCost *aTC;
     Fts3Expr **apOr;
-    aTC = (Fts3TokenAndCost *)sqlite3_malloc(
+    aTC = (Fts3TokenAndCost *)sqlite3Malloc(
         sizeof(Fts3TokenAndCost) * nToken
       + sizeof(Fts3Expr *) * nOr * 2
     );
@@ -5293,7 +5293,7 @@ int fts3EvalNearTest(Fts3Expr *pExpr, int *pRc){
     if( nTmp==0 ){
       res = 0;
     }else{
-      aTmp = sqlite3_malloc(nTmp*2);
+      aTmp = sqlite3Malloc(nTmp*2);
       if( !aTmp ){
         *pRc = SQLITE_NOMEM;
         res = 0;
@@ -5621,7 +5621,7 @@ int fts3EvalGatherStats(
     for(p=pRoot; p; p=p->pLeft){
       Fts3Expr *pE = (p->eType==FTSQUERY_PHRASE?p:p->pRight);
       assert( pE->aMI==0 );
-      pE->aMI = (u32 *)sqlite3_malloc(pTab->nColumn * 3 * sizeof(u32));
+      pE->aMI = (u32 *)sqlite3Malloc(pTab->nColumn * 3 * sizeof(u32));
       if( !pE->aMI ) return SQLITE_NOMEM;
       memset(pE->aMI, 0, pTab->nColumn * 3 * sizeof(u32));
     }
@@ -5925,7 +5925,7 @@ int fts3auxConnectMethod(
   int argc,                       /* Number of elements in argv array */
   const char * const *argv,       /* xCreate/xConnect argument array */
   sqlite3_vtab **ppVtab,          /* OUT: New sqlite3_vtab object */
-  char **pzErr                    /* OUT: sqlite3_malloc'd error message */
+  char **pzErr                    /* OUT: sqlite3Malloc'd error message */
 ){
   char const *zDb;                /* Name of database (e.g. "main") */
   char const *zFts3;              /* Name of fts3 table */
@@ -5963,7 +5963,7 @@ int fts3auxConnectMethod(
   if( rc!=SQLITE_OK ) return rc;
 
   nByte = sizeof(Fts3auxTable) + sizeof(Fts3Table) + nDb + nFts3 + 2;
-  p = (Fts3auxTable *)sqlite3_malloc(nByte);
+  p = (Fts3auxTable *)sqlite3Malloc(nByte);
   if( !p ) return SQLITE_NOMEM;
   memset(p, 0, nByte);
 
@@ -6430,12 +6430,12 @@ int fts3isspace(char c){
 }
 
 /*
-** Allocate nByte bytes of memory using sqlite3_malloc(). If successful,
+** Allocate nByte bytes of memory using sqlite3Malloc(). If successful,
 ** zero the memory before returning a pointer to it. If unsuccessful, 
 ** return NULL.
 */
 void *fts3MallocZero(int nByte){
-  void *pRet = sqlite3_malloc(nByte);
+  void *pRet = sqlite3Malloc(nByte);
   if( pRet ) memset(pRet, 0, nByte);
   return pRet;
 }
@@ -7022,7 +7022,7 @@ int fts3ExprBalance(Fts3Expr **pp, int nMaxDepth){
 
   if( rc==SQLITE_OK && (eType==FTSQUERY_AND || eType==FTSQUERY_OR) ){
     Fts3Expr **apLeaf;
-    apLeaf = (Fts3Expr **)sqlite3_malloc(sizeof(Fts3Expr *) * nMaxDepth);
+    apLeaf = (Fts3Expr **)sqlite3Malloc(sizeof(Fts3Expr *) * nMaxDepth);
     if( 0==apLeaf ){
       rc = SQLITE_NOMEM;
     }else{
@@ -7230,7 +7230,7 @@ int fts3ExprParseUnbalanced(
   int iDefaultCol,                    /* Default column to query */
   const char *z, int n,               /* Text of MATCH query */
   Fts3Expr **ppExpr,                  /* OUT: Parsed query structure */
-  char **pzErr                        /* OUT: Error message (sqlite3_malloc) */
+  char **pzErr                        /* OUT: Error message (sqlite3Malloc) */
 ){
   const int MAX_EXPR_DEPTH = 12;
   int rc = fts3ExprParseUnbalanced(
@@ -7312,7 +7312,7 @@ void fts3FreeExprNode(Fts3Expr *p){
 ** Malloc and Free functions
 */
 void *fts3HashMalloc(int n){
-  void *p = sqlite3_malloc(n);
+  void *p = sqlite3Malloc(n);
   if( p ){
     memset(p, 0, n);
   }
@@ -7696,7 +7696,7 @@ int porterCreate(
   UNUSED_PARAMETER(argc);
   UNUSED_PARAMETER(argv);
 
-  t = (porter_tokenizer *) sqlite3_malloc(sizeof(*t));
+  t = (porter_tokenizer *) sqlite3Malloc(sizeof(*t));
   if( t==NULL ) return SQLITE_NOMEM;
   memset(t, 0, sizeof(*t));
   *ppTokenizer = &t->base;
@@ -7726,7 +7726,7 @@ int porterOpen(
 
   UNUSED_PARAMETER(pTokenizer);
 
-  c = (porter_tokenizer_cursor *) sqlite3_malloc(sizeof(*c));
+  c = (porter_tokenizer_cursor *) sqlite3Malloc(sizeof(*c));
   if( c==NULL ) return SQLITE_NOMEM;
 
   c->zInput = zInput;
@@ -8515,7 +8515,7 @@ int simpleCreate(
 ){
   simple_tokenizer *t;
 
-  t = (simple_tokenizer *) sqlite3_malloc(sizeof(*t));
+  t = (simple_tokenizer *) sqlite3Malloc(sizeof(*t));
   if( t==NULL ) return SQLITE_NOMEM;
   memset(t, 0, sizeof(*t));
 
@@ -8570,7 +8570,7 @@ int simpleOpen(
 
   UNUSED_PARAMETER(pTokenizer);
 
-  c = (simple_tokenizer_cursor *) sqlite3_malloc(sizeof(*c));
+  c = (simple_tokenizer_cursor *) sqlite3Malloc(sizeof(*c));
   if( c==NULL ) return SQLITE_NOMEM;
 
   c->pInput = pInput;
@@ -8791,7 +8791,7 @@ int fts3tokDequoteArray(
       nByte += (int)(lenargv[i]) + 1);
     }
 
-    *pazDequote = azDequote = sqlite3_malloc(sizeof(char *)*argc + nByte);
+    *pazDequote = azDequote = sqlite3Malloc(sizeof(char *)*argc + nByte);
     if( azDequote==0 ){
       rc = SQLITE_NOMEM;
     }else{
@@ -8830,7 +8830,7 @@ int fts3tokConnectMethod(
   int argc,                       /* Number of elements in argv array */
   const char * const *argv,       /* xCreate/xConnect argument array */
   sqlite3_vtab **ppVtab,          /* OUT: New sqlite3_vtab object */
-  char **pzErr                    /* OUT: sqlite3_malloc'd error message */
+  char **pzErr                    /* OUT: sqlite3Malloc'd error message */
 ){
   Fts3tokTable *pTab;
   const sqlite3_tokenizer_module *pMod = 0;
@@ -8862,7 +8862,7 @@ int fts3tokConnectMethod(
   }
 
   if( rc==SQLITE_OK ){
-    pTab = (Fts3tokTable *)sqlite3_malloc(sizeof(Fts3tokTable));
+    pTab = (Fts3tokTable *)sqlite3Malloc(sizeof(Fts3tokTable));
     if( pTab==0 ){
       rc = SQLITE_NOMEM;
     }
@@ -8919,7 +8919,7 @@ int fts3tokOpenMethod(sqlite3_vtab *pVTab, sqlite3_vtab_cursor **ppCsr){
   Fts3tokCursor *pCsr;
   UNUSED_PARAMETER(pVTab);
 
-  pCsr = (Fts3tokCursor *)sqlite3_malloc(sizeof(Fts3tokCursor));
+  pCsr = (Fts3tokCursor *)sqlite3Malloc(sizeof(Fts3tokCursor));
   if( pCsr==0 ){
     return SQLITE_NOMEM;
   }
@@ -9002,7 +9002,7 @@ int fts3tokFilterMethod(
   if( idxNum==1 ){
     zByte := apVal[0].Text()
     int nByte = sqlite3_value_bytes(apVal[0]);
-    pCsr->zInput = sqlite3_malloc(nByte+1);
+    pCsr->zInput = sqlite3Malloc(nByte+1);
     if( pCsr->zInput==0 ){
       rc = SQLITE_NOMEM;
     }else{
@@ -9714,7 +9714,7 @@ int fts3PendingListAppendVarint(
 
   /* Allocate or grow the PendingList as required. */
   if( !p ){
-    p = sqlite3_malloc(sizeof(*p) + 100);
+    p = sqlite3Malloc(sizeof(*p) + 100);
     if( !p ){
       return SQLITE_NOMEM;
     }
@@ -10226,7 +10226,7 @@ int fts3AllocateSegdirIdx(
 **
 ** This function reads data from a single row of the %_segments table. The
 ** specific row is identified by the iBlockid parameter. If paBlob is not
-** NULL, then a buffer is allocated using sqlite3_malloc() and populated
+** NULL, then a buffer is allocated using sqlite3Malloc() and populated
 ** with the contents of the blob stored in the "block" column of the 
 ** identified table row is. Whether or not paBlob is NULL, *pnBlob is set
 ** to the size of the blob in bytes before returning.
@@ -10274,7 +10274,7 @@ int fts3AllocateSegdirIdx(
     int nByte = sqlite3_blob_bytes(p->pSegments);
     *pnBlob = nByte;
     if( paBlob ){
-      char *aByte = sqlite3_malloc(nByte + FTS3_NODE_PADDING);
+      char *aByte = sqlite3Malloc(nByte + FTS3_NODE_PADDING);
       if( !aByte ){
         rc = SQLITE_NOMEM;
       }else{
@@ -10657,7 +10657,7 @@ int fts3SegReaderNextDocid(
     nExtra = nRoot + FTS3_NODE_PADDING;
   }
 
-  pReader = (Fts3SegReader *)sqlite3_malloc(sizeof(Fts3SegReader) + nExtra);
+  pReader = (Fts3SegReader *)sqlite3Malloc(sizeof(Fts3SegReader) + nExtra);
   if( !pReader ){
     return SQLITE_NOMEM;
   }
@@ -10786,7 +10786,7 @@ int fts3CompareElemByTerm(const void *lhs, const void *rhs){
 
   if( nElem>0 ){
     int nByte = sizeof(Fts3SegReader) + (nElem+1)*sizeof(Fts3HashElem *);
-    pReader = (Fts3SegReader *)sqlite3_malloc(nByte);
+    pReader = (Fts3SegReader *)sqlite3Malloc(nByte);
     if( !pReader ){
       rc = SQLITE_NOMEM;
     }else{
@@ -11065,7 +11065,7 @@ int fts3NodeAddTerm(
         ** this is not expected to be a serious problem. 
         */
         assert( pTree->aData==(char *)&pTree[1] );
-        pTree->aData = (char *)sqlite3_malloc(nReq);
+        pTree->aData = (char *)sqlite3Malloc(nReq);
         if( !pTree->aData ){
           return SQLITE_NOMEM;
         }
@@ -11109,7 +11109,7 @@ int fts3NodeAddTerm(
   ** now. Instead, the term is inserted into the parent of pTree. If pTree 
   ** has no parent, one is created here.
   */
-  pNew = (SegmentNode *)sqlite3_malloc(sizeof(SegmentNode) + p->nNodeSize);
+  pNew = (SegmentNode *)sqlite3Malloc(sizeof(SegmentNode) + p->nNodeSize);
   if( !pNew ){
     return SQLITE_NOMEM;
   }
@@ -11256,13 +11256,13 @@ int fts3SegWriterAdd(
     sqlite3_stmt *pStmt;
 
     /* Allocate the SegmentWriter structure */
-    pWriter = (SegmentWriter *)sqlite3_malloc(sizeof(SegmentWriter));
+    pWriter = (SegmentWriter *)sqlite3Malloc(sizeof(SegmentWriter));
     if( !pWriter ) return SQLITE_NOMEM;
     memset(pWriter, 0, sizeof(SegmentWriter));
     *ppWriter = pWriter;
 
     /* Allocate a buffer in which to accumulate data */
-    pWriter->aData = (char *)sqlite3_malloc(p->nNodeSize);
+    pWriter->aData = (char *)sqlite3Malloc(p->nNodeSize);
     if( !pWriter->aData ) return SQLITE_NOMEM;
     pWriter->nSize = p->nNodeSize;
 
@@ -12194,7 +12194,7 @@ void fts3InsertDocsize(
   int rc;                  /* Result code from subfunctions */
 
   if( *pRC ) return;
-  pBlob = sqlite3_malloc( 10*p->nColumn );
+  pBlob = sqlite3Malloc( 10*p->nColumn );
   if( pBlob==0 ){
     *pRC = SQLITE_NOMEM;
     return;
@@ -12244,7 +12244,7 @@ void fts3UpdateDocTotals(
   const int nStat = p->nColumn+2;
 
   if( *pRC ) return;
-  a = sqlite3_malloc( (sizeof(u32)+10)*nStat );
+  a = sqlite3Malloc( (sizeof(u32)+10)*nStat );
   if( a==0 ){
     *pRC = SQLITE_NOMEM;
     return;
@@ -12364,7 +12364,7 @@ int fts3DoRebuild(Fts3Table *p){
 
     if( rc==SQLITE_OK ){
       int nByte = sizeof(u32) * (p->nColumn+1)*3;
-      aSz = (u32 *)sqlite3_malloc(nByte);
+      aSz = (u32 *)sqlite3Malloc(nByte);
       if( aSz==0 ){
         rc = SQLITE_NOMEM;
       }else{
@@ -12432,7 +12432,7 @@ int fts3IncrmergeCsr(
   /* Allocate space for the Fts3MultiSegReader.aCsr[] array */
   memset(pCsr, 0, sizeof(*pCsr));
   nByte = sizeof(Fts3SegReader *) * nSeg;
-  pCsr->apSegment = (Fts3SegReader **)sqlite3_malloc(nByte);
+  pCsr->apSegment = (Fts3SegReader **)sqlite3Malloc(nByte);
 
   if( pCsr->apSegment==0 ){
     rc = SQLITE_NOMEM;
@@ -13662,7 +13662,7 @@ int fts3IncrmergeHintPop(Blob *pHint, i64 *piAbsLevel, int *pnInput){
 
   /* Allocate space for the cursor, filter and writer objects */
   const int nAlloc = sizeof(*pCsr) + sizeof(*pFilter) + sizeof(*pWriter);
-  pWriter = (IncrmergeWriter *)sqlite3_malloc(nAlloc);
+  pWriter = (IncrmergeWriter *)sqlite3Malloc(nAlloc);
   if( !pWriter ) return SQLITE_NOMEM;
   pFilter = (Fts3SegFilter *)&pWriter[1];
   pCsr = (Fts3MultiSegReader *)&pFilter[1];
@@ -14230,7 +14230,7 @@ int fts3SpecialInsert(Fts3Table *p, sqlite3_value *pVal){
     return SQLITE_OK;
   }
 
-  pRet = (char *)sqlite3_malloc(p->pList->nData);
+  pRet = (char *)sqlite3Malloc(p->pList->nData);
   if( !pRet ) return SQLITE_NOMEM;
 
   nSkip = sqlite3Fts3GetVarint(p->pList->aData, &dummy);
@@ -14250,7 +14250,7 @@ int fts3SpecialInsert(Fts3Table *p, sqlite3_value *pVal){
   int iCol                        /* Column that token must appear in (or -1) */
 ){
   Fts3DeferredToken *pDeferred;
-  pDeferred = sqlite3_malloc(sizeof(*pDeferred));
+  pDeferred = sqlite3Malloc(sizeof(*pDeferred));
   if( !pDeferred ){
     return SQLITE_NOMEM;
   }
@@ -14359,7 +14359,7 @@ int fts3DeleteByRowid(
   }
 
   /* Allocate space to hold the change in document sizes */
-  aSzDel = sqlite3_malloc( sizeof(aSzDel[0])*(p->nColumn+1)*2 );
+  aSzDel = sqlite3Malloc( sizeof(aSzDel[0])*(p->nColumn+1)*2 );
   if( aSzDel==0 ){
     rc = SQLITE_NOMEM;
     goto update_out;
@@ -14890,7 +14890,7 @@ int fts3BestSnippet(
   ** the required space using malloc().
   */
   nByte = sizeof(SnippetPhrase) * nList;
-  sIter.aPhrase = (SnippetPhrase *)sqlite3_malloc(nByte);
+  sIter.aPhrase = (SnippetPhrase *)sqlite3Malloc(nByte);
   if( !sIter.aPhrase ){
     return SQLITE_NOMEM;
   }
@@ -15406,7 +15406,7 @@ int fts3MatchinfoLcs(Fts3Cursor *pCsr, MatchInfo *pInfo){
   /* Allocate and populate the array of LcsIterator objects. The array
   ** contains one element for each matchable phrase in the query.
   **/
-  aIter = sqlite3_malloc(sizeof(LcsIterator) * pCsr->nPhrase);
+  aIter = sqlite3Malloc(sizeof(LcsIterator) * pCsr->nPhrase);
   if( !aIter ) return SQLITE_NOMEM;
   memset(aIter, 0, sizeof(LcsIterator) * pCsr->nPhrase);
   (void)fts3ExprIterate(pCsr->pExpr, fts3MatchinfoLcsCb, (void*)aIter);
@@ -15628,7 +15628,7 @@ int fts3GetMatchinfo(
 
     /* Allocate space for Fts3Cursor.aMatchinfo[] and Fts3Cursor.zMatchinfo. */
     nArg = (int)len(zArg);
-    pCsr->aMatchinfo = (u32 *)sqlite3_malloc(sizeof(u32)*nMatchinfo + nArg + 1);
+    pCsr->aMatchinfo = (u32 *)sqlite3Malloc(sizeof(u32)*nMatchinfo + nArg + 1);
     if( !pCsr->aMatchinfo ) return SQLITE_NOMEM;
 
     pCsr->zMatchinfo = (char *)&pCsr->aMatchinfo[nMatchinfo];
@@ -15825,7 +15825,7 @@ int fts3ExprTermOffsetInit(Fts3Expr *pExpr, int iPhrase, void *ctx){
   if( rc!=SQLITE_OK ) goto offsets_out;
 
   /* Allocate the array of TermOffset iterators. */
-  sCtx.aTerm = (TermOffset *)sqlite3_malloc(sizeof(TermOffset)*nToken);
+  sCtx.aTerm = (TermOffset *)sqlite3Malloc(sizeof(TermOffset)*nToken);
   if( 0==sCtx.aTerm ){
     rc = SQLITE_NOMEM;
     goto offsets_out;
@@ -16127,7 +16127,7 @@ int unicodeCreate(
   int i;
   int rc = SQLITE_OK;
 
-  pNew = (unicode_tokenizer *) sqlite3_malloc(sizeof(unicode_tokenizer));
+  pNew = (unicode_tokenizer *) sqlite3Malloc(sizeof(unicode_tokenizer));
   if( pNew==NULL ) return SQLITE_NOMEM;
   memset(pNew, 0, sizeof(unicode_tokenizer));
   pNew->bRemoveDiacritic = 1;
@@ -16176,7 +16176,7 @@ int unicodeOpen(
 ){
   unicode_cursor *pCsr;
 
-  pCsr = (unicode_cursor *)sqlite3_malloc(sizeof(unicode_cursor));
+  pCsr = (unicode_cursor *)sqlite3Malloc(sizeof(unicode_cursor));
   if( pCsr==0 ){
     return SQLITE_NOMEM;
   }

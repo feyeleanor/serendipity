@@ -831,7 +831,7 @@ func deserializeGeometry(pValue *sqlite3_value, pCons *RtreeConstraint) (rc int)
 		return SQLITE_ERROR
 	}
 
-	if pGeom = (sqlite3_rtree_geometry *)sqlite3_malloc(sizeof(sqlite3_rtree_geometry) + nBlob); pGeom == nil {
+	if pGeom = (sqlite3_rtree_geometry *)sqlite3Malloc(sizeof(sqlite3_rtree_geometry) + nBlob); pGeom == nil {
 		return SQLITE_NOMEM
 	}
 	memset(pGeom, 0, sizeof(sqlite3_rtree_geometry))
@@ -873,7 +873,7 @@ func rtreeFilter(pVtabCursor *sqlite3_vtab_cursor, idxNum int, idxStr string, ar
 	} else {
 		//	Normal case - r-tree scan. Set up the RtreeCursor.aConstraint array with the configured constraints. 
 		if argc > 0 {
-			pCsr.aConstraint = sqlite3_malloc(sizeof(RtreeConstraint) * argc)
+			pCsr.aConstraint = sqlite3Malloc(sizeof(RtreeConstraint) * argc)
 			pCsr.nConstraint = argc
 			if !pCsr.aConstraint {
 				rc = SQLITE_NOMEM
@@ -1378,7 +1378,7 @@ func (tree *Rtree) splitNodeStartree(cells []*RtreeCell, Left, Right *RtreeNode)
 	var BestMargin			float64
 
 	nByte := (tree.Dimensions + 1) * (sizeof(int*) + nCell * sizeof(int))
-	aaSorted = (int **)sqlite3_malloc(nByte)
+	aaSorted = (int **)sqlite3Malloc(nByte)
 	if !aaSorted {
 		return SQLITE_NOMEM;
 	}

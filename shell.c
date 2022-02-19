@@ -1000,7 +1000,7 @@ int shell_exec(
         if( xCallback ){
           /* allocate space for col name ptr, value ptr, and type */
           int nCol = sqlite3_column_count(pStmt);
-          void *pData = sqlite3_malloc(3*nCol*sizeof(const char*) + 1);
+          void *pData = sqlite3Malloc(3*nCol*sizeof(const char*) + 1);
           if( !pData ){
             rc = SQLITE_NOMEM;
           }else{

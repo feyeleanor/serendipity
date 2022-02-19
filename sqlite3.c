@@ -670,7 +670,7 @@ typedef int (*sqlite3_callback)(void*,int,char**, char**);
 ** sqlite3_exec(), then execution of the current statement stops and
 ** subsequent statements are skipped.  ^If the 5th parameter to sqlite3_exec()
 ** is not NULL then any error message is written into memory obtained
-** from [sqlite3_malloc()] and passed back through the 5th parameter.
+** from [sqlite3Malloc()] and passed back through the 5th parameter.
 ** To avoid memory leaks, the application should invoke [sqlite3_free()]
 ** on error message strings returned through the 5th parameter of
 ** of sqlite3_exec() after the error message string is no longer needed.
@@ -1160,7 +1160,7 @@ struct sqlite3_io_methods {
 ** ^The [SQLITE_FCNTL_VFSNAME] opcode can be used to obtain the names of
 ** all [VFSes] in the VFS stack.  The names are of all VFS shims and the
 ** final bottom-level VFS are written into memory obtained from 
-** [sqlite3_malloc()] and the result is stored in the char* variable
+** [sqlite3Malloc()] and the result is stored in the char* variable
 ** that the fourth parameter of [sqlite3_file_control()] points to.
 ** The caller is responsible for freeing the memory when done.  As with
 ** all file-control actions, there is no guarantee that this will actually
@@ -1209,7 +1209,7 @@ struct sqlite3_io_methods {
 ** temporary filename using the same algorithm that is followed to generate
 ** temporary filenames for TEMP tables and other internal uses.  The
 ** argument should be a char** which will be filled with the filename
-** written into memory obtained from [sqlite3_malloc()].  The caller should
+** written into memory obtained from [sqlite3Malloc()].  The caller should
 ** invoke [sqlite3_free()] on the result to avoid a memory leak.
 **
 ** <li>[[SQLITE_FCNTL_MMAP_SIZE]]
@@ -1240,18 +1240,6 @@ struct sqlite3_io_methods {
 #define SQLITE_FCNTL_BUSYHANDLER            15
 #define SQLITE_FCNTL_TEMPFILENAME           16
 #define SQLITE_FCNTL_MMAP_SIZE              18
-
-/*
-** CAPI3REF: Mutex Handle
-**
-** The mutex module within SQLite defines [sqlite3_mutex] to be an
-** abstract type for a mutex object.  The SQLite core never looks
-** at the internal representation of an [sqlite3_mutex].  It only
-** deals with pointers to the [sqlite3_mutex] object.
-**
-** Mutexes are created using [sqlite3_mutex_alloc()].
-*/
-typedef struct sqlite3_mutex sqlite3_mutex;
 
 /*
 ** CAPI3REF: OS Interface Object
@@ -1541,8 +1529,7 @@ struct sqlite3_vfs {
 ** sqlite3_shutdown().
 **
 ** Among other things, ^sqlite3_initialize() will invoke
-** sqlite3_os_init().  Similarly, ^sqlite3_shutdown()
-** will invoke sqlite3_os_end().
+** sqlite3_os_init().
 **
 ** ^The sqlite3_initialize() routine returns [SQLITE_OK] on success.
 ** ^If for some reason, sqlite3_initialize() is unable to initialize
@@ -1554,36 +1541,27 @@ struct sqlite3_vfs {
 ** invoke sqlite3_initialize() directly.  For example, [Open()]
 ** calls sqlite3_initialize() so the SQLite library will be automatically
 ** initialized when [Open()] is called if it has not be initialized
-** already.  ^However, if SQLite is compiled with the [SQLITE_OMIT_AUTOINIT]
-** compile-time option, then the automatic calls to sqlite3_initialize()
-** are omitted and the application must call sqlite3_initialize() directly
-** prior to using any other SQLite interface.  For maximum portability,
-** it is recommended that applications always invoke sqlite3_initialize()
-** directly prior to using any other SQLite interface.  Future releases
-** of SQLite may require this.  In other words, the behavior exhibited
-** when SQLite is compiled with [SQLITE_OMIT_AUTOINIT] might become the
-** default behavior in some future release of SQLite.
+** already.
 **
 ** The sqlite3_os_init() routine does operating-system specific
-** initialization of the SQLite library.  The sqlite3_os_end()
-** routine undoes the effect of sqlite3_os_init().  Typical tasks
-** performed by these routines include allocation or deallocation
+** initialization of the SQLite library.  Typical tasks
+** performed by this routine include allocation
 ** of resources, initialization of global variables,
 ** setting up a default [sqlite3_vfs] module, or setting up
 ** a default configuration using [sqlite3_config()].
 **
-** The application should never invoke either sqlite3_os_init()
-** or sqlite3_os_end() directly.  The application should only invoke
+** The application should never invoke sqlite3_os_init()
+** directly.  The application should only invoke
 ** sqlite3_initialize() and sqlite3_shutdown().  The sqlite3_os_init()
-** interface is called automatically by sqlite3_initialize() and
-** sqlite3_os_end() is called by sqlite3_shutdown().  Appropriate
-** implementations for sqlite3_os_init() and sqlite3_os_end()
+** interface is called automatically by sqlite3_initialize().
+** Appropriate
+** implementations for sqlite3_os_init()
 ** are built into SQLite when it is compiled for Unix, Windows, or OS/2.
 ** When [custom builds | built for other platforms]
 ** (using the [SQLITE_OS_OTHER=1] compile-time
 ** option) the application must supply a suitable implementation for
-** sqlite3_os_init() and sqlite3_os_end().  An application-supplied
-** implementation of sqlite3_os_init() or sqlite3_os_end()
+** sqlite3_os_init().  An application-supplied
+** implementation of sqlite3_os_init()
 ** must return [SQLITE_OK] on success and some other [error code] upon
 ** failure.
 */
@@ -1672,7 +1650,7 @@ struct sqlite3_vfs {
 ** a memory allocation given a particular requested size.  Most memory
 ** allocators round up memory allocations at least to the next multiple
 ** of 8.  Some allocators round up to a larger multiple or to a power of 2.
-** Every memory allocation request coming in through [sqlite3_malloc()]
+** Every memory allocation request coming in through [sqlite3Malloc()]
 ** or [sqlite3_realloc()] first calls xRoundup.  If xRoundup returns 0, 
 ** that causes the corresponding memory allocation to fail.
 **
@@ -1750,7 +1728,7 @@ struct sqlite3_mem_methods {
 ** ^SQLite will never require a scratch buffer that is more than 6
 ** times the database page size. ^If SQLite needs needs additional
 ** scratch memory beyond what is provided by this configuration option, then 
-** [sqlite3_malloc()] will be used to obtain the memory needed.</dd>
+** [sqlite3Malloc()] will be used to obtain the memory needed.</dd>
 **
 ** [[SQLITE_CONFIG_PAGECACHE]] <dt>SQLITE_CONFIG_PAGECACHE</dt>
 ** <dd> ^This option specifies a memory buffer that SQLite can use for
@@ -1768,7 +1746,7 @@ struct sqlite3_mem_methods {
 ** ^SQLite will use the memory provided by the first argument to satisfy its
 ** memory needs for the first N pages that it adds to cache.  ^If additional
 ** page cache memory is needed beyond what is provided by this option, then
-** SQLite goes to [sqlite3_malloc()] for the additional storage space.
+** SQLite goes to [sqlite3Malloc()] for the additional storage space.
 ** The pointer in the first argument must
 ** be aligned to an 8-byte boundary or subsequent behavior of SQLite
 ** will be undefined.</dd>
@@ -1841,23 +1819,6 @@ struct sqlite3_mem_methods {
 ** They are retained for backwards compatibility but are now no-ops.
 ** </dd>
 **
-** [[SQLITE_CONFIG_SQLLOG]]
-** <dt>SQLITE_CONFIG_SQLLOG
-** <dd>This option is only available if sqlite is compiled with the
-** [SQLITE_ENABLE_SQLLOG] pre-processor macro defined. The first argument should
-** be a pointer to a function of type void(*)(void*,sqlite3*,const char*, int).
-** The second should be of type (void*). The callback is invoked by the library
-** in three separate circumstances, identified by the value passed as the
-** fourth parameter. If the fourth parameter is 0, then the database connection
-** passed as the second argument has just been opened. The third argument
-** points to a buffer containing the name of the main database file. If the
-** fourth parameter is 1, then the SQL statement that the third parameter
-** points to has just been executed. Or, if the fourth parameter is 2, then
-** the connection being passed as the second parameter is being closed. The
-** third parameter is passed NULL In this case.  An example of using this
-** configuration option can be seen in the "test_sqllog.c" source file in
-** the canonical SQLite source tree.</dd>
-**
 ** [[SQLITE_CONFIG_MMAP_SIZE]]
 ** <dt>SQLITE_CONFIG_MMAP_SIZE
 ** <dd>SQLITE_CONFIG_MMAP_SIZE takes two 64-bit integer (sqlite3_int64) values
@@ -1887,7 +1848,6 @@ struct sqlite3_mem_methods {
 #define SQLITE_CONFIG_PCACHE2      18  /* sqlite3_pcache_methods2* */
 #define SQLITE_CONFIG_GETPCACHE2   19  /* sqlite3_pcache_methods2* */
 #define SQLITE_CONFIG_COVERING_INDEX_SCAN 20  /* int */
-#define SQLITE_CONFIG_SQLLOG       21  /* xSqllog, void* */
 #define SQLITE_CONFIG_MMAP_SIZE    22  /* sqlite3_int64, sqlite3_int64 */
 
 /*
@@ -2272,7 +2232,7 @@ struct sqlite3_mem_methods {
 ** After the application has finished with the result from sqlite3_get_table(),
 ** it must pass the result table pointer to sqlite3_free_table() in order to
 ** release the memory that was malloced.  Because of the way the
-** [sqlite3_malloc()] happens within sqlite3_get_table(), the calling
+** [sqlite3Malloc()] happens within sqlite3_get_table(), the calling
 ** function must not try to call [sqlite3_free()] directly.  Only
 ** [sqlite3_free_table()] is able to release the memory properly and safely.
 **
@@ -2300,10 +2260,10 @@ struct sqlite3_mem_methods {
 ** from the standard C library.
 **
 ** ^The sqlite3_mprintf() and sqlite3_vmprintf() routines write their
-** results into memory obtained from [sqlite3_malloc()].
+** results into memory obtained from [sqlite3Malloc()].
 ** The strings returned by these two routines should be
 ** released by [sqlite3_free()].  ^Both routines return a
-** NULL pointer if [sqlite3_malloc()] is unable to allocate enough
+** NULL pointer if [sqlite3Malloc()] is unable to allocate enough
 ** memory to hold the resulting string.
 **
 ** ^(The sqlite3_snprintf() routine is similar to "snprintf()" from
@@ -2396,15 +2356,15 @@ struct sqlite3_mem_methods {
 ** does not include operating-system specific VFS implementation.  The
 ** Windows VFS uses native malloc() and free() for some operations.
 **
-** ^The sqlite3_malloc() routine returns a pointer to a block
+** ^The sqlite3Malloc() routine returns a pointer to a block
 ** of memory at least N bytes in length, where N is the parameter.
-** ^If sqlite3_malloc() is unable to obtain sufficient free
+** ^If sqlite3Malloc() is unable to obtain sufficient free
 ** memory, it returns a NULL pointer.  ^If the parameter N to
-** sqlite3_malloc() is zero or negative then sqlite3_malloc() returns
+** sqlite3Malloc() is zero or negative then sqlite3Malloc() returns
 ** a NULL pointer.
 **
 ** ^Calling sqlite3_free() with a pointer previously returned
-** by sqlite3_malloc() or sqlite3_realloc() releases that memory so
+** by sqlite3Malloc() or sqlite3_realloc() releases that memory so
 ** that it might be reused.  ^The sqlite3_free() routine is
 ** a no-op if is called with a NULL pointer.  Passing a NULL pointer
 ** to sqlite3_free() is harmless.  After being freed, memory
@@ -2412,14 +2372,14 @@ struct sqlite3_mem_methods {
 ** memory might result in a segmentation fault or other severe error.
 ** Memory corruption, a segmentation fault, or other severe error
 ** might result if sqlite3_free() is called with a non-NULL pointer that
-** was not obtained from sqlite3_malloc() or sqlite3_realloc().
+** was not obtained from sqlite3Malloc() or sqlite3_realloc().
 **
 ** ^(The sqlite3_realloc() interface attempts to resize a
 ** prior memory allocation to be at least N bytes, where N is the
 ** second parameter.  The memory allocation to be resized is the first
 ** parameter.)^ ^ If the first parameter to sqlite3_realloc()
 ** is a NULL pointer then its behavior is identical to calling
-** sqlite3_malloc(N) where N is the second parameter to sqlite3_realloc().
+** sqlite3Malloc(N) where N is the second parameter to sqlite3_realloc().
 ** ^If the second parameter to sqlite3_realloc() is zero or
 ** negative then the behavior is exactly the same as calling
 ** sqlite3_free(P) where P is the first parameter to sqlite3_realloc().
@@ -2431,7 +2391,7 @@ struct sqlite3_mem_methods {
 ** ^If sqlite3_realloc() returns NULL, then the prior allocation
 ** is not freed.
 **
-** ^The memory returned by sqlite3_malloc() and sqlite3_realloc()
+** ^The memory returned by sqlite3Malloc() and sqlite3_realloc()
 ** is always aligned to at least an 8 byte boundary, or to a
 ** 4 byte boundary if the [SQLITE_4_BYTE_ALIGNED_MALLOC] compile-time
 ** option is used.
@@ -2443,7 +2403,7 @@ struct sqlite3_mem_methods {
 **
 ** The pointer arguments to [sqlite3_free()] and [sqlite3_realloc()]
 ** must be either NULL or else pointers obtained from a prior
-** invocation of [sqlite3_malloc()] or [sqlite3_realloc()] that have
+** invocation of [sqlite3Malloc()] or [sqlite3_realloc()] that have
 ** not yet been released.
 **
 ** The application must not read or write any part of
@@ -2455,7 +2415,7 @@ struct sqlite3_mem_methods {
 ** CAPI3REF: Memory Allocator Statistics
 **
 ** SQLite provides these two interfaces for reporting on the status
-** of the [sqlite3_malloc()], [sqlite3_free()], and [sqlite3_realloc()]
+** of the [sqlite3Malloc()], [sqlite3_free()], and [sqlite3_realloc()]
 ** routines, which form the built-in memory allocation subsystem.
 **
 ** ^The [sqlite3_memory_used()] routine returns the number of bytes
@@ -2464,9 +2424,9 @@ struct sqlite3_mem_methods {
 ** value of [sqlite3_memory_used()] since the high-water mark
 ** was last reset.  ^The values returned by [sqlite3_memory_used()] and
 ** [sqlite3_memory_highwater()] include any overhead
-** added by SQLite in its implementation of [sqlite3_malloc()],
+** added by SQLite in its implementation of [sqlite3Malloc()],
 ** but not overhead added by the any underlying system library
-** routines that [sqlite3_malloc()] may call.
+** routines that [sqlite3Malloc()] may call.
 **
 ** ^The memory high-water mark is reset to the current value of
 ** [sqlite3_memory_used()] if and only if the parameter to
@@ -2959,8 +2919,8 @@ struct sqlite3_mem_methods {
 ** When that happens, the second error will be reported since these
 ** interfaces always report the most recent result.  To avoid
 ** this, each thread can obtain exclusive use of the [database connection] D
-** by invoking [sqlite3_mutex_enter]([sqlite3_db_mutex](D)) before beginning
-** to use D and invoking [sqlite3_mutex_leave]([sqlite3_db_mutex](D)) after
+** by invoking db.mutex.[Enter](D) before beginning
+** to use D and invoking db.mutex.[Leave()]((D)) after
 ** all calls to the interfaces listed here are completed.
 **
 ** If an interface fails with SQLITE_MISUSE, that means the interface
@@ -4161,7 +4121,7 @@ typedef void (*sqlite3_destructor_type)(void*);
 ** ^If the 4th parameter to the sqlite3_result_text* interfaces
 ** or sqlite3_result_blob is the special constant SQLITE_TRANSIENT
 ** then SQLite makes a copy of the result into space obtained from
-** from [sqlite3_malloc()] before it returns.
+** from [sqlite3Malloc()] before it returns.
 **
 ** ^The sqlite3_result_value() interface sets the result of
 ** the application-defined function to be a copy the
@@ -4325,13 +4285,13 @@ typedef void (*sqlite3_destructor_type)(void*);
 ** thereafter.
 **
 ** ^The [temp_store_directory pragma] may modify this variable and cause
-** it to point to memory obtained from [sqlite3_malloc].  ^Furthermore,
+** it to point to memory obtained from [sqlite3Malloc].  ^Furthermore,
 ** the [temp_store_directory pragma] always assumes that any string
 ** that this variable points to is held in memory obtained from 
-** [sqlite3_malloc] and the pragma may attempt to free that memory
+** [sqlite3Malloc] and the pragma may attempt to free that memory
 ** using [sqlite3_free].
 ** Hence, if this variable is modified directly, either it should be
-** made NULL or made to point to memory obtained from [sqlite3_malloc]
+** made NULL or made to point to memory obtained from [sqlite3Malloc]
 ** or else the use of the [temp_store_directory pragma] should be avoided.
 **
 ** <b>Note to Windows Runtime users:</b>  The temporary directory must be set
@@ -4377,13 +4337,13 @@ typedef void (*sqlite3_destructor_type)(void*);
 ** thereafter.
 **
 ** ^The [data_store_directory pragma] may modify this variable and cause
-** it to point to memory obtained from [sqlite3_malloc].  ^Furthermore,
+** it to point to memory obtained from [sqlite3Malloc].  ^Furthermore,
 ** the [data_store_directory pragma] always assumes that any string
 ** that this variable points to is held in memory obtained from 
-** [sqlite3_malloc] and the pragma may attempt to free that memory
+** [sqlite3Malloc] and the pragma may attempt to free that memory
 ** using [sqlite3_free].
 ** Hence, if this variable is modified directly, either it should be
-** made NULL or made to point to memory obtained from [sqlite3_malloc]
+** made NULL or made to point to memory obtained from [sqlite3Malloc]
 ** or else the use of the [data_store_directory pragma] should be avoided.
 */
  char *sqlite3_data_directory;
@@ -4715,7 +4675,7 @@ typedef void (*sqlite3_destructor_type)(void*);
 ** ^If an error occurs and pzErrMsg is not 0, then the
 ** [sqlite3_load_extension()] interface shall attempt to
 ** fill *pzErrMsg with error message text stored in memory
-** obtained from [sqlite3_malloc()]. The calling function
+** obtained from [sqlite3Malloc()]. The calling function
 ** should free this memory by calling [sqlite3_free()].
 **
 ** ^Extension loading must be enabled using
@@ -4912,7 +4872,7 @@ struct IndexInfo {
 	Usage				[]*IndexUsage
 	//	Outputs
 	idxNum				int			//	Number used to identify the index
-	idxStr				string		//	String, possibly obtained from sqlite3_malloc
+	idxStr				string		//	String, possibly obtained from sqlite3Malloc
 	orderByConsumed		int			//	True if output is already ordered
 	estimatedCost		float64		//	Estimated cost of using this index
 }
@@ -5277,19 +5237,11 @@ struct sqlite3_vtab_cursor {
 ** use by SQLite, code that links against SQLite is
 ** permitted to use any of these routines.
 **
-** ^(If SQLite is compiled with the SQLITE_MUTEX_APPDEF preprocessor
-** macro defined (with "-DSQLITE_MUTEX_APPDEF=1"), then no mutex
-** implementation is included with the library. In this case the
-** application must supply a custom mutex implementation using the
-** [SQLITE_CONFIG_MUTEX] option of the sqlite3_config() function
-** before calling sqlite3_initialize() or any other public sqlite3_
-** function that calls sqlite3_initialize().)^
-**
-** ^The sqlite3_mutex_alloc() routine allocates a new
+** ^The NewMutex() routine allocates a new
 ** mutex and returns a pointer to it. ^If it returns NULL
 ** that means that a mutex could not be allocated.  ^SQLite
 ** will unwind its stack and return an error.  ^(The argument
-** to sqlite3_mutex_alloc() is one of these integer constants:
+** to NewMutex() is one of these integer constants:
 **
 ** <ul>
 ** <li>  SQLITE_MUTEX_FAST
@@ -5303,7 +5255,7 @@ struct sqlite3_vtab_cursor {
 ** </ul>)^
 **
 ** ^The first two constants (SQLITE_MUTEX_FAST and SQLITE_MUTEX_RECURSIVE)
-** cause sqlite3_mutex_alloc() to create
+** cause NewMutex() to create
 ** a new mutex.  ^The new mutex is recursive when SQLITE_MUTEX_RECURSIVE
 ** is used but not necessarily so when SQLITE_MUTEX_FAST is used.
 ** The mutex implementation does not need to make a distinction
@@ -5313,7 +5265,7 @@ struct sqlite3_vtab_cursor {
 ** implementation is available on the host platform, the mutex subsystem
 ** might return such a mutex in response to SQLITE_MUTEX_FAST.
 **
-** ^The other allowed parameters to sqlite3_mutex_alloc() (anything other
+** ^The other allowed parameters to NewMutex() (anything other
 ** than SQLITE_MUTEX_FAST and SQLITE_MUTEX_RECURSIVE) each return
 ** a pointer to a preexisting mutex.  ^Six mutexes are
 ** used by the current version of SQLite.  Future versions of SQLite
@@ -5323,22 +5275,15 @@ struct sqlite3_vtab_cursor {
 ** SQLITE_MUTEX_RECURSIVE.
 **
 ** ^Note that if one of the dynamic mutex parameters (SQLITE_MUTEX_FAST
-** or SQLITE_MUTEX_RECURSIVE) is used then sqlite3_mutex_alloc()
+** or SQLITE_MUTEX_RECURSIVE) is used then NewMutex()
 ** returns a different mutex on every call.  ^But for the static
 ** mutex types, the same mutex is returned on every call that has
 ** the same type number.
 **
-** ^The sqlite3_mutex_free() routine deallocates a previously
-** allocated dynamic mutex.  ^SQLite is careful to deallocate every
-** dynamic mutex that it allocates.  The dynamic mutexes must not be in
-** use when they are deallocated.  Attempting to deallocate a static
-** mutex results in undefined behavior.  ^SQLite never deallocates
-** a mutex.
-**
-** ^The sqlite3_mutex_enter() and sqlite3_mutex_try() routines attempt
+** ^The Enter() and Try() routines attempt
 ** to enter a mutex.  ^If another thread is already within the mutex,
-** sqlite3_mutex_enter() will block and sqlite3_mutex_try() will return
-** SQLITE_BUSY.  ^The sqlite3_mutex_try() interface returns [SQLITE_OK]
+** Enter() will block and Try() will return
+** SQLITE_BUSY.  ^The Try() interface returns [SQLITE_OK]
 ** upon successful entry.  ^(Mutexes created using
 ** SQLITE_MUTEX_RECURSIVE can be entered multiple times by the same thread.
 ** In such cases the,
@@ -5349,19 +5294,9 @@ struct sqlite3_vtab_cursor {
 ** such behavior in its own use of mutexes.)^
 **
 ** ^(Some systems (for example, Windows 95) do not support the operation
-** implemented by sqlite3_mutex_try().  On those systems, sqlite3_mutex_try()
+** implemented by Try().  On those systems, Try()
 ** will always return SQLITE_BUSY.  The SQLite core only ever uses
-** sqlite3_mutex_try() as an optimization so this is acceptable behavior.)^
-**
-** ^The sqlite3_mutex_leave() routine exits a mutex that was
-** previously entered by the same thread.   ^(The behavior
-** is undefined if the mutex is not currently entered by the
-** calling thread or is not currently allocated.  SQLite will
-** never do either.)^
-**
-** ^If the argument to sqlite3_mutex_enter(), sqlite3_mutex_try(), or
-** sqlite3_mutex_leave() is a NULL pointer, then all three routines
-** behave as no-ops.
+** Try() as an optimization so this is acceptable behavior.)^
 */
 
 /*
@@ -5392,18 +5327,6 @@ struct sqlite3_vtab_cursor {
 ** those obtained by the Initialise method.  ^The End()
 ** interface is invoked exactly once for each call to [sqlite3_shutdown()].
 **
-** ^(The remaining seven methods defined by this structure (xMutexAlloc,
-** xMutexFree, xMutexEnter, xMutexTry, xMutexLeave, xMutexHeld and
-** xMutexNotheld) implement the following interfaces (respectively):
-**
-** <ul>
-**   <li>  [sqlite3_mutex_alloc()] </li>
-**   <li>  [sqlite3_mutex_free()] </li>
-**   <li>  [sqlite3_mutex_enter()] </li>
-**   <li>  [sqlite3_mutex_try()] </li>
-**   <li>  [sqlite3_mutex_leave()] </li>
-** </ul>)^
-**
 ** The only difference is that the public sqlite3_XXX functions enumerated
 ** above silently ignore any invocations that pass a NULL pointer instead
 ** of a valid mutex handle. The implementations of the methods defined
@@ -5417,9 +5340,9 @@ struct sqlite3_vtab_cursor {
 ** intervening calls to End().  Second and subsequent calls to
 ** Initialise() must be no-ops.
 **
-** ^Initialise() must not use SQLite memory allocation ([sqlite3_malloc()]
-** and its associates).  ^Similarly, xMutexAlloc() must not use SQLite memory
-** allocation for a mutex.  ^However xMutexAlloc() may use SQLite
+** ^Initialise() must not use SQLite memory allocation ([sqlite3Malloc()]
+** and its associates).  ^Similarly, NewMutex() must not use SQLite memory
+** allocation for a mutex.  ^However NewMutex() may use SQLite
 ** memory allocation for a fast or recursive mutex.
 **
 ** ^SQLite will invoke the End() method when [sqlite3_shutdown()] is
@@ -5427,27 +5350,23 @@ struct sqlite3_vtab_cursor {
 ** If Initialise fails in any way, it is expected to clean up after itself
 ** prior to returning.
 */
-type xMutex interface{
-	Initialise()
-	End()
-	Alloc(int) *sqlite3_mutex
+type Mutex interface{
+	Enter()
+	Leave()
 }
 struct sqlite3_mutex_methods {
-  int (*Initialise)(void);
-  int (*End)(void);
-  sqlite3_mutex *(*xMutexAlloc)(int);
-  void (*xMutexFree)(sqlite3_mutex *);
-  void (*xMutexEnter)(sqlite3_mutex *);
-  int (*xMutexTry)(sqlite3_mutex *);
-  void (*xMutexLeave)(sqlite3_mutex *);
-  int (*xMutexHeld)(sqlite3_mutex *);
-  int (*xMutexNotheld)(sqlite3_mutex *);
-};
+	Initialise() int
+	End() int
+	xMutexFree(*RecursiveMutex)
+	xMutexTry(*RecursiveMutex) int
+	xMutexHeld(*RecursiveMutex) int
+	xMutexNotheld(*RecursiveMutex) int
+}
 
 /*
 ** CAPI3REF: Mutex Types
 **
-** The [sqlite3_mutex_alloc()] interface takes a single argument
+** The [NewMutex()] interface takes a single argument
 ** which is one of these integer constants.
 **
 ** The set of mutexes may change from one SQLite release to the
@@ -5457,7 +5376,7 @@ struct sqlite3_mutex_methods {
 #define SQLITE_MUTEX_FAST             0
 #define SQLITE_MUTEX_RECURSIVE        1
 #define SQLITE_MUTEX_STATIC_MASTER    2
-#define SQLITE_MUTEX_STATIC_MEM       3  /* sqlite3_malloc() */
+#define SQLITE_MUTEX_STATIC_MEM       3  /* sqlite3Malloc() */
 #define SQLITE_MUTEX_STATIC_MEM2      4  /* NOT USED */
 #define SQLITE_MUTEX_STATIC_OPEN      4  /* sqlite3BtreeOpen() */
 #define SQLITE_MUTEX_STATIC_PRNG      5  /* sqlite3_random() */
@@ -5468,7 +5387,7 @@ struct sqlite3_mutex_methods {
 /*
 ** CAPI3REF: Retrieve the mutex for a database connection
 **
-** ^This interface returns a pointer the [sqlite3_mutex] object that 
+** ^This interface returns a pointer the [RecursiveMutex] object that 
 ** serializes access to the [database connection] given in the argument
 ** when the [threading mode] is Serialized.
 ** ^If the [threading mode] is Single-thread or Multi-thread then this
@@ -5595,8 +5514,8 @@ struct sqlite3_mutex_methods {
 ** <dl>
 ** [[SQLITE_STATUS_MEMORY_USED]] ^(<dt>SQLITE_STATUS_MEMORY_USED</dt>
 ** <dd>This parameter is the current amount of memory checked out
-** using [sqlite3_malloc()], either directly or indirectly.  The
-** figure includes calls made to [sqlite3_malloc()] by the application
+** using [sqlite3Malloc()], either directly or indirectly.  The
+** figure includes calls made to [sqlite3Malloc()] by the application
 ** and internal memory usage by the SQLite library.  Scratch memory
 ** controlled by [SQLITE_CONFIG_SCRATCH] and auxiliary page-cache
 ** memory controlled by [SQLITE_CONFIG_PAGECACHE] is not included in
@@ -5605,7 +5524,7 @@ struct sqlite3_mutex_methods {
 **
 ** [[SQLITE_STATUS_MALLOC_SIZE]] ^(<dt>SQLITE_STATUS_MALLOC_SIZE</dt>
 ** <dd>This parameter records the largest memory allocation request
-** handed to [sqlite3_malloc()] or [sqlite3_realloc()] (or their
+** handed to [sqlite3Malloc()] or [sqlite3_realloc()] (or their
 ** internal equivalents).  Only the value returned in the
 ** *pHighwater parameter to [sqlite3_status()] is of interest.  
 ** The value written into the *pCurrent parameter is undefined.</dd>)^
@@ -5624,7 +5543,7 @@ struct sqlite3_mutex_methods {
 ** ^(<dt>SQLITE_STATUS_PAGECACHE_OVERFLOW</dt>
 ** <dd>This parameter returns the number of bytes of page cache
 ** allocation which could not be satisfied by the [SQLITE_CONFIG_PAGECACHE]
-** buffer and where forced to overflow to [sqlite3_malloc()].  The
+** buffer and where forced to overflow to [sqlite3Malloc()].  The
 ** returned value includes allocations that overflowed because they
 ** where too large (they were larger than the "sz" parameter to
 ** [SQLITE_CONFIG_PAGECACHE]) and allocations that overflowed because
@@ -5647,7 +5566,7 @@ struct sqlite3_mutex_methods {
 ** [[SQLITE_STATUS_SCRATCH_OVERFLOW]] ^(<dt>SQLITE_STATUS_SCRATCH_OVERFLOW</dt>
 ** <dd>This parameter returns the number of bytes of scratch memory
 ** allocation which could not be satisfied by the [SQLITE_CONFIG_SCRATCH]
-** buffer and where forced to overflow to [sqlite3_malloc()].  The values
+** buffer and where forced to overflow to [sqlite3Malloc()].  The values
 ** returned include overflows because the requested allocation was too
 ** larger (that is, because the requested allocation was larger than the
 ** "sz" parameter to [SQLITE_CONFIG_SCRATCH]) and because no scratch buffer
@@ -7969,7 +7888,7 @@ struct sqlite3 {
   sqlite3_vfs *pVfs;            /* OS Interface */
   struct Vdbe *pVdbe;           /* List of active virtual machines */
   CollationSequence *DefaultCollationSequence;           /* The default collating sequence (BINARY) */
-  sqlite3_mutex *mutex;         /* Connection mutex */
+  mutex			*RecursiveMutex			//	Connection mutex
   Db *aDb;                      /* All backends */
   int nDb;                      /* Number of backends currently in use */
   int flags;                    /* Miscellaneous flags. See below */
@@ -9486,7 +9405,7 @@ struct StrAccum {
   int  nAlloc;         /* Amount of space allocated in zText */
   int  mxAlloc;        /* Maximum allowed string length */
   u8   mallocFailed;   /* Becomes true if any memory allocation fails */
-  u8   useMalloc;      /* 0: none,  1: sqlite3DbMalloc,  2: sqlite3_malloc */
+  u8   useMalloc;      /* 0: none,  1: sqlite3DbMalloc,  2: sqlite3Malloc */
   u8   tooBig;         /* Becomes true if string size exceeds limits */
 };
 
@@ -9509,7 +9428,7 @@ typedef struct {
 type Configuration struct {
 struct Sqlite3Config {
   sqlite3_mem_methods m;            /* Low-level memory allocation interface */
-  sqlite3_mutex_methods mutex;      /* Low-level mutex interface */
+  mutex			*sqlite3_mutex_methods;      /* Low-level mutex interface */
   sqlite3_pcache_methods2 pcache2;  /* Low-level page-cache interface */
   sqlite3_int64 szMmap;             /* mmap() space per open file */
   sqlite3_int64 mxMmap;             /* Maximum value for szMmap */
@@ -9524,19 +9443,14 @@ struct Sqlite3Config {
   /* The above might be initialized to non-zero.  The following need to always
   ** initially be zero, however. */
   int isInit;                       /* True after initialization has finished */
-  int inProgress;                   /* True while initialization in progress */
   int isMutexInit;                  /* True after mutexes are initialized */
   int isMallocInit;                 /* True after malloc is initialized */
   int isPCacheInit;                 /* True after malloc is initialized */
-  sqlite3_mutex *pInitMutex;        /* Mutex used by sqlite3_initialize() */
+  pInitMutex		*RecursiveMutex			//	Mutex used by sqlite3_initialize()
   int nRefInitMutex;                /* Number of users of pInitMutex */
   void (*xLog)(void*,int,const char*); /* Function for logging */
   void *pLogArg;                       /* First argument to xLog() */
   int bLocaltimeFault;              /* True to fail localtime() calls */
-#ifdef SQLITE_ENABLE_SQLLOG
-  void(*xSqllog)(void*,sqlite3*,const char*, int);
-  void *pSqllogArg;
-#endif
 };
 
 /*
@@ -9784,9 +9698,6 @@ const char * const azCompileOpt[] = {
 #endif
 #ifdef SQLITE_OMIT_AUTOINCREMENT
   "OMIT_AUTOINCREMENT",
-#endif
-#ifdef SQLITE_OMIT_AUTOINIT
-  "OMIT_AUTOINIT",
 #endif
 #ifdef SQLITE_OMIT_AUTOMATIC_INDEX
   "OMIT_AUTOMATIC_INDEX",
@@ -10123,7 +10034,7 @@ struct Mem {
   void *pFiller;      /* So that sizeof(Mem) is a multiple of 8 */
 #endif
   void (*xDel)(void *);  /* If not null, call this function to delete Mem.z */
-  char *zMalloc;      /* Dynamic buffer allocated by sqlite3_malloc() */
+  char *zMalloc;      /* Dynamic buffer allocated by sqlite3Malloc() */
 };
 
 /* One or more of the following flags are set to indicate the validOK
@@ -11823,7 +11734,7 @@ void sqlite3RegisterDateTimeFunctions(void){
 ** error in sqlite3_os_init() by the upper layers can be tested.
 */
  int sqlite3OsInit(void){
-  void *p = sqlite3_malloc(10);
+  void *p = sqlite3Malloc(10);
   if( p==0 ) return SQLITE_NOMEM;
   sqlite3_free(p);
   return sqlite3_os_init();
@@ -11834,25 +11745,21 @@ void sqlite3RegisterDateTimeFunctions(void){
 */
 sqlite3_vfs *vfsList = 0;
 
-/*
-** Locate a VFS by name.  If no name is given, simply return the
-** first VFS on the list.
-*/
- sqlite3_vfs *sqlite3_vfs_find(const char *zVfs){
-  sqlite3_vfs *pVfs = 0;
-  sqlite3_mutex *mutex;
-#ifndef SQLITE_OMIT_AUTOINIT
-  int rc = sqlite3_initialize();
-  if( rc ) return 0;
-#endif
-  NewMutex(SQLITE_MUTEX_STATIC_MASTER).CriticalSection(func() {
-	  for(pVfs = vfsList; pVfs; pVfs=pVfs->pNext){
-	    if zVfs == "" || zVfs == pVfs.zName {
-			break
+//	Locate a VFS by name.  If no name is given, simply return the first VFS on the list.
+sqlite3_vfs *sqlite3_vfs_find(const char *zVfs){
+	var pVfs	*sqlite3_vfs
+
+	if sqlite3_initialize() != SQLITE_OK {
+		return nil
+	}
+	NewMutex(SQLITE_MUTEX_STATIC_MASTER).CriticalSection(func() {
+		for pVfs = vfsList; pVfs; pVfs = pVfs.pNext {
+			if zVfs == "" || zVfs == pVfs.zName {
+				break
+			}
 		}
-	  }
-  })
-  return pVfs;
+	})
+	return pVfs
 }
 
 /*
@@ -11874,29 +11781,23 @@ void vfsUnlink(sqlite3_vfs *pVfs){
   }
 }
 
-/*
-** Register a VFS with the system.  It is harmless to register the same
-** VFS multiple times.  The new VFS becomes the default if makeDflt is
-** true.
-*/
- int sqlite3_vfs_register(sqlite3_vfs *pVfs, int makeDflt){
-  sqlite3_mutex *mutex
-#ifndef SQLITE_OMIT_AUTOINIT
-  int rc = sqlite3_initialize();
-  if( rc ) return rc;
-#endif
-  NewMutex(SQLITE_MUTEX_STATIC_MASTER).CriticalSection(func() {
-	  vfsUnlink(pVfs);
-	  if( makeDflt || vfsList==0 ){
-	    pVfs->pNext = vfsList;
-	    vfsList = pVfs;
-	  }else{
-	    pVfs->pNext = vfsList->pNext;
-	    vfsList->pNext = pVfs;
-	  }
-	  assert(vfsList);
-  })
-  return SQLITE_OK;
+//	Register a VFS with the system.  It is harmless to register the same VFS multiple times.  The new VFS becomes the default if makeDflt is true.
+int sqlite3_vfs_register(sqlite3_vfs *pVfs, int makeDflt){
+	if rc := sqlite3_initialize(); rc != SQLITE_OK {
+		return rc
+	}
+	NewMutex(SQLITE_MUTEX_STATIC_MASTER).CriticalSection(func() {
+		vfsUnlink(pVfs)
+		if makeDflt || vfsList == nil {
+			pVfs.pNext = vfsList
+			vfsList = pVfs
+		} else {
+			pVfs.pNext = vfsList.pNext
+			vfsList.pNext = pVfs
+		}
+		assert(vfsList)
+	})
+	return SQLITE_OK
 }
 
 /*
@@ -12164,7 +12065,7 @@ typedef struct ScratchFreeslot {
 ** State information local to the memory allocation subsystem.
 */
 struct Mem0Global {
-  sqlite3_mutex *mutex;         /* Mutex to serialize access */
+  mutex				*RecursiveMutex			//	Mutex to serialize access
 
   /*
   ** The alarm callback and its arguments.  The mem0.mutex lock will
@@ -12225,10 +12126,10 @@ int sqlite3MemoryAlarm(
 //	Set the soft heap-size limit for the library. Passing a zero or negative value indicates no limit.
 sqlite3_int64 sqlite3_soft_heap_limit64(sqlite3_int64 n){
   sqlite3_int64 priorLimit;
-#ifndef SQLITE_OMIT_AUTOINIT
-  int rc = sqlite3_initialize();
-  if( rc ) return -1;
-#endif
+
+  if sqlite3_initialize() != SQLITE_OK {
+	  return -1
+  }
   mem0.mutex.CriticalSection(func() {
 	  priorLimit = mem0.alarmThreshold;
   })
@@ -12293,7 +12194,7 @@ sqlite3_int64 sqlite3_soft_heap_limit64(sqlite3_int64 n){
 /*
 ** Deinitialize the memory allocation subsystem.
 */
- void sqlite3MallocEnd(void){
+void sqlite3MallocEnd(void){
   if( sqlite3Config.m.xShutdown ){
     sqlite3Config.m.xShutdown(sqlite3Config.m.pAppData);
   }
@@ -12327,7 +12228,7 @@ sqlite3_int64 sqlite3_soft_heap_limit64(sqlite3_int64 n){
 
 /*
 ** Return the size of a memory allocation previously obtained from
-** sqlite3Malloc() or sqlite3_malloc().
+** sqlite3Malloc() or sqlite3Malloc().
 */
  int sqlite3MallocSize(void *p){
   return sqlite3Config.m.xSize(p);
@@ -12394,10 +12295,10 @@ void sqlite3_free(p interface{}) {
 ** The public interface to sqlite3Realloc.  Make sure that the memory
 ** subsystem is initialized prior to invoking sqliteRealloc.
 */
- void *sqlite3_realloc(void *pOld, int n){
-#ifndef SQLITE_OMIT_AUTOINIT
-  if( sqlite3_initialize() ) return 0;
-#endif
+void *sqlite3_realloc(void *pOld, int n){
+  if sqlite3_initialize() != SQLITE_OK {
+	  return nil
+  }
   return sqlite3Realloc(pOld, n);
 }
 
@@ -12491,7 +12392,7 @@ void sqlite3_free(p interface{}) {
 }
 
 
-//	This function must be called before exiting any API function (i.e. returning control to the user) that has called sqlite3_malloc or sqlite3_realloc.
+//	This function must be called before exiting any API function (i.e. returning control to the user) that has called sqlite3Malloc or sqlite3_realloc.
 //
 //	The returned value is normally a copy of the second argument to this function. However, if a malloc() failure has occurred since the previous
 //	invocation SQLITE_NOMEM is returned instead. 
@@ -13248,7 +13149,7 @@ char et_getdigit(val *float64, cnt *int){
       if( p->useMalloc==1 ){
         p->zText = sqlite3DbMallocRaw(p->db, p->nChar+1 );
       }else{
-        p->zText = sqlite3_malloc(p->nChar+1);
+        p->zText = sqlite3Malloc(p->nChar+1);
       }
       if( p->zText ){
         memcpy(p->zText, p->zBase, p->nChar+1);
@@ -13339,16 +13240,17 @@ char et_getdigit(val *float64, cnt *int){
 }
 
 /*
-** Print into memory obtained from sqlite3_malloc().  Omit the internal
+** Print into memory obtained from sqlite3Malloc().  Omit the internal
 ** %-conversion extensions.
 */
  char *sqlite3_vmprintf(const char *zFormat, va_list ap){
   char *z;
   char zBase[SQLITE_PRINT_BUF_SIZE];
   StrAccum acc;
-#ifndef SQLITE_OMIT_AUTOINIT
-  if( sqlite3_initialize() ) return 0;
-#endif
+
+  if sqlite3_initialize() != SQLITE_OK {
+	  return 0
+  }
   sqlite3StrAccumInit(&acc, zBase, sizeof(zBase), SQLITE_MAX_LENGTH);
   acc.useMalloc = 2;
   sqlite3VXPrintf(&acc, 0, zFormat, ap);
@@ -13357,15 +13259,16 @@ char et_getdigit(val *float64, cnt *int){
 }
 
 /*
-** Print into memory obtained from sqlite3_malloc()().  Omit the internal
+** Print into memory obtained from sqlite3Malloc()().  Omit the internal
 ** %-conversion extensions.
 */
  char *sqlite3_mprintf(const char *zFormat, ...){
   va_list ap;
   char *z;
-#ifndef SQLITE_OMIT_AUTOINIT
-  if( sqlite3_initialize() ) return 0;
-#endif
+
+  if sqlite3_initialize() != SQLITE_OK {
+	  return ""
+  }
   va_start(ap, zFormat);
   z = sqlite3_vmprintf(zFormat, ap);
   va_end(ap);
@@ -14800,7 +14703,7 @@ void logBadConnection(const char *zType){
 **   *  sqlite3_vfs method implementations.
 **   *  Locking primitives for the proxy uber-locking-method. (MacOSX only)
 **   *  Definitions of sqlite3_vfs objects for all locking methods
-**      plus implementations of sqlite3_os_init() and sqlite3_os_end().
+**      plus implementations of sqlite3_os_init().
 */
 #if SQLITE_OS_UNIX              /* This file is used on unix only */
 
@@ -15608,7 +15511,7 @@ struct vxworksFileId *vxworksFindFileId(const char *zAbsoluteName){
 
 	assert( zAbsoluteName[0]=='/' );
 	n = (int)len(zAbsoluteName);
-	pNew = sqlite3_malloc( sizeof(*pNew) + (n + 1) );
+	pNew = sqlite3Malloc( sizeof(*pNew) + (n + 1) );
 	if( pNew==0 ) return 0;
 	pNew->zCanonicalName = (char*)&pNew[1];
 	memcpy(pNew->zCanonicalName, zAbsoluteName, n+1);
@@ -15939,7 +15842,7 @@ int findInodeInfo(
     pInode = pInode->pNext;
   }
   if( pInode==0 ){
-    pInode = sqlite3_malloc( sizeof(*pInode) );
+    pInode = sqlite3Malloc( sizeof(*pInode) );
     if( pInode==0 ){
       return SQLITE_NOMEM;
     }
@@ -17696,7 +17599,7 @@ int unixFileControl(sqlite3_file *id, int op, void *pArg){
       return SQLITE_OK;
     }
     case SQLITE_FCNTL_TEMPFILENAME: {
-      char *zTFile = sqlite3_malloc( pFile->pVfs->mxPathname );
+      char *zTFile = sqlite3Malloc( pFile->pVfs->mxPathname );
       if( zTFile ){
         unixGetTempname(pFile->pVfs->mxPathname, zTFile);
         *(char**)pArg = zTFile;
@@ -17886,7 +17789,7 @@ int unixDeviceCharacteristics(sqlite3_file *id){
 */
 struct unixShmNode {
   unixInodeInfo *pInode;     /* unixInodeInfo that owns this SHM node */
-  sqlite3_mutex *mutex;      /* Mutex to access this object */
+  mutex				*RecursiveMutex			//	Mutex to access this object
   char *zFilename;           /* Name of the mmapped file */
   int h;                     /* Open file descriptor */
   int szRegion;              /* Size of shared-memory regions */
@@ -18004,7 +17907,7 @@ void unixShmPurge(unixFile *pFd){
   if( p && p->nRef==0 ){
     int i;
     assert( p->pInode==pFd->pInode );
-    sqlite3_mutex_free(p->mutex);
+    p.mutex.Free()
     for(i=0; i<p->nRegion; i++){
       if( p->h>=0 ){
         osMunmap(p->apRegion[i], p->szRegion);
@@ -18066,7 +17969,7 @@ int unixOpenSharedMemory(unixFile *pDbFd){
 	int nShmFilename;               /* Size of the SHM filename in bytes */
 
 	//	Allocate space for the new unixShm object.
-	p = sqlite3_malloc( sizeof(*p) );
+	p = sqlite3Malloc( sizeof(*p) );
 	if p == nil {
 		return SQLITE_NOMEM
 	}
@@ -18099,7 +18002,7 @@ int unixOpenSharedMemory(unixFile *pDbFd){
 #else
 			nShmFilename = 6 + int(len(pDbFd.zPath))
 #endif
-			pShmNode = sqlite3_malloc( sizeof(*pShmNode) + nShmFilename )
+			pShmNode = sqlite3Malloc( sizeof(*pShmNode) + nShmFilename )
 			if pShmNode == nil {
 				panic(SQLITE_NOMEM)
 			}
@@ -18114,7 +18017,7 @@ int unixOpenSharedMemory(unixFile *pDbFd){
 			pShmNode.h = -1
 			pDbFd.pInode.pShmNode = pShmNode
 			pShmNode.pInode = pDbFd.pInode
-			pShmNode.mutex = sqlite3_mutex_alloc(SQLITE_MUTEX_FAST)
+			pShmNode.mutex = NewMutex(SQLITE_MUTEX_FAST)
 			if pShmNode.mutex == nil {
 				panic(SQLITE_NOMEM)
 			}
@@ -18207,8 +18110,7 @@ int unixShmMap(
   }
 
   p = pDbFd->pShm;
-  pShmNode = p->pShmNode;
-  sqlite3_mutex_enter(pShmNode->mutex);
+  pShmNode = p.pShmNode;
   pShmNode.mutex.CriticalSection(func() {
 	defer func() {
 		if pShmNode.nRegion > iRegion {
@@ -18291,7 +18193,7 @@ int unixShmMap(
 					return
 				}
 			}else{
-				pMem = sqlite3_malloc(szRegion);
+				pMem = sqlite3Malloc(szRegion);
 				if( pMem==0 ){
 					rc = SQLITE_NOMEM;
 					return
@@ -18985,7 +18887,7 @@ int fillInUnixFile(
     int nFilename;
     assert( zFilename!=0 );
     nFilename = (int)len(zFilename) + 6;
-    zLockFile = (char *)sqlite3_malloc(nFilename);
+    zLockFile = (char *)sqlite3Malloc(nFilename);
     if( zLockFile==0 ){
       rc = SQLITE_NOMEM;
     }else{
@@ -19334,7 +19236,7 @@ int unixOpen(
     if( pUnused ){
       fd = pUnused->fd;
     }else{
-      pUnused = sqlite3_malloc(sizeof(*pUnused));
+      pUnused = sqlite3Malloc(sizeof(*pUnused));
       if( !pUnused ){
         return SQLITE_NOMEM;
       }
@@ -19818,9 +19720,8 @@ int unixGetLastError(sqlite3_vfs *NotUsed, int NotUsed2, char *NotUsed3){
 ** Initialize the operating system interface.
 **
 ** This routine registers all VFS implementations for unix-like operating
-** systems.  This routine, and the sqlite3_os_end() routine that follows,
-** should be the only routines in this file that are visible from other
-** files.
+** systems.  This routine should be the only routine in this file that is
+** visible from other files.
 **
 ** This routine is called once during SQLite initialization and by a
 ** single thread.  The memory allocation and mutex subsystems have not
@@ -19909,17 +19810,6 @@ int unixGetLastError(sqlite3_vfs *NotUsed, int NotUsed2, char *NotUsed3){
   for(i=0; i<(sizeof(aVfs)/sizeof(sqlite3_vfs)); i++){
     sqlite3_vfs_register(&aVfs[i], i==0);
   }
-  return SQLITE_OK; 
-}
-
-/*
-** Shutdown the operating system interface.
-**
-** Some operating systems might need to do some cleanup in this routine,
-** to release dynamically allocated objects.  But not on unix.
-** This routine is a no-op for unix.
-*/
- int sqlite3_os_end(void){ 
   return SQLITE_OK; 
 }
  
@@ -20336,23 +20226,16 @@ void pcacheUnpin(PgHdr *p){
 
 /*************************************************** General Interfaces ******
 **
-** Initialize and shutdown the page cache subsystem. Neither of these 
+** Initialize the page cache subsystem. Neither of these 
 ** functions are threadsafe.
 */
- int sqlite3PcacheInitialize(void){
-  if( sqlite3Config.pcache2.xInit==0 ){
-    /* IMPLEMENTATION-OF: R-26801-64137 If the xInit() method is NULL, then the
-    ** built-in default page cache is used instead of the application defined
-    ** page cache. */
-    sqlite3PCacheSetDefault();
-  }
-  return sqlite3Config.pcache2.xInit(sqlite3Config.pcache2.pArg);
-}
- void sqlite3PcacheShutdown(void){
-  if( sqlite3Config.pcache2.xShutdown ){
-    /* IMPLEMENTATION-OF: R-26000-56589 The xShutdown() method may be NULL. */
-    sqlite3Config.pcache2.xShutdown(sqlite3Config.pcache2.pArg);
-  }
+int sqlite3PcacheInitialize(void){
+	if sqlite3Config.pcache2.xInit == nil {
+		//	IMPLEMENTATION-OF: R-26801-64137 If the xInit() method is NULL, then the built-in default page cache is used instead
+		//	of the application defined page cache.
+		sqlite3PCacheSetDefault()
+	}
+	return sqlite3Config.pcache2.xInit(sqlite3Config.pcache2.pArg)
 }
 
 /*
@@ -20842,7 +20725,7 @@ PgHdr *pcacheSortDirtyList(PgHdr *pIn){
 ** SQLITE_MUTEX_STATIC_LRU.
 */
 struct PGroup {
-  sqlite3_mutex *mutex;          /* MUTEX_STATIC_LRU or NULL */
+  mutex			*RecursiveMutex				//	MUTEX_STATIC_LRU or NULL
   unsigned int nMaxPage;         /* Sum of nMax for purgeable caches */
   unsigned int nMinPage;         /* Sum of nMin for purgeable caches */
   unsigned int mxPinned;         /* nMaxpage + 10 - nMinPage */
@@ -20922,7 +20805,7 @@ struct PCacheGlobal {
   int nReserve;                  /* Try to keep nFreeSlot above this */
   void *pStart, *pEnd;           /* Bounds of pagecache malloc range */
   /* Above requires no mutex.  Use mutex below for variable that follow. */
-  sqlite3_mutex *mutex;          /* Mutex for accessing the following: */
+  mutex				 *RecursiveMutex				//	Mutex for accessing the following:
   PgFreeslot *pFree;             /* Free page blocks */
   int nFreeSlot;                 /* Number of unused pcache slots */
   /* The following value requires a mutex to change.  We skip the mutex on
@@ -21271,8 +21154,8 @@ int pcache1Init(void *NotUsed){
   UNUSED_PARAMETER(NotUsed);
   assert( pcache1_g.isInit==0 );
   memset(&pcache1_g, 0, sizeof(pcache1_g));
-  pcache1_g.grp.mutex = sqlite3_mutex_alloc(SQLITE_MUTEX_STATIC_LRU);
-  pcache1_g.mutex = sqlite3_mutex_alloc(SQLITE_MUTEX_STATIC_PMEM);
+  pcache1_g.grp.mutex = NewMutex(SQLITE_MUTEX_STATIC_LRU);
+  pcache1_g.mutex = NewMutex(SQLITE_MUTEX_STATIC_PMEM);
   pcache1_g.grp.mxPinned = 10;
   pcache1_g.isInit = 1;
   return SQLITE_OK;
@@ -24514,7 +24397,7 @@ int pager_delmaster(Pager *pPager, const char *zMaster){
   if( rc!=SQLITE_OK ) goto delmaster_out;
 
   /* Load the entire master journal file into space obtained from
-  ** sqlite3_malloc() and pointed to by zMasterJournal.   Also obtain
+  ** sqlite3Malloc() and pointed to by zMasterJournal.   Also obtain
   ** sufficient space (in zMasterPtr) to hold the names of master
   ** journal files extracted from regular rollback-journals.
   */
@@ -30175,7 +30058,7 @@ int walIndexRecover(Wal *pWal){
 
     /* Malloc a buffer to read frames into. */
     szFrame = szPage + WAL_FRAME_HDRSIZE;
-    aFrame = (u8 *)sqlite3_malloc(szFrame);
+    aFrame = (u8 *)sqlite3Malloc(szFrame);
     if( !aFrame ){
       rc = SQLITE_NOMEM;
       goto recovery_error;
@@ -32511,7 +32394,7 @@ struct BtShared {
   u32 nPage;            /* Number of pages in the database */
   void *pSchema;        /* Pointer to space allocated by sqlite3BtreeSchema() */
   void (*xFreeSchema)(void*);  /* Destructor for BtShared.pSchema */
-  sqlite3_mutex *mutex; /* Non-recursive mutex required to access this object */
+  mutex				*RecursiveMutex				//	Non-recursive mutex required to access this object
   Bitvec *pHasContent;  /* Set of pages moved to free-list this transaction */
 #ifndef SQLITE_OMIT_SHARED_CACHE
   int nRef;             /* Number of references to this structure */
@@ -32751,7 +32634,7 @@ struct IntegrityCk {
 void lockBtreeMutex(Btree *p){
   assert( p->locked==0 );
 
-  sqlite3_mutex_enter(p.pBt.mutex)
+  p.pBt.mutex.Enter()
   p->pBt->db = p->db;
   p->locked = 1;
 }
@@ -32765,7 +32648,7 @@ void unlockBtreeMutex(Btree *p){
   assert( p->locked==1 );
   assert( p->db==pBt->db );
 
-  sqlite3_mutex_leave(pBt->mutex);
+  pBt.mutex.Leave()
   p->locked = 0;
 }
 
@@ -32810,14 +32693,12 @@ void unlockBtreeMutex(Btree *p){
   p->wantToLock++;
   if( p->locked ) return;
 
-  /* In most cases, we should be able to acquire the lock we
-  ** want without having to go throught the ascending lock
-  ** procedure that follows.  Just be sure not to block.
-  */
-  if( sqlite3_mutex_try(p->pBt->mutex)==SQLITE_OK ){
-    p->pBt->db = p->db;
-    p->locked = 1;
-    return;
+  //	In most cases, we should be able to acquire the lock we want without having to go throught the ascending lock
+  //	procedure that follows.  Just be sure not to block.
+  if p.pBt.mutex == nil || p.pBt.mutex.Try() == SQLITE_OK {
+    p->pBt->db = p->db
+    p->locked = 1
+    return
   }
 
   /* To avoid deadlock, first release all locks with a larger
@@ -34574,7 +34455,6 @@ int btreeInvokeBusyHandler(void *pArg){
 ){
   BtShared *pBt = 0;             /* Shared part of btree structure */
   Btree *p;                      /* Handle to return */
-  sqlite3_mutex *mutexOpen = 0;  /* Prevents a race condition. Ticket #3537 */
   int rc = SQLITE_OK;            /* Result code from this function */
   u8 nReserve;                   /* Byte of unused space on each page */
   unsigned char zDbHeader[100];  /* Database header content */
@@ -34627,7 +34507,6 @@ int btreeInvokeBusyHandler(void *pArg){
     if( vfsFlags & SQLITE_OPEN_SHAREDCACHE ){
       int nFullPathname = pVfs->mxPathname+1;
       char *zFullPathname = sqlite3Malloc(nFullPathname);
-      sqlite3_mutex *mutexShared
       p->sharable = 1;
       if( !zFullPathname ){
         sqlite3_free(p);
@@ -34636,8 +34515,7 @@ int btreeInvokeBusyHandler(void *pArg){
       if( isMemdb ){
         memcpy(zFullPathname, zFilename, len(zFilename)+1);
       }else{
-        rc = sqlite3OsFullPathname(pVfs, zFilename,
-                                   nFullPathname, zFullPathname);
+        rc = sqlite3OsFullPathname(pVfs, zFilename, nFullPathname, zFullPathname);
         if( rc ){
           sqlite3_free(zFullPathname);
           sqlite3_free(p);
@@ -34645,9 +34523,9 @@ int btreeInvokeBusyHandler(void *pArg){
         }
       }
       mutexOpen := NewMutex(SQLITE_MUTEX_STATIC_OPEN)
-      sqlite3_mutex_enter(mutexOpen)
+      mutexOpen.Enter()
       mutexShared := NewMutex(SQLITE_MUTEX_STATIC_MASTER)
-      sqlite3_mutex_enter(mutexShared);
+      mutexShared.Enter()
       for pBt := sqlite3SharedCacheList; pBt; pBt = pBt.pNext {
         assert( pBt->nRef>0 );
         if zFullPathname == sqlite3PagerFilename(pBt.pPager, 0) && sqlite3PagerVfs(pBt.pPager) == pVfs {
@@ -34655,8 +34533,8 @@ int btreeInvokeBusyHandler(void *pArg){
           for(iDb=db->nDb-1; iDb>=0; iDb--){
             Btree *pExisting = db->aDb[iDb].pBt;
             if( pExisting && pExisting->pBt==pBt ){
-              sqlite3_mutex_leave(mutexShared);
-              sqlite3_mutex_leave(mutexOpen);
+              mutexShared.Leave()
+              mutexOpen.Leave()
               sqlite3_free(zFullPathname);
               sqlite3_free(p);
               return SQLITE_CONSTRAINT;
@@ -34667,7 +34545,7 @@ int btreeInvokeBusyHandler(void *pArg){
           break;
         }
       }
-      sqlite3_mutex_leave(mutexShared);
+      mutexShared.Leave()
       sqlite3_free(zFullPathname);
     }
 #ifdef SQLITE_DEBUG
@@ -34697,8 +34575,7 @@ int btreeInvokeBusyHandler(void *pArg){
       rc = SQLITE_NOMEM;
       goto btree_open_out;
     }
-    rc = sqlite3PagerOpen(pVfs, &pBt->pPager, zFilename,
-                          EXTRA_SIZE, flags, vfsFlags, pageReinit);
+    rc = sqlite3PagerOpen(pVfs, &pBt->pPager, zFilename, EXTRA_SIZE, flags, vfsFlags, pageReinit);
     if rc==SQLITE_OK {
       sqlite3PagerSetMmapLimit(pBt->pPager, db->szMmap);
       rc = sqlite3PagerReadFileheader(pBt->pPager,sizeof(zDbHeader),zDbHeader);
@@ -34818,7 +34695,7 @@ btree_open_out:
     }
   }
   if( mutexOpen ){
-    sqlite3_mutex_leave(mutexOpen);
+    mutexOpen.Leave()
   }
   return rc;
 }
@@ -34848,7 +34725,7 @@ int removeFromSharingList(BtShared *pBt){
 	        pList->pNext = pBt->pNext;
 	      }
 	    }
-	    sqlite3_mutex_free(pBt->mutex);
+	    pBt.mutex.Free()
 	    removed = 1;
 	  }
   	
@@ -41582,11 +41459,9 @@ int sqlite3_backup_finish(sqlite3_backup *p){
 		return SQLITE_OK
 	}
 	pSrcDb := p.pSrcDb
-	sqlite3_mutex_enter(pSrcDb.mutex)
+	pSrcDb.mutex.Enter()
 	sqlite3BtreeEnter(p.pSrc)
-	if p.pDestDb != nil {
-		sqlite3_mutex_enter(p.pDestDb.mutex)
-	}
+	p.pDestDb.mutex.Enter()
 
 	//	Detach this backup from the source pager.
 	if p.pDestDb != nil {
@@ -42961,7 +42836,7 @@ func (p *Vdbe) AddOp4(op, p1, p2, p3 int, p4 interface{}) (addr int) {
 ** Add an OP_ParseSchema opcode.  This routine is broken out from
 ** Vdbe.AddOp4() since it also needs to mark all btrees as having been used.
 **
-** The zWhere string must have been obtained from sqlite3_malloc().
+** The zWhere string must have been obtained from sqlite3Malloc().
 ** This routine will take ownership of the allocated memory.
 */
 func (v *Vdbe) AddParseSchemaOp(db int, where string) {
@@ -43429,16 +43304,16 @@ void vdbeFreeOpArray(sqlite3 *db, Op *aOp, int nOp){
 ** few minor changes to the program.
 **
 ** If n >= 0 then the P4 operand is dynamic, meaning that a copy of
-** the string is made into memory obtained from sqlite3_malloc().
+** the string is made into memory obtained from sqlite3Malloc().
 ** A value of n == 0 means copy bytes of zP4 up to and including the
 ** first null byte.  If n > 0 then copy n + 1 bytes of zP4.
 **
 ** If n == P4_KEYINFO it means that zP4 is a pointer to a KeyInfo structure.
 ** A copy is made of the KeyInfo structure into memory obtained from
-** sqlite3_malloc, to be freed when the Vdbe is finalized.
+** sqlite3Malloc, to be freed when the Vdbe is finalized.
 **
 ** n == P4_KEYINFO_HANDOFF indicates that zP4 points to a KeyInfo structure
-** stored in memory that the caller has obtained from sqlite3_malloc. The 
+** stored in memory that the caller has obtained from sqlite3Malloc. The 
 ** caller should not free the allocation, it will be freed when the Vdbe is
 ** finalized.
 ** 
@@ -45009,27 +44884,6 @@ void checkActiveVdbeCnt(sqlite3 *db){
   return rc;
 }
 
-#ifdef SQLITE_ENABLE_SQLLOG
-/*
-** If an SQLITE_CONFIG_SQLLOG hook is registered and the VM has been run, 
-** invoke it.
-*/
-void vdbeInvokeSqllog(Vdbe *v){
-  if( sqlite3Config.xSqllog && v->rc==SQLITE_OK && v->zSql && v->pc>=0 ){
-    char *zExpanded = sqlite3VdbeExpandSql(v, v->zSql);
-    assert( v->db->init.busy==0 );
-    if( zExpanded ){
-      sqlite3Config.xSqllog(
-          sqlite3Config.pSqllogArg, v->db, zExpanded, 1
-      );
-      sqlite3DbFree(v->db, zExpanded);
-    }
-  }
-}
-#else
-# define vdbeInvokeSqllog(x)
-#endif
-
 /*
 ** Clean up a VDBE after execution but do not delete the VDBE just yet.
 ** Write any error messages into *pzErrMsg.  Return the result code.
@@ -45057,7 +44911,6 @@ void vdbeInvokeSqllog(Vdbe *v){
   ** instructions yet, leave the main database error information unchanged.
   */
   if( p->pc>=0 ){
-    vdbeInvokeSqllog(p);
     sqlite3VdbeTransferError(p);
     sqlite3DbFree(db, p->zErrMsg);
     p->zErrMsg = 0;
@@ -45893,7 +45746,7 @@ func (statement *sqlite3_stmt) Finalize() (rc int) {
 		if vdbeSafety(v) {
 			return SQLITE_MISUSE_BKPT
 		}
-		sqlite3_mutex_enter(db.mutex)
+		db.mutex.Enter()
 		rc = sqlite3VdbeFinalize(v)
 		rc = db.ApiExit(rc)
 		sqlite3LeaveMutexAndCloseZombie(db)
@@ -46350,7 +46203,7 @@ Mem *columnMem(sqlite3_stmt *pStmt, int i){
 
 	pVm = (Vdbe *)pStmt;
 	if pVm != nil && pVm.pResultSet != nil && i < pVm.nResColumn && i >= 0 {
-		sqlite3_mutex_enter(pVm.db.mutex)
+		pVm.db.mutex.Enter()
 		pOut = &pVm->pResultSet[i]
 	} else {
 		//	If the value passed as the second argument is out of range, return a pointer to the following Mem object which contains the value SQL NULL.
@@ -46360,7 +46213,7 @@ Mem *columnMem(sqlite3_stmt *pStmt, int i){
 		const Mem nullMem = { 0, "", float64(0), {0}, 0, MEM_Null, SQLITE_NULL, 0, 0, 0 }
 #endif
 		if pVm != nil && ALWAYS(pVm.db) {
-			sqlite3_mutex_enter(pVm.db.mutex)
+			pVm.db.mutex.Enter()
 			sqlite3Error(pVm->db, SQLITE_RANGE, 0)
 		}
 		pOut = (*Mem)(&nullMem)
@@ -46395,7 +46248,7 @@ void columnMallocFailure(sqlite3_stmt *pStmt)
   Vdbe *p = (Vdbe *)pStmt;
   if( p ){
     p.rc = p.db.ApiExit(p.rc)
-    sqlite3_mutex_leave(p->db->mutex);
+    p.db.mutex.Leave()
   }
 }
 
@@ -46513,16 +46366,16 @@ int vdbeUnbind(Vdbe *p, int i){
 	if vdbeSafetyNotNull(p) {
 		return SQLITE_MISUSE_BKPT
 	}
-	sqlite3_mutex_enter(p.db.mutex)
+	p.db.mutex.Enter()
 	if p.magic != VDBE_MAGIC_RUN || p.pc >= 0 {
 		sqlite3Error(p.db, SQLITE_MISUSE, 0)
-		sqlite3_mutex_leave(p.db.mutex)
+		p.db.mutex.Leave()
 		sqlite3_log(SQLITE_MISUSE, "bind on a busy prepared statement: [%s]", p.zSql)
 		return SQLITE_MISUSE_BKPT
 	}
 	if i < 1 || i > p.nVar {
 		sqlite3Error(p.db, SQLITE_RANGE, 0)
-		sqlite3_mutex_leave(p.db.mutex)
+		p.db.mutex.Leave()
 		return SQLITE_RANGE
 	}
 	i--
@@ -46554,7 +46407,7 @@ func bindText(pStmt *sqlite3_stmt, parameter int, data []byte, xDel func(interfa
 			sqlite3Error(p.db, rc, 0)
 			rc = p.db.ApiExit(rc)
 		}
-		sqlite3_mutex_leave(p.db.mutex)
+		p.db.mutex.Leave()
 	} else if xDel != SQLITE_STATIC && xDel != SQLITE_TRANSIENT {
 		xDel(data)
 	}
@@ -46573,7 +46426,7 @@ func bindBlob(pStmt *sqlite3_stmt, parameter int, data []byte, xDel func(interfa
 			sqlite3Error(p.db, rc, 0)
 			rc = p.db.ApiExit(rc)
 		}
-		sqlite3_mutex_leave(p.db.mutex)
+		p.db.mutex.Leave()
 	} else if xDel != SQLITE_STATIC && xDel != SQLITE_TRANSIENT {
 		xDel(data)
 	}
@@ -46603,7 +46456,7 @@ func bindBlob(pStmt *sqlite3_stmt, parameter int, data []byte, xDel func(interfa
   	  sqlite3Error(p->db, rc, 0)
         rc = p.db.ApiExit(rc)
       }
-      sqlite3_mutex_leave(p->db->mutex);
+      p.db.mutex.Leave()
     }else if( xDel!=SQLITE_STATIC && xDel!=SQLITE_TRANSIENT ){
       xDel((void*)zData);
     }
@@ -46616,7 +46469,7 @@ int sqlite3_bind_float64(sqlite3_stmt *pStmt, int i, float64 rValue){
   rc = vdbeUnbind(p, i);
   if( rc==SQLITE_OK ){
     sqlite3VdbeMemSetDouble(&p->aVar[i-1], rValue);
-    sqlite3_mutex_leave(p->db->mutex);
+    p.db.mutex.Leave()
   }
   return rc;
 }
@@ -46629,7 +46482,7 @@ int sqlite3_bind_float64(sqlite3_stmt *pStmt, int i, float64 rValue){
   rc = vdbeUnbind(p, i);
   if( rc==SQLITE_OK ){
     sqlite3VdbeMemSetInt64(&p->aVar[i-1], iValue);
-    sqlite3_mutex_leave(p->db->mutex);
+    p.db.mutex.Leave()
   }
   return rc;
 }
@@ -46638,7 +46491,7 @@ int sqlite3_bind_float64(sqlite3_stmt *pStmt, int i, float64 rValue){
   Vdbe *p = (Vdbe*)pStmt;
   rc = vdbeUnbind(p, i);
   if( rc==SQLITE_OK ){
-    sqlite3_mutex_leave(p->db->mutex);
+    p.db.mutex.Leave()
   }
   return rc;
 }
@@ -46688,7 +46541,7 @@ int sqlite3_bind_value(sqlite3_stmt *pStmt, int i, const sqlite3_value *pValue){
   rc = vdbeUnbind(p, i);
   if( rc==SQLITE_OK ){
     p.aVar[i - 1].SetZeroBlob(n)
-    sqlite3_mutex_leave(p->db->mutex);
+    p.db.mutex.Leave()
   }
   return rc;
 }
@@ -47516,7 +47369,7 @@ int checkSavepointCount(sqlite3 *db){
 
 /*
 ** Transfer error message text from an sqlite3_vtab.zErrMsg (text stored
-** in memory obtained from sqlite3_malloc) into a Vdbe.zErrMsg (text stored
+** in memory obtained from sqlite3Malloc) into a Vdbe.zErrMsg (text stored
 ** in memory obtained from sqlite3DbMalloc).
 */
 void importVtabErrMsg(Vdbe *p, sqlite3_vtab *pVtab){
@@ -47544,7 +47397,7 @@ void importVtabErrMsg(Vdbe *p, sqlite3_vtab *pVtab){
 ** return SQLITE_BUSY.
 **
 ** If an error occurs, an error message is written to memory obtained
-** from sqlite3_malloc() and p->zErrMsg is made to point to that memory.
+** from sqlite3Malloc() and p->zErrMsg is made to point to that memory.
 ** The error code is stored in p->rc and this routine returns SQLITE_ERROR.
 **
 ** If the callback ever returns non-zero, then the program exits
@@ -55000,7 +54853,7 @@ int memjrnlWrite(
 
     if( iChunkOffset==0 ){
       /* New chunk is required to extend the file. */
-      FileChunk *pNew = sqlite3_malloc(sizeof(FileChunk));
+      FileChunk *pNew = sqlite3Malloc(sizeof(FileChunk));
       if( !pNew ){
         return SQLITE_IOERR_NOMEM;
       }
@@ -70693,7 +70546,7 @@ exec_out:
   }
 
   assert( (rc&db->errMask)==rc );
-  sqlite3_mutex_leave(db->mutex);
+  db.mutex.Leave()
   return rc;
 }
 
@@ -70857,9 +70710,6 @@ struct sqlite3_api_routines {
   int (*file_control)(sqlite3*,const char*,int,void*);
   sqlite3_int64 (*memory_highwater)(int);
   sqlite3_int64 (*memory_used)(void);
-  sqlite3_mutex *(*mutex_alloc)(int);
-  void (*mutex_free)(sqlite3_mutex*);
-  int (*mutex_try)(sqlite3_mutex*);
   int (*open_v2)(const char*,sqlite3**,int,const char*);
   int (*release_memory)(int);
   void (*result_error_nomem)(Context*);
@@ -70889,7 +70739,6 @@ struct sqlite3_api_routines {
   int (*compileoption_used)(const char*);
   int (*create_function_v2)(sqlite3*,const char*,int,int,void*, void (*xFunc)(Context*,int,sqlite3_value**), void (*xStep)(Context*,int,sqlite3_value**), void (*xFinal)(Context*), void(*xDestroy)(void*));
   int (*db_config)(sqlite3*,int,...);
-  sqlite3_mutex *(*db_mutex)(sqlite3*);
   int (*db_status)(sqlite3*,int,int*,int*,int);
   int (*extended_errcode)(sqlite3*);
   void (*log)(int,const char*,...);
@@ -71018,7 +70867,7 @@ const sqlite3_api_routines sqlite3Apis = {
   sqlite3_last_insert_rowid,
   sqlite3_libversion,
   sqlite3_libversion_number,
-  sqlite3_malloc,
+  sqlite3Malloc,
   sqlite3_mprintf,
   Open,
   sqlite3_prepare,
@@ -71087,11 +70936,6 @@ const sqlite3_api_routines sqlite3Apis = {
   sqlite3_file_control,
   sqlite3_memory_highwater,
   sqlite3_memory_used,
-  sqlite3_mutex_alloc,
-  sqlite3_mutex_enter,
-  sqlite3_mutex_free,
-  sqlite3_mutex_leave,
-  sqlite3_mutex_try,
   OpenDatabase,
   sqlite3_result_error_nomem,
   sqlite3_result_error_toobig,
@@ -71134,7 +70978,6 @@ const sqlite3_api_routines sqlite3Apis = {
   0,
 #endif
   sqlite3_db_config,
-  sqlite3_db_mutex,
   sqlite3_db_status,
   sqlite3_extended_errcode,
   sqlite3_log,
@@ -71234,7 +71077,7 @@ int sqlite3LoadExtension(
 #endif
   if( handle==0 ){
     if( pzErrMsg ){
-      *pzErrMsg = zErrmsg = sqlite3_malloc(nMsg);
+      *pzErrMsg = zErrmsg = sqlite3Malloc(nMsg);
       if( zErrmsg ){
         sqlite3_snprintf(nMsg, zErrmsg, 
             "unable to open shared library [%s]", zFile);
@@ -71260,7 +71103,7 @@ int sqlite3LoadExtension(
   if( xInit==0 && zProc==0 ){
     int iFile, iEntry, c;
     int ncFile = len(zFile);
-    zAltEntry = sqlite3_malloc(ncFile+30);
+    zAltEntry = sqlite3Malloc(ncFile+30);
     if( zAltEntry==0 ){
       sqlite3OsDlClose(pVfs, handle);
       return SQLITE_NOMEM;
@@ -71284,7 +71127,7 @@ int sqlite3LoadExtension(
   if( xInit==0 ){
     if( pzErrMsg ){
       nMsg += len(zEntry);
-      *pzErrMsg = zErrmsg = sqlite3_malloc(nMsg);
+      *pzErrMsg = zErrmsg = sqlite3Malloc(nMsg);
       if( zErrmsg ){
         sqlite3_snprintf(nMsg, zErrmsg,
             "no entry point [%s] in shared library [%s]", zEntry, zFile);
@@ -71391,13 +71234,10 @@ struct sqlite3AutoExtList {
 */
  int sqlite3_auto_extension(void (*xInit)(void)){
   int rc = SQLITE_OK;
-#ifndef SQLITE_OMIT_AUTOINIT
-  rc = sqlite3_initialize();
-  if( rc ){
-    return rc;
-  }else
-#endif
-  {
+
+  if rc = sqlite3_initialize(); rc != SQLITE_OK {
+    return rc
+  } else {
     int i;
     NewMutex(SQLITE_MUTEX_STATIC_MASTER).CriticalSection(func() {
 	    for(i=0; i<sqlite3Autoext.nExt; i++){
@@ -71424,17 +71264,14 @@ struct sqlite3AutoExtList {
 /*
 ** Reset the automatic extension loading mechanism.
 */
- void sqlite3_reset_auto_extension(void){
-#ifndef SQLITE_OMIT_AUTOINIT
-  if( sqlite3_initialize()==SQLITE_OK )
-#endif
-  {
-    NewMutex(SQLITE_MUTEX_STATIC_MASTER).CriticalSection(func() {
-	    sqlite3_free(sqlite3Autoext.aExt);
-	    sqlite3Autoext.aExt = 0;
-	    sqlite3Autoext.nExt = 0;
-    })
-  }
+void sqlite3_reset_auto_extension(void){
+	if sqlite3_initialize() == SQLITE_OK {
+		NewMutex(SQLITE_MUTEX_STATIC_MASTER).CriticalSection(func() {
+			sqlite3_free(sqlite3Autoext.aExt);
+			sqlite3Autoext.aExt = 0
+			sqlite3Autoext.nExt = 0
+		})
+	}
 }
 
 /*
@@ -78578,7 +78415,7 @@ int sqlite3_get_table_cb(void *pArg, int nCol, char **argv, char **colv){
         z = 0;
       }else{
         n := len(argv[i])+1
-        z = sqlite3_malloc( n );
+        z = sqlite3Malloc( n );
         if( z==0 ) goto malloc_failed;
         memcpy(z, argv[i], n);
       }
@@ -78624,7 +78461,7 @@ malloc_failed:
   res.nData = 1;
   res.nAlloc = 20;
   res.rc = SQLITE_OK;
-  res.azResult = sqlite3_malloc(sizeof(char*)*res.nAlloc );
+  res.azResult = sqlite3Malloc(sizeof(char*)*res.nAlloc );
   if( res.azResult==0 ){
      db->errCode = SQLITE_NOMEM;
      return SQLITE_NOMEM;
@@ -90850,7 +90687,7 @@ int keywordCode(const char *z, int n){
 }
 
 //	Run the parser on the given SQL string.  The parser structure is passed in.  An SQLITE_ status code is returned.  If an error occurs
-//	then an and attempt is made to write an error message into memory obtained from sqlite3_malloc() and to make *pzErrMsg point to that error message.
+//	then an and attempt is made to write an error message into memory obtained from sqlite3Malloc() and to make *pzErrMsg point to that error message.
 func (pParse *Parse) RunParser(zSql string) (pzErrMsg string, rc int) {
   int nErr = 0;                   /* Number of errors encountered */
   int i;                          /* Loop counter */
@@ -91237,13 +91074,6 @@ abort_parse:
  char *sqlite3_data_directory = 0;
 
 
-/*
-** Return the mutex associated with a database connection.
-*/
- sqlite3_mutex *sqlite3_db_mutex(sqlite3 *db){
-  return db->mutex;
-}
-
 //	Free up as much memory as we can from the given database connection.
 int sqlite3_db_release_memory(sqlite3 *db){
 	db.mutex.CriticalSection(func() {
@@ -91438,7 +91268,7 @@ int sqlite3Close(sqlite3 *db, int forceZombie){
 	if !sqlite3SafetyCheckSickOrOk(db) {
 		return SQLITE_MISUSE_BKPT
 	}
-	sqlite3_mutex_enter(db.mutex)
+	db.mutex.Enter()
 	//	Force xDisconnect calls on all virtual tables
 	disconnectAllVtab(db)
 
@@ -91450,16 +91280,9 @@ int sqlite3Close(sqlite3 *db, int forceZombie){
 	//	Legacy behavior (sqlite3_close() behavior) is to return SQLITE_BUSY if the connection can not be closed immediately.
 	if !forceZombie && connectionIsBusy(db) {
 		sqlite3Error(db, SQLITE_BUSY, "unable to close due to unfinalized statements or unfinished backups")
-		sqlite3_mutex_leave(db.mutex)
+		db.mutex.Leave()
 		return SQLITE_BUSY
 	}
-
-#ifdef SQLITE_ENABLE_SQLLOG
-	if sqlite3Config.xSqllog {
-		//	Closing the handle. Fourth parameter is passed the value 2.
-		sqlite3Config.xSqllog(sqlite3Config.pSqllogArg, db, 0, 2)
-	}
-#endif
 
 	//	Convert the connection into a zombie and then close it.
 	db.magic = SQLITE_MAGIC_ZOMBIE
@@ -91494,7 +91317,7 @@ void sqlite3LeaveMutexAndCloseZombie(sqlite3 *db){
 	** then just leave the mutex and return.
 	*/
 	if db.magic != SQLITE_MAGIC_ZOMBIE || connectionIsBusy(db) {
-		sqlite3_mutex_leave(db.mutex)
+		db.mutex.Leave()
 		return
 	}
 
@@ -91583,9 +91406,9 @@ void sqlite3LeaveMutexAndCloseZombie(sqlite3 *db){
 	** structure?
 	*/
 	sqlite3DbFree(db, db.aDb[1].pSchema)
-	sqlite3_mutex_leave(db.mutex)
+	db.mutex.Leave()
 	db.magic = SQLITE_MAGIC_CLOSED
-	sqlite3_mutex_free(db.mutex)
+	db.mutex.Free()
 	sqlite3_free(db)
 }
 
@@ -92636,7 +92459,7 @@ const int aHardLimit[] = {
     flags |= SQLITE_OPEN_URI;
 
     for(iIn=0; iIn<nUri; iIn++) nByte += (zUri[iIn]=='&');
-    zFile = sqlite3_malloc(nByte);
+    zFile = sqlite3Malloc(nByte);
     if( !zFile ) return SQLITE_NOMEM;
 
     /* Discard the scheme and authority segments of the URI. */
@@ -92790,7 +92613,7 @@ const int aHardLimit[] = {
     }
 
   }else{
-    zFile = sqlite3_malloc(nUri+2);
+    zFile = sqlite3Malloc(nUri+2);
     if( !zFile ) return SQLITE_NOMEM;
     memcpy(zFile, zUri, nUri);
     zFile[nUri] = '\0';
@@ -92823,10 +92646,10 @@ func OpenDatabase(filename string, flags uint, virtual_fs string) (ppDb *sqlite3
 	char *zErrMsg = 0;              /* Error message from sqlite3ParseUri() */
 
 	*ppDb = 0;
-#ifndef SQLITE_OMIT_AUTOINIT
-	rc = sqlite3_initialize();
-	if( rc ) return rc;
-#endif
+
+	if rc = sqlite3_initialize(); r != SQLITE_OK {
+		return rc
+	}
 
 	//	Only allow sensible combinations of bits in the flags argument. Throw an error if any non-sense combination is used. If we
 	//	do not block illegal combinations here, it could trigger assert() statements in deeper layers.  Sensible combinations are:
@@ -92986,12 +92809,6 @@ func OpenDatabase(filename string, flags uint, virtual_fs string) (ppDb *sqlite3
 		db.magic = SQLITE_MAGIC_SICK
 	}
 	*ppDb = db
-#ifdef SQLITE_ENABLE_SQLLOG
-	if sqlite3Config.xSqllog {
-		//	Opening a db handle. Fourth parameter is passed 0.
-		sqlite3Config.xSqllog(sqlite3Config.pSqllogArg, db, filename, 0)
-	}
-#endif
 	return (*sqlite3)(nil).ApiExit(rc)
 }
 
@@ -93200,7 +93017,7 @@ int sqlite3_table_column_metadata(
 		if zCollSeq == "" {
 			zCollSeq = "BINARY";
 		}
-		sqlite3_mutex_leave(db.mutex)
+		db.mutex.Leave()
 	})
 	return rc
 }

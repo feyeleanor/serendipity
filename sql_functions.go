@@ -483,7 +483,7 @@ void roundFunc(Context *context, int argc, sqlite3_value **argv){
 }
 
 /*
-** Allocate nByte bytes of space using sqlite3_malloc(). If the
+** Allocate nByte bytes of space using sqlite3Malloc(). If the
 ** allocation fails, call sqlite3_result_error_nomem() to notify
 ** the database handle that malloc() has failed and return NULL.
 ** If nByte is larger than the maximum string or blob length, then
@@ -1089,7 +1089,7 @@ void charFunc(
 ){
   unsigned char *z, *zOut;
   int i;
-  zOut = z = sqlite3_malloc( argc*4 );
+  zOut = z = sqlite3Malloc( argc*4 );
   if( z==0 ){
     sqlite3_result_error_nomem(context);
     return;
@@ -1783,7 +1783,7 @@ void sqlite3RegisterGlobalFunctions(void){
 		LIKEFUNC(like, 2, &likeInfoNorm, SQLITE_FUNC_LIKE),
 		LIKEFUNC(like, 3, &likeInfoNorm, SQLITE_FUNC_LIKE),
 #endif
-}
+	}
 
 	for i, v := range BuiltinFunctions {
 		sqlite3FuncDefInsert(sqlite3GlobalFunctions, v)
